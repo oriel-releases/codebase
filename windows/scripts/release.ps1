@@ -2,7 +2,7 @@
 # within a day (Settings > Updates > Check for updates to get it right away).
 #
 #   1. Bump <Version> in src\Oriel.App\Oriel.App.csproj
-#   2. $env:GITHUB_TOKEN = '<token with Contents: read and write on akbarjorayev/oriel>'
+#   2. $env:GITHUB_TOKEN = '<token with Contents: read and write on akbarjorayev/oriel-public>'
 #   3. .\scripts\release.ps1                (or -NoUpload to only build .\releases locally)
 param(
     [ValidateSet('x64', 'arm64')] [string]$Arch = 'x64',
@@ -13,7 +13,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$repoUrl = 'https://github.com/akbarjorayev/oriel'
+$repoUrl = 'https://github.com/akbarjorayev/oriel-public'
 $packId = 'OrielApp'          # install folder %LOCALAPPDATA%\OrielApp; never change it, or updates break
 $vpkVersion = '1.2.161'       # keep in step with the Velopack package in Oriel.App.csproj
 $channel = if ($Arch -eq 'x64') { 'win' } else { "win-$Arch" }
@@ -42,7 +42,7 @@ if (-not $NoUpload) {
 $pack = @('pack', '--packId', $packId, '--packTitle', 'Oriel', '--packAuthors', 'Akbarjon Jorayev',
     '--packVersion', $version, '--packDir', (Join-Path $root "artifacts\Oriel-win-$Arch"),
     '--mainExe', 'Oriel.exe', '--icon', (Join-Path $root 'src\Oriel.App\Assets\AppIcon.ico'),
-    '--channel', $channel, '--shortcuts', 'StartMenuRoot', '--outputDir', $out)
+    '--channel', $channel, '--shortcuts', 'StartMenuRoot', '--noPortable', '--outputDir', $out)
 if ($AzureSignFile) { $pack += @('--azureTrustedSignFile', $AzureSignFile) }
 & $vpk @pack
 if ($LASTEXITCODE -ne 0) { throw 'vpk pack failed' }

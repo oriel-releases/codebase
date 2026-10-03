@@ -1,5 +1,5 @@
-/** Where installed copies of Oriel get their updates, and where the installer lives. */
-export const repoUrl = "https://github.com/akbarjorayev/oriel";
+/** Public releases repo (the source repo is private): installer downloads and app updates come from here. */
+export const repoUrl = "https://github.com/akbarjorayev/oriel-public";
 
 /**
  * The current Windows release. The default link always serves the newest installer from

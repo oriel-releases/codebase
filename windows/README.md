@@ -54,7 +54,8 @@ dotnet run --project src\Oriel.App -p:Platform=x64
 ## Release (installer + auto-update)
 
 Oriel ships as `Oriel-Setup.exe` (built with [Velopack](https://velopack.io)) from GitHub Releases at
-<https://github.com/akbarjorayev/oriel/releases>. The installer is per-user (no admin) and puts the
+<https://github.com/akbarjorayev/oriel-public/releases>, a public repo that only holds releases
+(this source repo is private; the updater must read releases without a token). The installer is per-user (no admin) and puts the
 app in `%LOCALAPPDATA%\OrielApp`. Settings and history stay in `%LOCALAPPDATA%\Oriel` and survive
 updates and uninstall.
 
@@ -64,13 +65,15 @@ and install when the user clicks **Settings > Updates > Restart to update** or q
 To publish a release:
 
 1. Bump `<Version>` in `src\Oriel.App\Oriel.App.csproj` (e.g. `1.0.1`). Quit any Oriel running from `artifacts\`.
-2. Create a GitHub token with **Contents: read and write** on the repo (fine-grained token), then:
+2. Create a GitHub token with **Contents: read and write** on `oriel-public` (fine-grained token), then:
    ```powershell
    $env:GITHUB_TOKEN = '<token>'
-   .\scriptselease.ps1          # publish -> vpk pack -> upload to GitHub Releases as v<version>
+   .\scripts
+elease.ps1          # publish -> vpk pack -> upload to GitHub Releases as v<version>
    ```
    `-NoUpload` builds `releases\` locally without publishing.
-3. Update `version` and `releasedOn` in `website\src\configelease.ts` and redeploy the site.
+3. Update `version` and `releasedOn` in `website\src\config
+elease.ts` and redeploy the site.
 
 Notes:
 

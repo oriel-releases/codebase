@@ -13,7 +13,8 @@ public enum UpdateState { Idle, Checking, UpToDate, Downloading, ReadyToRestart,
 /// </summary>
 public sealed class UpdateService(ILogger<UpdateService> log) : IDisposable
 {
-    public const string RepoUrl = "https://github.com/akbarjorayev/oriel";
+    /// <summary>Public releases-only repo; the source repo is private, and updates must be readable without a token.</summary>
+    public const string RepoUrl = "https://github.com/akbarjorayev/oriel-public";
     static readonly TimeSpan FirstCheckDelay = TimeSpan.FromMinutes(1);
     static readonly TimeSpan CheckInterval = TimeSpan.FromHours(24);
 
