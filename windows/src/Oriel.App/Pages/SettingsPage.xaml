@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Oriel.UI.Pages.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Oriel.UI.Controls">
+
+    <ScrollViewer>
+        <StackPanel
+            MaxWidth="{StaticResource PageMaxWidth}"
+            Margin="{StaticResource PageContentMargin}"
+            Spacing="{StaticResource OrielRowSpacing}">
+            <TextBlock Style="{StaticResource PageTitleStyle}" Text="Settings" />
+            <TextBlock Style="{StaticResource PageSubtitleStyle}" Text="When Oriel changes your wallpaper, and how." />
+
+            <!--  ============ Schedule ============  -->
+            <TextBlock Margin="2,4,0,8" Style="{StaticResource SectionHeaderStyle}" Text="Schedule" />
+            <controls:SettingRow
+                Description="A new wallpaper once a day at this time."
+                Glyph="&#xE823;"
+                Header="Daily change time">
+                <!--  Wired in code-behind: a TwoWay binding on TimePicker pushes 00:00 back on load.  -->
+                <TimePicker
+                    x:Name="DailyTimePicker"
+                    MinWidth="0"
+                    AutomationProperties.Name="Daily change time"
+                    CornerRadius="{StaticResource OrielPillRadius}"
+                    MinuteIncrement="5" />
+            </controls:SettingRow>
+            <controls:SettingRow
+                Description="If today's wallpaper isn't set yet when you sign in, change it right away."
+                Glyph="&#xE77B;"
+                Header="Change at sign-in">
+                <ToggleSwitch
+                    MinWidth="0"
+                    AutomationProperties.Name="Change at sign-in"
+                    IsOn="{x:Bind ViewModel.ApplyAtLogin, Mode=TwoWay}"
+                    OffContent=""
+                    OnContent="" />
+            </controls:SettingRow>
+            <controls:SettingRow
+                Description="Uses Windows Task Scheduler so the change still happens when Oriel isn't running."
+                Glyph="&#xE787;"
+                Header="Run even when the app is closed">
+                <ToggleSwitch
+                    MinWidth="0"
+                    AutomationProperties.Name="Run even when the app is closed"
+                    IsOn="{x:Bind ViewModel.UseTaskSchedulerFallback, Mode=TwoWay}"
+                    OffContent=""
+                    OnContent="" />
+            </controls:SettingRow>
+
+            <!--  ============ Display ============  -->
+            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Display" />
+            <controls:SettingRow
+                Description="{x:Bind ViewModel.MonitorSummary, Mode=OneWay}"
+                Glyph="&#xE7F4;"
+                Header="Multiple monitors">
+                <ComboBox
+                    AutomationProperties.Name="Multiple monitors"
+                    ItemsSource="{x:Bind ViewModel.MonitorModes}"
+                    SelectedIndex="{x:Bind ViewModel.MonitorModeIndex, Mode=TwoWay}" />
+            </controls:SettingRow>
+            <controls:SettingRow
+                Description="How the photo fits your screen. Span stretches one photo across all monitors."
+                Glyph="&#xE740;"
+                Header="Fit">
+                <ComboBox
+                    MinWidth="110"
+                    AutomationProperties.Name="Fit"
+                    ItemsSource="{x:Bind ViewModel.FitModes}"
+                    SelectedIndex="{x:Bind ViewModel.FitIndex, Mode=TwoWay}" />
+            </controls:SettingRow>
+
+            <!--  ============ Quality ============  -->
+            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Quality" />
+            <controls:SettingRow
+                Description="Only use photos at least as big as your screen. Portrait photos are always skipped."
+                Glyph="&#xE9A6;"
+                Header="Skip low-resolution photos">
+                <ToggleSwitch
+                    MinWidth="0"
+                    AutomationProperties.Name="Skip low-resolution photos"
+                    IsOn="{x:Bind ViewModel.SkipSmallerThanScreen, Mode=TwoWay}"
+                    OffContent=""
+                    OnContent="" />
+            </controls:SettingRow>
+            <controls:SettingRow
+                Description="Prefer photos other people liked on Unsplash."
+                Glyph="&#xE8E1;"
+                Header="Skip photos with few likes">
+                <ToggleSwitch
+                    MinWidth="0"
+                    AutomationProperties.Name="Skip photos with few likes"
+                    IsOn="{x:Bind ViewModel.SkipLowLikes, Mode=TwoWay}"
+                    OffContent=""
+                    OnContent="" />
+            </controls:SettingRow>
+            <controls:SettingRow
+                Glyph="&#xE76E;"
+                Header="Minimum likes"
+                Visibility="{x:Bind ViewModel.SkipLowLikes, Mode=OneWay}">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Slider
+                        Width="200"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="Minimum likes"
+                        Maximum="1000"
+                        Minimum="0"
+                        SmallChange="10"
+                        StepFrequency="10"
+                        Value="{x:Bind ViewModel.MinLikes, Mode=TwoWay}" />
+                    <TextBlock
+                        MinWidth="36"
+                        VerticalAlignment="Center"
+                        Text="{x:Bind ViewModel.MinLikes, Mode=OneWay}" />
+                </StackPanel>
+            </controls:SettingRow>
+
+            <!--  ============ Storage ============  -->
+            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Storage" />
+            <controls:SettingRow
+                Description="Older wallpapers get deleted automatically. Favorites are kept forever."
+                Glyph="&#xE74D;"
+                Header="Keep wallpapers for (days)">
+                <NumberBox
+                    MinWidth="130"
+                    AutomationProperties.Name="Keep wallpapers for days"
+                    CornerRadius="{StaticResource OrielPillRadius}"
+                    LargeChange="30"
+                    Maximum="3650"
+                    Minimum="1"
+                    SmallChange="1"
+                    SpinButtonPlacementMode="Inline"
+                    Value="{x:Bind ViewModel.RetentionDays, Mode=TwoWay}" />
+            </controls:SettingRow>
+            <InfoBar
+                CornerRadius="{StaticResource OrielMediumRadius}"
+                IsOpen="{x:Bind ViewModel.IsFolderInfoOpen, Mode=TwoWay}"
+                Message="{x:Bind ViewModel.FolderInfoMessage, Mode=OneWay}"
+                Severity="{x:Bind ViewModel.FolderInfoSeverity, Mode=OneWay}" />
+            <controls:SettingRow
+                Description="{x:Bind ViewModel.PicturesFolder, Mode=OneWay}"
+                Glyph="&#xE838;"
+                Header="Wallpaper folder">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Command="{x:Bind ViewModel.OpenPicturesFolderCommand}" Content="Open" />
+                    <Button Command="{x:Bind ViewModel.ChangeFolderCommand}" ToolTipService.ToolTip="Pick an empty folder; your photos move there.">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ProgressRing
+                                Width="14"
+                                Height="14"
+                                IsActive="{x:Bind ViewModel.IsMovingFolder, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.IsMovingFolder, Mode=OneWay}" />
+                            <TextBlock Text="Change" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </controls:SettingRow>
+
+            <!--  ============ App ============  -->
+            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="App" />
+            <controls:SettingRow
+                Description="Start minimized to the system tray when you sign in."
+                Glyph="&#xE7E8;"
+                Header="Start with Windows">
+                <ToggleSwitch
+                    MinWidth="0"
+                    AutomationProperties.Name="Start with Windows"
+                    IsOn="{x:Bind ViewModel.StartWithWindows, Mode=TwoWay}"
+                    OffContent=""
+                    OnContent="" />
+            </controls:SettingRow>
+            <controls:SettingRow
+                Description="Show a notification with the photo and Keep / Skip / Favorite buttons."
+                Glyph="&#xEA8F;"
+                Header="Notifications">
+                <ToggleSwitch
+                    MinWidth="0"
+                    AutomationProperties.Name="Notifications"
+                    IsOn="{x:Bind ViewModel.ShowNotifications, Mode=TwoWay}"
+                    OffContent=""
+                    OnContent="" />
+            </controls:SettingRow>
+            <controls:SettingRow
+                Description="{x:Bind ViewModel.UpdateStatus, Mode=OneWay}"
+                Glyph="&#xE895;"
+                Header="Updates">
+                <Button
+                    Command="{x:Bind ViewModel.UpdateCommand}"
+                    Visibility="{x:Bind ViewModel.CanUpdate}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ProgressRing
+                            Width="14"
+                            Height="14"
+                            IsActive="{x:Bind ViewModel.IsUpdateBusy, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.IsUpdateBusy, Mode=OneWay}" />
+                        <TextBlock Text="{x:Bind ViewModel.UpdateButtonText, Mode=OneWay}" />
+                    </StackPanel>
+                </Button>
+            </controls:SettingRow>
+            <controls:SettingRow
+                Description="Photos by the Unsplash community."
+                Glyph="&#xE946;"
+                Header="{x:Bind AboutHeader}">
+                <Button Command="{x:Bind ViewModel.OpenLogsFolderCommand}" Content="Open logs" />
+            </controls:SettingRow>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

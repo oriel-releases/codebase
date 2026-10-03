@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="Oriel.UI.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Oriel">
+
+    <Grid Background="{ThemeResource OrielPaperBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  The title bar is the app header: logo, tabs, settings. Controls in it stay clickable.  -->
+        <TitleBar x:Name="AppTitleBar" Height="52" Title="Oriel (Beta)">
+            <TitleBar.IconSource>
+                <ImageIconSource ImageSource="{ThemeResource OrielLogoImage}" />
+            </TitleBar.IconSource>
+            <TitleBar.Content>
+                <StackPanel
+                    Padding="3"
+                    HorizontalAlignment="Center"
+                    Background="{ThemeResource OrielSurfaceBrush}"
+                    CornerRadius="{StaticResource OrielPillRadius}"
+                    Orientation="Horizontal"
+                    Spacing="2">
+                    <RadioButton
+                        Checked="Tab_Checked"
+                        Content="Home"
+                        GroupName="Nav"
+                        IsChecked="True"
+                        Style="{StaticResource PillTabStyle}"
+                        Tag="home" />
+                    <RadioButton
+                        Checked="Tab_Checked"
+                        Content="Collections"
+                        GroupName="Nav"
+                        Style="{StaticResource PillTabStyle}"
+                        Tag="collections" />
+                    <RadioButton
+                        Checked="Tab_Checked"
+                        Content="History"
+                        GroupName="Nav"
+                        Style="{StaticResource PillTabStyle}"
+                        Tag="history" />
+                    <RadioButton
+                        Checked="Tab_Checked"
+                        Content="Settings"
+                        GroupName="Nav"
+                        Style="{StaticResource PillTabStyle}"
+                        Tag="settings" />
+                </StackPanel>
+            </TitleBar.Content>
+        </TitleBar>
+
+        <Frame x:Name="ContentFrame" Grid.Row="1" />
+    </Grid>
+</Window>

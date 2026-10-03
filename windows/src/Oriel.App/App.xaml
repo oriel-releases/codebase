@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="Oriel.UI.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+                <!--  After the stock resources, so Oriel's overrides win  -->
+                <ResourceDictionary Source="ms-appx:///Styles/Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <!--  Colors live here, not in a merged dictionary: only the app's own theme dictionaries
+                  override the stock accent, button and card colors.  -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light" Source="ms-appx:///Styles/Colors.Light.xaml" />
+                <ResourceDictionary x:Key="Default" Source="ms-appx:///Styles/Colors.Dark.xaml" />
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

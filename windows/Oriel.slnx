@@ -1,0 +1,17 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="ARM64" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/Oriel.App/Oriel.App.csproj" />
+    <Project Path="src/Oriel.Core/Oriel.Core.csproj">
+      <Platform Project="AnyCPU" />
+    </Project>
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Oriel.Core.Tests/Oriel.Core.Tests.csproj">
+      <Platform Project="AnyCPU" />
+    </Project>
+  </Folder>
+</Solution>

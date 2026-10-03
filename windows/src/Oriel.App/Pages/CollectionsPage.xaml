@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Oriel.UI.Pages.CollectionsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:vm="using:Oriel.UI.ViewModels">
+
+    <ScrollViewer>
+        <StackPanel MaxWidth="{StaticResource PageMaxWidth}" Margin="{StaticResource PageContentMargin}">
+            <TextBlock Style="{StaticResource PageTitleStyle}" Text="Collections" />
+            <TextBlock Style="{StaticResource PageSubtitleStyle}" Text="Pick what Oriel looks for. One topic is chosen at random each day." />
+
+            <InfoBar
+                Title="No topics selected"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.NothingEnabled, Mode=OneWay}"
+                Message="Oriel will fall back to generic landscape photos. Turn on a few topics below."
+                Severity="Warning" />
+
+            <!--  Built-in topics  -->
+            <Grid Margin="0,8,0,0">
+                <StackPanel>
+                    <TextBlock Margin="2,0,0,2" Style="{StaticResource SectionHeaderStyle}" Text="Topics" />
+                    <TextBlock
+                        Margin="2,0,0,12"
+                        Style="{StaticResource MutedTextStyle}"
+                        Text="{x:Bind ViewModel.Summary, Mode=OneWay}" />
+                </StackPanel>
+                <StackPanel
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="6">
+                    <Button
+                        Command="{x:Bind ViewModel.SelectAllCommand}"
+                        Content="All"
+                        Style="{StaticResource PillButtonStyle}"
+                        ToolTipService.ToolTip="Turn on all built-in topics">
+                        <Button.CommandParameter>
+                            <x:Boolean>True</x:Boolean>
+                        </Button.CommandParameter>
+                    </Button>
+                    <Button
+                        Command="{x:Bind ViewModel.SelectAllCommand}"
+                        Content="None"
+                        Style="{StaticResource PillButtonStyle}"
+                        ToolTipService.ToolTip="Turn off all built-in topics">
+                        <Button.CommandParameter>
+                            <x:Boolean>False</x:Boolean>
+                        </Button.CommandParameter>
+                    </Button>
+                </StackPanel>
+            </Grid>
+            <ItemsControl ItemsSource="{x:Bind ViewModel.BuiltInTopics}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:TopicViewModel">
+                        <ToggleButton
+                            AutomationProperties.Name="{x:Bind Label}"
+                            Content="{x:Bind Label}"
+                            IsChecked="{x:Bind IsEnabled, Mode=TwoWay}"
+                            Style="{StaticResource ChipStyle}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!--  Custom searches  -->
+            <TextBlock Margin="2,36,0,2" Style="{StaticResource SectionHeaderStyle}" Text="Your own searches" />
+            <TextBlock
+                Margin="2,0,0,12"
+                Style="{StaticResource MutedTextStyle}"
+                Text="Anything Unsplash can search for, like &quot;foggy forest&quot; or &quot;tokyo night&quot;." />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBox
+                    Width="260"
+                    AutomationProperties.Name="New search"
+                    KeyDown="NewTopic_KeyDown"
+                    PlaceholderText="e.g. northern lights"
+                    Style="{StaticResource PillTextBoxStyle}"
+                    Text="{x:Bind ViewModel.NewTopic, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <Button
+                    Command="{x:Bind ViewModel.AddTopicCommand}"
+                    Content="Add"
+                    Style="{StaticResource PrimaryPillButtonStyle}" />
+            </StackPanel>
+            <ItemsControl
+                Margin="0,12,0,0"
+                ItemsSource="{x:Bind ViewModel.CustomTopics}"
+                Visibility="{x:Bind ViewModel.HasCustomTopics, Mode=OneWay}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:TopicViewModel">
+                        <!--  Chip toggles the search on/off; the small x removes it  -->
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <ToggleButton
+                                AutomationProperties.Name="{x:Bind Label}"
+                                Content="{x:Bind Label}"
+                                IsChecked="{x:Bind IsEnabled, Mode=TwoWay}"
+                                Style="{StaticResource ChipStyle}" />
+                            <Button
+                                Width="30"
+                                Height="30"
+                                VerticalAlignment="Center"
+                                AutomationProperties.Name="Remove search"
+                                Command="{x:Bind RemoveCommand}"
+                                Style="{StaticResource IconButtonStyle}"
+                                ToolTipService.ToolTip="Remove">
+                                <FontIcon FontSize="10" Glyph="&#xE711;" />
+                            </Button>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!--  Exclusions  -->
+            <TextBlock Margin="2,36,0,2" Style="{StaticResource SectionHeaderStyle}" Text="Exclude" />
+            <TextBlock
+                Margin="2,0,0,12"
+                Style="{StaticResource MutedTextStyle}"
+                Text="Skip photos whose description mentions these words. Best effort: Unsplash can't filter them out for us." />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBox
+                    Width="260"
+                    AutomationProperties.Name="Keyword to exclude"
+                    KeyDown="NewKeyword_KeyDown"
+                    PlaceholderText="e.g. people"
+                    Style="{StaticResource PillTextBoxStyle}"
+                    Text="{x:Bind ViewModel.NewKeyword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <Button
+                    Command="{x:Bind ViewModel.AddKeywordCommand}"
+                    Content="Exclude"
+                    Style="{StaticResource PillButtonStyle}" />
+            </StackPanel>
+            <TextBlock
+                Margin="2,14,0,0"
+                Style="{StaticResource MutedTextStyle}"
+                Text="Nothing excluded yet."
+                Visibility="{x:Bind ViewModel.HasNoKeywords, Mode=OneWay}" />
+            <ItemsControl Margin="0,12,0,0" ItemsSource="{x:Bind ViewModel.ExcludedKeywords}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:KeywordViewModel">
+                        <Button
+                            AutomationProperties.Name="{x:Bind Keyword}"
+                            Command="{x:Bind RemoveCommand}"
+                            Style="{StaticResource PillButtonStyle}"
+                            ToolTipService.ToolTip="Remove">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="{x:Bind Keyword}" />
+                                <FontIcon FontSize="9" Glyph="&#xE711;" />
+                            </StackPanel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

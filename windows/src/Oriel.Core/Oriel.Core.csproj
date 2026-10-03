@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Oriel.Core.Tests" />
+  </ItemGroup>
+
+  <!--
+    The Unsplash access key is baked into the build so users never have to enter one.
+    Source: the UNSPLASH_ACCESS_KEY environment variable (CI), else UNSPLASH_ACCESS_KEY=... in windows\.env.
+    It ends up as [AssemblyMetadata("UnsplashAccessKey", ...)] and is read by BuiltInApiKeyStore.
+  -->
+  <PropertyGroup>
+    <OrielEnvFile>$(MSBuildThisFileDirectory)..\..\.env</OrielEnvFile>
+  </PropertyGroup>
+
+  <Target Name="EmbedUnsplashKey" BeforeTargets="GetAssemblyAttributes">
+    <ReadLinesFromFile File="$(OrielEnvFile)" Condition="'$(UNSPLASH_ACCESS_KEY)' == '' And Exists('$(OrielEnvFile)')">
+      <Output TaskParameter="Lines" ItemName="_OrielEnvLine" />
+    </ReadLinesFromFile>
+    <ItemGroup>
+      <_OrielKeyLine Include="@(_OrielEnvLine)" Condition="$([System.String]::Copy('%(Identity)').Trim().StartsWith('UNSPLASH_ACCESS_KEY='))" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_OrielKeyLineText>@(_OrielKeyLine)</_OrielKeyLineText>
+      <_OrielUnsplashKey>$(UNSPLASH_ACCESS_KEY)</_OrielUnsplashKey>
+      <_OrielUnsplashKey Condition="'$(_OrielUnsplashKey)' == '' And '$(_OrielKeyLineText)' != ''">$(_OrielKeyLineText.Trim().Substring(20).Trim().Trim('"'))</_OrielUnsplashKey>
+    </PropertyGroup>
+    <Warning Condition="'$(_OrielUnsplashKey)' == ''" Text="No Unsplash key: set UNSPLASH_ACCESS_KEY or add it to $(OrielEnvFile). The app will build but can't fetch photos." />
+    <ItemGroup>
+      <AssemblyMetadata Include="UnsplashAccessKey" Value="$(_OrielUnsplashKey)" Condition="'$(_OrielUnsplashKey)' != ''" />
+    </ItemGroup>
+  </Target>
+
+</Project>

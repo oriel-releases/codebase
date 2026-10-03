@@ -1,0 +1,6 @@
+{
+  "profiles": {
+    "Oriel": { "commandName": "Project" },
+    "Oriel (apply today)": { "commandName": "Project", "commandLineArgs": "--apply-today" }
+  }
+}
