@@ -11,6 +11,12 @@ npm run build
 Production builds use `https://oriel.akbarjon.uz` as the site URL. To use another domain, set
 `SITE_URL` (copy `.env.example` to `.env.local`, or set it in your host's environment variables).
 
+## Deploy (Firebase Hosting)
+
+Every page is static: `npm run build` exports the site to `out/` (`output: "export"` in
+`next.config.ts`). Deploy with `npm run build && firebase deploy --only hosting` (project `oriel-gcp`).
+The custom domain `oriel.akbarjon.uz` is connected in the Firebase console under Hosting.
+
 ## Layout
 
 ```
