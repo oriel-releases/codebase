@@ -7,7 +7,7 @@ export const repoUrl = "https://github.com/akbarjorayev/oriel-public";
  * updating per release. Set ORIEL_DOWNLOAD_URL to host it elsewhere.
  */
 export const release = {
-  version: "1.0.0",
+  version: "1.0.1",
   releasedOn: "2026-10-04",
   fileName: "Oriel-Setup.exe",
   url: process.env.ORIEL_DOWNLOAD_URL ?? `${repoUrl}/releases/latest/download/Oriel-Setup.exe`,
