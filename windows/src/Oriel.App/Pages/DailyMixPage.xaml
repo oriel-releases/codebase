@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Oriel.UI.Pages.DailyMixPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:vm="using:Oriel.UI.ViewModels">
+
+    <ScrollViewer>
+        <Grid>
+            <StackPanel MaxWidth="{StaticResource PageMaxWidth}" Margin="40,32,40,40">
+
+                <!--  Back, title and the quick actions  -->
+                <Grid Margin="0,0,0,20" ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="Back to search"
+                        Click="Back_Click"
+                        Style="{StaticResource IconButtonStyle}"
+                        ToolTipService.ToolTip="Back">
+                        <FontIcon FontSize="14" Glyph="&#xE72B;" />
+                    </Button>
+                    <TextBlock
+                        Grid.Column="1"
+                        Margin="0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource PageTitleStyle}"
+                        Text="Daily mix" />
+                    <StackPanel
+                        Grid.Column="2"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="6">
+                        <Button
+                            Command="{x:Bind ViewModel.SelectAllCommand}"
+                            Content="Select all"
+                            Style="{StaticResource PillButtonStyle}"
+                            ToolTipService.ToolTip="Turn on all built-in topics">
+                            <Button.CommandParameter>
+                                <x:Boolean>True</x:Boolean>
+                            </Button.CommandParameter>
+                        </Button>
+                        <Button
+                            Command="{x:Bind ViewModel.SelectAllCommand}"
+                            Content="Clear"
+                            Style="{StaticResource PillButtonStyle}"
+                            ToolTipService.ToolTip="Turn off all built-in topics">
+                            <Button.CommandParameter>
+                                <x:Boolean>False</x:Boolean>
+                            </Button.CommandParameter>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <InfoBar
+                    Margin="0,0,0,12"
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.NothingEnabled, Mode=OneWay}"
+                    Message="Nothing is on, so Oriel will use generic landscape photos."
+                    Severity="Warning" />
+
+                <ItemsControl ItemsSource="{x:Bind ViewModel.BuiltInTopics}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TopicViewModel">
+                            <ToggleButton
+                                AutomationProperties.Name="{x:Bind Label}"
+                                Content="{x:Bind ChipText}"
+                                IsChecked="{x:Bind IsEnabled, Mode=TwoWay}"
+                                Style="{StaticResource ChipStyle}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <StackPanel Margin="0,22,0,0" Visibility="{x:Bind ViewModel.HasCustomTopics, Mode=OneWay}">
+                    <TextBlock
+                        Margin="2,0,0,10"
+                        Style="{StaticResource SectionHeaderStyle}"
+                        Text="Your searches" />
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.CustomTopics}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:TopicViewModel">
+                                <!--  The chip turns the search on or off; the small x removes it.  -->
+                                <StackPanel Orientation="Horizontal" Spacing="2">
+                                    <ToggleButton
+                                        AutomationProperties.Name="{x:Bind Label}"
+                                        Content="{x:Bind ChipText}"
+                                        IsChecked="{x:Bind IsEnabled, Mode=TwoWay}"
+                                        Style="{StaticResource ChipStyle}" />
+                                    <Button
+                                        Width="30"
+                                        Height="30"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.Name="Remove search"
+                                        Command="{x:Bind RemoveCommand}"
+                                        Style="{StaticResource IconButtonStyle}"
+                                        ToolTipService.ToolTip="Remove">
+                                        <FontIcon FontSize="10" Glyph="&#xE711;" />
+                                    </Button>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Page>

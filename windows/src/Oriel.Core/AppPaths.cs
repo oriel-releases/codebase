@@ -19,6 +19,7 @@ public sealed class AppPaths
         string.IsNullOrWhiteSpace(settings.WallpaperFolder) ? PicturesRoot : settings.WallpaperFolder;
 
     public string SettingsFile => Path.Combine(DataRoot, "settings.json");
+    public string AccountFile => Path.Combine(DataRoot, "auth.bin");
     public string StateFile => Path.Combine(DataRoot, "state.json");
     public string DatabaseFile => Path.Combine(DataRoot, "oriel.db");
     public string LockFile => Path.Combine(DataRoot, "apply.lock");

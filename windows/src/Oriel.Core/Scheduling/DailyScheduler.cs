@@ -1,3 +1,4 @@
+using Oriel.Core.Auth;
 using Oriel.Core.Services;
 using Oriel.Core.Settings;
 using Microsoft.Extensions.Logging;
@@ -60,7 +61,7 @@ public static class ScheduleRules
 /// copes with sleep/resume and clock changes) and wakes early when settings change. Idle in between.
 /// </summary>
 public sealed class DailyScheduler(WallpaperService wallpapers, RetentionService retention, ISettingsStore store,
-    IClock clock, ILogger<DailyScheduler> log) : IDisposable
+    IClock clock, ILogger<DailyScheduler> log, IAuthState? auth = null) : IDisposable
 {
     CancellationTokenSource? _cts;
     TaskCompletionSource _wake = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -74,6 +75,7 @@ public sealed class DailyScheduler(WallpaperService wallpapers, RetentionService
         if (_cts is not null) return;
         _cts = new CancellationTokenSource();
         store.SettingsChanged += OnSettingsChanged;
+        if (auth is not null) auth.Changed += OnSettingsChanged;
         _ = RunAsync(_cts.Token);
     }
 
@@ -89,7 +91,8 @@ public sealed class DailyScheduler(WallpaperService wallpapers, RetentionService
             try
             {
                 await CheckAsync(first, ct);
-                wait = ScheduleRules.NextCheckIn(store.Load(), store.LoadState(), clock.Now);
+                if (auth is not { IsSignedIn: false })
+                    wait = ScheduleRules.NextCheckIn(store.Load(), store.LoadState(), clock.Now);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -113,6 +116,7 @@ public sealed class DailyScheduler(WallpaperService wallpapers, RetentionService
             _lastCleanup = clock.Today;
         }
 
+        if (auth is { IsSignedIn: false }) return;
         if (!ScheduleRules.IsDue(store.Load(), store.LoadState(), clock.Now, isStartup)) return;
 
         log.LogInformation("Scheduled change is due (startup={Startup})", isStartup);
@@ -123,6 +127,7 @@ public sealed class DailyScheduler(WallpaperService wallpapers, RetentionService
     public void Dispose()
     {
         store.SettingsChanged -= OnSettingsChanged;
+        if (auth is not null) auth.Changed -= OnSettingsChanged;
         _cts?.Cancel();
         _cts?.Dispose();
         _cts = null;

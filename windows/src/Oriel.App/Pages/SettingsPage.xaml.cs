@@ -21,6 +21,12 @@ public sealed partial class SettingsPage : Page
         {
             if (e.NewTime is { } time) ViewModel.DailyTime = time;
         };
+        if (ViewModel.AccountPhoto is { } photo)
+        {
+            PhotoBrush.ImageSource = photo;
+            PhotoBrush.ImageOpened += (_, _) => PhotoEllipse.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+            // On failure the ellipse stays hidden and the logo underneath shows.
+        }
         ViewModel.PickFolder = PickFolderAsync;
         Loaded += (_, _) => ViewModel.AttachUpdates();
         Unloaded += (_, _) => ViewModel.DetachUpdates();

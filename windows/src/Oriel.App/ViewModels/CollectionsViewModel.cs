@@ -16,6 +16,17 @@ public sealed partial class TopicViewModel(CollectionsViewModel owner, string qu
     public string Query { get; } = query;
     public bool IsCustom { get; } = isCustom;
     public string Label => char.ToUpper(Query[0]) + Query[1..];
+    public string Emoji => IsCustom ? "🔎" : Emojis.GetValueOrDefault(Query, "✨");
+    /// <summary>What the chip shows: the emoji, then the name.</summary>
+    public string ChipText => $"{Emoji}  {Label}";
+
+    static readonly Dictionary<string, string> Emojis = new()
+    {
+        ["nature"] = "🌿", ["mountains"] = "🏔️", ["ocean"] = "🌊", ["space"] = "🪐",
+        ["cities"] = "🏙️", ["architecture"] = "🏛️", ["minimal"] = "◽", ["dark"] = "🌑",
+        ["abstract"] = "🎨", ["forest"] = "🌲", ["desert"] = "🏜️", ["aerial"] = "🚁",
+        ["night sky"] = "🌃", ["snow"] = "❄️",
+    };
 
     [ObservableProperty] public partial bool IsEnabled { get; set; } = enabled;
 
@@ -23,14 +34,6 @@ public sealed partial class TopicViewModel(CollectionsViewModel owner, string qu
 
     [RelayCommand]
     void Remove() => owner.RemoveTopic(this);
-}
-
-public sealed partial class KeywordViewModel(CollectionsViewModel owner, string keyword)
-{
-    public string Keyword { get; } = keyword;
-
-    [RelayCommand]
-    void Remove() => owner.RemoveKeyword(this);
 }
 
 /// <summary>One search result: a photo the user can set as the wallpaper.</summary>
@@ -61,12 +64,15 @@ public sealed partial class CollectionsViewModel : ObservableObject
 {
     const int MinResultsPerSearch = 6;
     const int MaxPagesPerSearch = 3;
+    /// <summary>Least time between two requests to the photo service, so mashing Enter or Show more can't burn the hourly limit.</summary>
+    static readonly TimeSpan MinRequestGap = TimeSpan.FromSeconds(1.5);
 
     readonly ISettingsStore _settings;
     readonly WallpaperService _wallpapers;
     bool _loading;
     string _query = "";
     int _page;
+    DateTime _lastRequestAt = DateTime.MinValue;
 
     public CollectionsViewModel(ISettingsStore settings, WallpaperService wallpapers)
     {
@@ -77,7 +83,6 @@ public sealed partial class CollectionsViewModel : ObservableObject
 
     public ObservableCollection<TopicViewModel> BuiltInTopics { get; } = [];
     public ObservableCollection<TopicViewModel> CustomTopics { get; } = [];
-    public ObservableCollection<KeywordViewModel> ExcludedKeywords { get; } = [];
     public ObservableCollection<PhotoResultViewModel> Results { get; } = [];
 
     // Search
@@ -102,17 +107,10 @@ public sealed partial class CollectionsViewModel : ObservableObject
     [ObservableProperty] public partial string InfoMessage { get; set; } = "";
     [ObservableProperty] public partial InfoBarSeverity InfoSeverity { get; set; }
 
-    // Keywords
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(AddKeywordCommand))]
-    public partial string NewKeyword { get; set; } = "";
-
     [ObservableProperty] public partial bool NothingEnabled { get; set; }
+    /// <summary>"5 of 14 topics on. Each day Oriel picks one at random."</summary>
+    [ObservableProperty] public partial string MixSummary { get; set; } = "";
     [ObservableProperty] public partial bool HasCustomTopics { get; set; }
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasNoKeywords))]
-    public partial bool HasKeywords { get; set; }
-    public bool HasNoKeywords => !HasKeywords;
 
     void Load()
     {
@@ -120,10 +118,8 @@ public sealed partial class CollectionsViewModel : ObservableObject
         var s = _settings.Load();
         BuiltInTopics.Clear();
         CustomTopics.Clear();
-        ExcludedKeywords.Clear();
         foreach (var t in s.Topics.Where(t => !string.IsNullOrWhiteSpace(t.Query)))
             (t.IsCustom ? CustomTopics : BuiltInTopics).Add(new TopicViewModel(this, t.Query, t.Enabled, t.IsCustom));
-        foreach (var k in s.ExcludedKeywords) ExcludedKeywords.Add(new KeywordViewModel(this, k));
         _loading = false;
         UpdateSummary();
     }
@@ -144,7 +140,6 @@ public sealed partial class CollectionsViewModel : ObservableObject
             s.Topics = BuiltInTopics.Concat(CustomTopics)
                 .Select(t => new TopicSetting { Query = t.Query, Enabled = t.IsEnabled, IsCustom = t.IsCustom })
                 .ToList();
-            s.ExcludedKeywords = ExcludedKeywords.Select(k => k.Keyword).ToList();
         });
         UpdateSummary();
     }
@@ -153,7 +148,8 @@ public sealed partial class CollectionsViewModel : ObservableObject
     {
         NothingEnabled = !BuiltInTopics.Concat(CustomTopics).Any(t => t.IsEnabled);
         HasCustomTopics = CustomTopics.Count > 0;
-        HasKeywords = ExcludedKeywords.Count > 0;
+        var all = BuiltInTopics.Concat(CustomTopics).ToList();
+        MixSummary = $"{all.Count(t => t.IsEnabled)} of {all.Count} topics on. Each day Oriel picks one at random.";
         CanAddToMix = HasSearched && !BuiltInTopics.Concat(CustomTopics)
             .Any(t => t.Query.Equals(_query, StringComparison.OrdinalIgnoreCase));
     }
@@ -165,7 +161,10 @@ public sealed partial class CollectionsViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSearch))]
     async Task Search()
     {
-        _query = SearchText.Trim();
+        var query = SearchText.Trim();
+        // Same words, results already on screen: nothing new to ask for.
+        if (HasSearched && Results.Count > 0 && query.Equals(_query, StringComparison.OrdinalIgnoreCase)) return;
+        _query = query;
         _page = 0;
         IsInfoOpen = false;
         Results.Clear();
@@ -189,6 +188,9 @@ public sealed partial class CollectionsViewModel : ObservableObject
             var added = 0;
             for (var i = 0; i < MaxPagesPerSearch && added < MinResultsPerSearch; i++)
             {
+                var wait = MinRequestGap - (DateTime.UtcNow - _lastRequestAt);
+                if (wait > TimeSpan.Zero) await Task.Delay(wait);
+                _lastRequestAt = DateTime.UtcNow;
                 var found = await _wallpapers.SearchAsync(_query, ++_page);
                 foreach (var photo in found.Photos) Results.Add(new PhotoResultViewModel(this, photo));
                 added += found.Photos.Count;
@@ -254,24 +256,6 @@ public sealed partial class CollectionsViewModel : ObservableObject
     internal void RemoveTopic(TopicViewModel topic)
     {
         CustomTopics.Remove(topic);
-        Save();
-    }
-
-    bool CanAddKeyword() => !string.IsNullOrWhiteSpace(NewKeyword);
-
-    [RelayCommand(CanExecute = nameof(CanAddKeyword))]
-    void AddKeyword()
-    {
-        var k = NewKeyword.Trim().ToLowerInvariant();
-        NewKeyword = "";
-        if (ExcludedKeywords.Any(x => x.Keyword == k)) return;
-        ExcludedKeywords.Add(new KeywordViewModel(this, k));
-        Save();
-    }
-
-    internal void RemoveKeyword(KeywordViewModel keyword)
-    {
-        ExcludedKeywords.Remove(keyword);
         Save();
     }
 

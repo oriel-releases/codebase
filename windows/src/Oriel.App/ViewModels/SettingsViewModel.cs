@@ -2,6 +2,7 @@ using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Oriel.Core;
+using Oriel.Core.Auth;
 using Oriel.Core.Models;
 using Oriel.Core.Services;
 using Oriel.Core.Settings;
@@ -19,10 +20,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     readonly WallpaperFolderMover _folderMover;
     readonly UpdateService _updates;
     readonly HotkeyService _hotkeys;
+    readonly AuthService _auth;
     bool _loading;
 
     public SettingsViewModel(ISettingsStore settings, IWallpaperSetter setter, AppPaths paths,
-        WallpaperFolderMover folderMover, UpdateService updates, HotkeyService hotkeys)
+        WallpaperFolderMover folderMover, UpdateService updates, HotkeyService hotkeys, AuthService auth)
     {
         _settings = settings;
         _setter = setter;
@@ -30,6 +32,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _folderMover = folderMover;
         _updates = updates;
         _hotkeys = hotkeys;
+        _auth = auth;
         Load();
         RefreshUpdate();
     }
@@ -41,6 +44,19 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>"Beta" while the csproj says so (AssemblyMetadata Stage), otherwise empty.</summary>
     public string Stage => Assembly.GetExecutingAssembly().GetCustomAttributes<AssemblyMetadataAttribute>()
         .FirstOrDefault(a => a.Key == "Stage")?.Value ?? "";
+
+    // Account
+    public string AccountEmail => _auth.Current?.Email ?? "";
+    public string AccountName => _auth.Current is { DisplayName.Length: > 0 } a ? a.DisplayName : "Signed in";
+
+    /// <summary>The Google profile photo, decoded small. Null (so initials show) if the account has none.</summary>
+    public Microsoft.UI.Xaml.Media.Imaging.BitmapImage? AccountPhoto =>
+        Uri.TryCreate(_auth.Current?.PhotoUrl, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps
+            ? new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(uri) { DecodePixelWidth = 80 }
+            : null;
+
+    [RelayCommand]
+    Task SignOut() => _auth.SignOutAsync();
 
     // Schedule
     [ObservableProperty] public partial TimeSpan DailyTime { get; set; }

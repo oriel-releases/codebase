@@ -23,9 +23,6 @@ public sealed class OrielSettings
         .Select(t => new TopicSetting { Query = t, Enabled = DefaultEnabled.Contains(t) })
         .ToList();
 
-    /// <summary>Keywords; a candidate whose description mentions one is skipped.</summary>
-    public List<string> ExcludedKeywords { get; set; } = [];
-
     /// <summary>Local time of day for the daily change, "HH:mm".</summary>
     public string DailyTime { get; set; } = "09:00";
     /// <summary>Slideshow: minutes between changes. 0 means once a day at <see cref="DailyTime"/>.</summary>

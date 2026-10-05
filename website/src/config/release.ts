@@ -4,7 +4,7 @@ import { fetchLatestVersion } from "@/lib/latest-version";
 export const repoUrl = "https://github.com/akbarjorayev/oriel-public";
 
 /** Used only when Firestore can't be read at build time. */
-const fallbackVersion = "1.0.2";
+const fallbackVersion = "1.0.3";
 
 /**
  * The current Windows release. The version comes from Firestore (`application/version`), at build

@@ -13,8 +13,57 @@
             Spacing="{StaticResource OrielRowSpacing}">
             <TextBlock Style="{StaticResource PageTitleStyle}" Text="Settings" />
 
+            <!--  ============ Account ============  -->
+            <TextBlock Margin="2,4,0,8" Style="{StaticResource SectionHeaderStyle}" Text="Account" />
+            <Grid
+                MinHeight="64"
+                Padding="20,12,16,12"
+                Background="{ThemeResource OrielSurfaceBrush}"
+                ColumnSpacing="16"
+                CornerRadius="{StaticResource OrielCardRadius}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <!--  Oriel's logo, covered by the Google photo once that loads (so a failed photo just shows the logo).  -->
+                <Grid
+                    Width="40"
+                    Height="40"
+                    VerticalAlignment="Center">
+                    <Border Background="{ThemeResource OrielPaperBrush}" CornerRadius="20">
+                        <Image
+                            Width="22"
+                            Height="22"
+                            Source="{ThemeResource OrielLogoImage}" />
+                    </Border>
+                    <Ellipse x:Name="PhotoEllipse" Visibility="Collapsed">
+                        <Ellipse.Fill>
+                            <ImageBrush x:Name="PhotoBrush" Stretch="UniformToFill" />
+                        </Ellipse.Fill>
+                    </Ellipse>
+                </Grid>
+                <StackPanel
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Spacing="2">
+                    <TextBlock Text="{x:Bind ViewModel.AccountName}" TextWrapping="Wrap" />
+                    <TextBlock
+                        FontSize="12"
+                        Foreground="{ThemeResource OrielMutedBrush}"
+                        Text="{x:Bind ViewModel.AccountEmail}"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+                <Button
+                    Grid.Column="2"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Sign out"
+                    Command="{x:Bind ViewModel.SignOutCommand}"
+                    Content="Sign out" />
+            </Grid>
+
             <!--  ============ Schedule ============  -->
-            <TextBlock Margin="2,4,0,8" Style="{StaticResource SectionHeaderStyle}" Text="Schedule" />
+            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Schedule" />
             <controls:SettingRow
                 Description="Once a day, or as a slideshow that keeps changing through the day."
                 Glyph="&#xE8B3;"

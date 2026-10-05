@@ -11,9 +11,6 @@ public static class CandidateFilter
         if (!c.IsLandscape) return "portrait";
         if (c.Width < target.Width || c.Height < target.Height) return "too small";
         if (s.SkipLowLikes && c.Likes < s.MinLikes) return "low likes";
-        if (c.Description is { } d && s.ExcludedKeywords.FirstOrDefault(k =>
-                !string.IsNullOrWhiteSpace(k) && d.Contains(k.Trim(), StringComparison.OrdinalIgnoreCase)) is { } hit)
-            return $"excluded keyword '{hit}'";
         return null;
     }
 }

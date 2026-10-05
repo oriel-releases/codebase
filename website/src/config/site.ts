@@ -25,6 +25,7 @@ export const site = {
 export const routes = {
   home: "/",
   download: "/download",
+  login: "/login",
 } as const;
 
 export function absoluteUrl(path: string): string {

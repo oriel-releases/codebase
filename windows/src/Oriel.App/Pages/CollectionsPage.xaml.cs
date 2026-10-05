@@ -1,5 +1,7 @@
 using Oriel.UI.ViewModels;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Input;
 using Windows.System;
 
@@ -14,17 +16,13 @@ public sealed partial class CollectionsPage : Page
         InitializeComponent();
     }
 
+    void DailyMix_Click(object sender, RoutedEventArgs e) =>
+        Frame.Navigate(typeof(DailyMixPage), null, new SlideNavigationTransitionInfo { Effect = SlideNavigationTransitionEffect.FromRight });
+
     void Search_KeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key != VirtualKey.Enter || !ViewModel.SearchCommand.CanExecute(null)) return;
         ViewModel.SearchCommand.Execute(null);
-        e.Handled = true;
-    }
-
-    void NewKeyword_KeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key != VirtualKey.Enter || !ViewModel.AddKeywordCommand.CanExecute(null)) return;
-        ViewModel.AddKeywordCommand.Execute(null);
         e.Handled = true;
     }
 }

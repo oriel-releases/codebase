@@ -76,6 +76,9 @@ static class Cli
             case ApplyStatus.Busy:
                 Out(result.Error!);
                 return 0;
+            case ApplyStatus.SignInRequired:
+                Out("Sign in to Oriel first: open the app and continue with Google.");
+                return 3;
             default:
                 Out($"Failed: {result.Error} (current wallpaper kept)");
                 return result.ErrorKind is ProviderErrorKind.MissingKey or ProviderErrorKind.Unauthorized ? 3 : 1;

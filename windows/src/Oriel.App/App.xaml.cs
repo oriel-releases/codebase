@@ -1,4 +1,5 @@
 using Oriel.Core;
+using Oriel.Core.Auth;
 using Oriel.Core.Scheduling;
 using Oriel.Core.Services;
 using Oriel.Core.Settings;
@@ -52,6 +53,7 @@ public partial class App : Application
             services.AddSingleton<TrayIconService>();
             services.AddSingleton<UpdateService>();
             services.AddSingleton<HotkeyService>();
+            services.AddSingleton<SignInViewModel>();
             services.AddSingleton<HomeViewModel>();
             services.AddSingleton<CollectionsViewModel>();
             services.AddSingleton<HistoryViewModel>();
@@ -88,20 +90,51 @@ public partial class App : Application
 
         Get<UpdateService>().Start();
 
+        // oriel:// links (the website's "Open Oriel" button) launch this exe; keep that pointed at this copy.
+        Task.Run(() => ProtocolRegistration.Register(AppHost.ExePath));
+        var auth = Get<AuthService>();
+        // Back from the browser after signing in: bring Oriel to the front, active (not dimmed).
+        auth.Changed += (_, _) => { if (auth.IsSignedIn) Dispatcher.TryEnqueue(ShowWindow); };
+        auth.Start();
+
         var background = Environment.GetCommandLineArgs().Contains("--background", StringComparer.OrdinalIgnoreCase);
         if (activation.Kind == ExtendedActivationKind.AppNotification)
         {
             var toastArgs = ((AppNotificationActivatedEventArgs)activation.Data).Arguments;
             background = HandleToast(toastArgs) == false;
         }
+        // A sign-in link that started this process always shows the window, so the result is visible.
+        if (HandleLink(Environment.GetCommandLineArgs().Skip(1))) background = false;
+        else if (!auth.IsSignedIn) background = false; // nothing works until signed in: ask right away
         if (background) EnterBackground();
         else ShowWindow();
 
         _log.LogInformation("Oriel started (background={Background})", background);
     }
 
+    /// <summary>Handles an oriel://auth link among the arguments. Returns true if there was one.</summary>
+    bool HandleLink(IEnumerable<string> args)
+    {
+        var list = args.ToList();
+        if (!DeepLink.IsLink(list)) return false;
+        _log?.LogInformation("Sign-in link received");
+        var signIn = Get<SignInViewModel>();
+        if (DeepLink.TryGetGoogleToken(list, out var token)) _ = signIn.CompleteAsync(token);
+        else signIn.Invalid();
+        return true;
+    }
+
     void OnActivated(AppActivationArguments e)
     {
+        // The website's "Open Oriel" button while Oriel is already running.
+        if (e.Kind == ExtendedActivationKind.Launch &&
+            e.Data is Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs launch &&
+            HandleLink(launch.Arguments.Split(' ', StringSplitOptions.RemoveEmptyEntries)))
+        {
+            ShowWindow();
+            return;
+        }
+
         // A second launch was redirected here (Start menu, shortcut, toast while not registered).
         if (e.Kind == ExtendedActivationKind.AppNotification &&
             e.Data is AppNotificationActivatedEventArgs toast)
@@ -151,6 +184,11 @@ public partial class App : Application
     /// </summary>
     async Task ChangeFromTrayAsync(bool alwaysShowPopup = false)
     {
+        if (!Get<AuthService>().IsSignedIn)
+        {
+            ShowWindow();
+            return;
+        }
         var home = Get<HomeViewModel>();
         ChangePopup? popup = null;
         if (!home.IsBusy && (alwaysShowPopup || !IsWindowVisible))
@@ -203,6 +241,9 @@ public partial class App : Application
         if (_window.AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } p)
             p.Restore();
         _window.Activate();
+        // Windows only lets the foreground app take focus; a tap of Alt makes this process eligible.
+        keybd_event(0x12, 0, 0, 0);
+        keybd_event(0x12, 0, 2, 0);
         SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(_window));
     }
 
@@ -230,4 +271,7 @@ public partial class App : Application
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     static extern bool SetForegroundWindow(nint hwnd);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern void keybd_event(byte vk, byte scan, uint flags, nuint extraInfo);
 }

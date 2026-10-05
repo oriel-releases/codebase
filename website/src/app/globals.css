@@ -38,6 +38,16 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Tailwind 4 resets buttons to the default arrow; anything clickable should show a hand. */
+button:not(:disabled),
+summary,
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
 body {
   background: var(--paper);
   color: var(--ink);
