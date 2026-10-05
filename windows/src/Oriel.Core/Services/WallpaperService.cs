@@ -1,3 +1,4 @@
+using Oriel.Core.Auth;
 using Oriel.Core.Models;
 using Oriel.Core.Providers;
 using Oriel.Core.Scheduling;
@@ -11,7 +12,7 @@ namespace Oriel.Core.Services;
 /// <summary>What a change is doing right now, for progress UI.</summary>
 public enum ApplyPhase { Finding, Changing }
 
-public enum ApplyStatus { Applied, AlreadyAppliedToday, Paused, Failed, Busy }
+public enum ApplyStatus { Applied, AlreadyAppliedToday, Paused, Failed, Busy, SignInRequired }
 
 public sealed record ApplyResult(ApplyStatus Status, IReadOnlyList<HistoryEntry> Entries, string? Error = null,
     ProviderErrorKind? ErrorKind = null)
@@ -29,9 +30,18 @@ public sealed class WallpaperService(
     IClock clock,
     AppPaths paths,
     ILogger<WallpaperService> log,
-    ILockScreenSetter? lockScreen = null)
+    ILockScreenSetter? lockScreen = null,
+    IAuthState? auth = null)
 {
     const int MaxQueriesPerTarget = 3;
+
+    /// <summary>
+    /// Requests kept back for the daily wallpaper: the Unsplash demo key allows 50 an hour, and a search
+    /// page costs one each, so searching stops a little early rather than starving the scheduled change.
+    /// </summary>
+    const int SearchReserve = 10;
+
+    static readonly ApplyResult SignInRequired = new(ApplyStatus.SignInRequired, [], "Sign in to Oriel first.");
 
     /// <summary>Raised after a new wallpaper is applied (from any trigger in this process).</summary>
     public event EventHandler<ApplyResult>? Applied;
@@ -42,6 +52,8 @@ public sealed class WallpaperService(
     /// <param name="force">Change even if today's wallpaper was already set ("Change now").</param>
     public async Task<ApplyResult> ApplyAsync(bool force, CancellationToken ct = default)
     {
+        if (auth is { IsSignedIn: false }) return SignInRequired;
+
         var settings = settingsStore.Load();
         var state = settingsStore.LoadState();
 
@@ -90,6 +102,9 @@ public sealed class WallpaperService(
     {
         if (!provider.IsConfigured)
             throw new ProviderException(ProviderErrorKind.MissingKey, "This build of Oriel has no Unsplash access key.");
+        if (provider.RemainingRequests is < SearchReserve)
+            throw new ProviderException(ProviderErrorKind.RateLimited,
+                "Searching is paused for a while so your daily wallpaper still gets its photos. Try again in the next hour.");
 
         var size = PlanTargets(setter.GetMonitors(), settingsStore.Load())[0].Size;
         var found = await provider.SearchAsync(query, page, ct);
@@ -100,6 +115,8 @@ public sealed class WallpaperService(
     /// <summary>Sets one specific photo (chosen by the user) as the wallpaper.</summary>
     public async Task<ApplyResult> ApplyPhotoAsync(PhotoCandidate photo, string? topic = null, CancellationToken ct = default)
     {
+        if (auth is { IsSignedIn: false }) return SignInRequired;
+
         var settings = settingsStore.Load();
         using var gate = ApplyLock.TryAcquire(paths.LockFile);
         if (gate is null) return new(ApplyStatus.Busy, [], "Another change is already in progress.");

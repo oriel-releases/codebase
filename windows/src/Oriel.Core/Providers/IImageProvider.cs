@@ -17,6 +17,9 @@ public interface IImageProvider
     /// <summary>True when the provider has what it needs (e.g. an API key).</summary>
     bool IsConfigured { get; }
 
+    /// <summary>Requests left in the current hourly window, if the provider has told us yet.</summary>
+    int? RemainingRequests => null;
+
     Task<IReadOnlyList<PhotoCandidate>> GetRandomAsync(ImageQuery query, CancellationToken ct);
 
     /// <summary>Photos matching the words, most relevant first. Pages start at 1.</summary>

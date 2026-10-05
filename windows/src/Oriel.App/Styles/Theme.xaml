@@ -14,6 +14,8 @@
         minus padding so corners stay concentric.
     -->
     <CornerRadius x:Key="OrielPillRadius">12</CornerRadius>
+    <!--  Icon buttons are circles: half their 36px size  -->
+    <CornerRadius x:Key="OrielIconRadius">18</CornerRadius>
     <!--  Tab inside the 3px-padded tab strip: strip radius minus padding, so the corners are concentric  -->
     <CornerRadius x:Key="OrielTabItemRadius">9</CornerRadius>
     <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
@@ -21,6 +23,17 @@
     <CornerRadius x:Key="OrielMediumRadius">12</CornerRadius>
     <CornerRadius x:Key="OrielCardRadius">16</CornerRadius>
     <CornerRadius x:Key="OrielLargeRadius">20</CornerRadius>
+    <!--  Photo thumbnails, and the one-line search bar (half its 52px height)  -->
+    <CornerRadius x:Key="OrielThumbRadius">8</CornerRadius>
+    <CornerRadius x:Key="OrielBarRadius">26</CornerRadius>
+    <!--  Dark fade at the bottom of a photo card: keeps white text and buttons readable on any picture  -->
+    <LinearGradientBrush x:Key="OrielPhotoScrimBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Offset="0" Color="#00000000" />
+        <GradientStop Offset="0.45" Color="#59000000" />
+        <GradientStop Offset="1" Color="#CC000000" />
+    </LinearGradientBrush>
+    <!--  The favorite star  -->
+    <SolidColorBrush x:Key="OrielStarBrush" Color="#F5B301" />
 
     <!--  Plain buttons: soft surface, no outline  -->
     <SolidColorBrush x:Key="ButtonBackground" Color="{ThemeResource OrielSurface}" />
@@ -83,13 +96,13 @@
         <Setter Property="Width" Value="36" />
         <Setter Property="Height" Value="36" />
         <Setter Property="Padding" Value="0" />
-        <Setter Property="CornerRadius" Value="{StaticResource OrielPillRadius}" />
+        <Setter Property="CornerRadius" Value="{StaticResource OrielIconRadius}" />
     </Style>
     <Style x:Key="IconToggleButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource DefaultToggleButtonStyle}">
         <Setter Property="Width" Value="36" />
         <Setter Property="Height" Value="36" />
         <Setter Property="Padding" Value="0" />
-        <Setter Property="CornerRadius" Value="{StaticResource OrielPillRadius}" />
+        <Setter Property="CornerRadius" Value="{StaticResource OrielIconRadius}" />
     </Style>
     <Style x:Key="ChipStyle" TargetType="ToggleButton" BasedOn="{StaticResource DefaultToggleButtonStyle}">
         <Setter Property="CornerRadius" Value="{StaticResource OrielPillRadius}" />

@@ -62,7 +62,8 @@ public sealed class ChangePopup : Window
         _label.Text = Words[0];
         var pillWidth = row.DesiredSize.Width;
 
-        Content = new Grid { Background = new SolidColorBrush(Color.FromArgb(0xFF, 0x26, 0x26, 0x26)), Children = { row } };
+        // Frosted glass comes from Windows itself (see below); this veil only darkens it so white text reads well.
+        Content = new Grid { Background = new SolidColorBrush(Color.FromArgb(0x59, 0x14, 0x14, 0x14)), Children = { row } };
 
         ExtendsContentIntoTitleBar = true;
         if (AppWindow.Presenter is OverlappedPresenter p)
@@ -82,6 +83,14 @@ public sealed class ChangePopup : Window
         DwmSetWindowAttribute(hwnd, DwmwaWindowCornerPreference, ref round, sizeof(int));
         var noBorder = unchecked((int)0xFFFFFFFE); // DWMWA_COLOR_NONE
         DwmSetWindowAttribute(hwnd, DwmwaBorderColor, ref noBorder, sizeof(int));
+        // Windows' own acrylic for transient windows (tooltip and flyout material). Unlike the XAML backdrops it
+        // stays blurred while the window isn't active, which this pill never is.
+        var transient = 3; // DWMSBT_TRANSIENTWINDOW
+        DwmSetWindowAttribute(hwnd, DwmwaSystemBackdropType, ref transient, sizeof(int));
+        var dark = 1;
+        DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref dark, sizeof(int));
+        var all = new Margins { Left = -1, Right = -1, Top = -1, Bottom = -1 };
+        DwmExtendFrameIntoClientArea(hwnd, ref all);
         SetWindowPos(hwnd, 0, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
 
         var scale = GetDpiForWindow(hwnd) / 96.0;
@@ -176,7 +185,7 @@ public sealed class ChangePopup : Window
 
     const int GwlStyle = -16, GwlExStyle = -20;
     const nint WsPopup = unchecked((int)0x80000000), WsExToolWindow = 0x80, WsExNoActivate = 0x08000000;
-    const int DwmwaWindowCornerPreference = 33, DwmwaBorderColor = 34;
+    const int DwmwaWindowCornerPreference = 33, DwmwaBorderColor = 34, DwmwaSystemBackdropType = 38, DwmwaUseImmersiveDarkMode = 20;
     const uint SwpNoSize = 0x1, SwpNoMove = 0x2, SwpNoZOrder = 0x4, SwpNoActivate = 0x10, SwpFrameChanged = 0x20;
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] static extern nint GetWindowLongPtr(nint hwnd, int index);
@@ -184,5 +193,9 @@ public sealed class ChangePopup : Window
     [DllImport("user32.dll")] static extern bool SetWindowPos(nint hwnd, nint after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern nint FindWindow(string? className, string? title);
     [DllImport("user32.dll")] static extern uint GetDpiForWindow(nint hwnd);
+    [StructLayout(LayoutKind.Sequential)]
+    struct Margins { public int Left, Right, Top, Bottom; }
+
+    [DllImport("dwmapi.dll")] static extern int DwmExtendFrameIntoClientArea(nint hwnd, ref Margins margins);
     [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(nint hwnd, int attribute, ref int value, int size);
 }

@@ -48,6 +48,7 @@ public static class Program
     static void RemoveSystemIntegration()
     {
         try { new StartupRegistration().Set(false, ""); } catch (Exception) { }
+        try { ProtocolRegistration.Unregister(); } catch (Exception) { }
         try { new TaskSchedulerRegistration(NullLogger<TaskSchedulerRegistration>.Instance).Unregister(); } catch (Exception) { }
     }
 }

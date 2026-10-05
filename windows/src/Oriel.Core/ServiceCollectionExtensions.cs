@@ -1,3 +1,4 @@
+using Oriel.Core.Auth;
 using Oriel.Core.Providers;
 using Oriel.Core.Scheduling;
 using Oriel.Core.Security;
@@ -24,6 +25,10 @@ public static class ServiceCollectionExtensions
             DefaultRequestHeaders = { { "User-Agent", "Oriel/1.0 (+desktop wallpaper app)" } },
         });
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IAccountStore, DpapiAccountStore>();
+        services.AddSingleton<FirebaseClient>();
+        services.AddSingleton<AuthService>();
+        services.AddSingleton<IAuthState>(sp => sp.GetRequiredService<AuthService>());
         services.AddSingleton<ISettingsStore, JsonSettingsStore>();
         services.AddSingleton<IApiKeyStore, BuiltInApiKeyStore>();
         services.AddSingleton<IHistoryStore, SqliteHistoryStore>();

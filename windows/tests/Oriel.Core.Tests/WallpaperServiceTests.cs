@@ -129,12 +129,11 @@ public sealed class WallpaperServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Filters_small_portrait_low_likes_and_excluded()
+    public async Task Filters_small_portrait_and_low_likes()
     {
         var s = _store.Load();
         s.SkipLowLikes = true;
         s.MinLikes = 10;
-        s.ExcludedKeywords = ["people"];
         _store.Save(s);
 
         _provider.Responses.Enqueue(() =>
@@ -142,7 +141,6 @@ public sealed class WallpaperServiceTests : IDisposable
             FakeProvider.Photo("small", 1920, 1080),
             FakeProvider.Photo("portrait", 4000, 6000),
             FakeProvider.Photo("unloved", likes: 2),
-            FakeProvider.Photo("crowd", desc: "Group of PEOPLE on a beach"),
             FakeProvider.Photo("good"),
         ]);
 

@@ -8,17 +8,39 @@
 
     <ScrollViewer>
         <Grid>
-            <StackPanel MaxWidth="{StaticResource PageMaxWidth}" Margin="{StaticResource PageContentMargin}">
-                <TextBlock Style="{StaticResource PageTitleStyle}" Text="Collections" />
+            <StackPanel MaxWidth="{StaticResource PageMaxWidth}" Margin="40,32,40,40">
 
-                <!--  Search: find any wallpaper and set it  -->
-                <Grid Margin="0,12,0,0" ColumnSpacing="8">
+                <!--  ============ Search: one rounded bar at the top, button inside ============  -->
+                <Grid
+                    Height="52"
+                    Padding="18,0,6,0"
+                    Background="{ThemeResource OrielSurfaceBrush}"
+                    ColumnSpacing="10"
+                    CornerRadius="{StaticResource OrielBarRadius}">
+                    <Grid.Resources>
+                        <!--  The field is part of the bar: no box, no focus underline of its own.  -->
+                        <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                        <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
+                        <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+                    </Grid.Resources>
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
+                    <FontIcon
+                        VerticalAlignment="Center"
+                        FontSize="16"
+                        Foreground="{ThemeResource OrielMutedBrush}"
+                        Glyph="&#xE721;" />
                     <TextBox
-                        MinHeight="44"
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
                         VerticalContentAlignment="Center"
                         AutomationProperties.Name="Search wallpapers"
                         FontSize="15"
@@ -26,10 +48,12 @@
                         PlaceholderText="Search wallpapers, like northern lights or tokyo night"
                         Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                     <Button
-                        Grid.Column="1"
-                        Height="44"
+                        Grid.Column="2"
+                        Height="40"
                         Padding="22,0"
+                        VerticalAlignment="Center"
                         Command="{x:Bind ViewModel.SearchCommand}"
+                        CornerRadius="20"
                         Style="{StaticResource PrimaryPillButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <ProgressRing
@@ -38,7 +62,6 @@
                                 Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
                                 IsActive="{x:Bind ViewModel.IsSearching, Mode=OneWay}"
                                 Visibility="{x:Bind ViewModel.IsSearching, Mode=OneWay}" />
-                            <FontIcon FontSize="14" Glyph="&#xE721;" />
                             <TextBlock Text="Search" />
                         </StackPanel>
                     </Button>
@@ -51,10 +74,52 @@
                     Message="{x:Bind ViewModel.InfoMessage, Mode=OneWay}"
                     Severity="{x:Bind ViewModel.InfoSeverity, Mode=OneWay}" />
 
-                <!--  Results  -->
-                <StackPanel Visibility="{x:Bind ViewModel.HasSearched, Mode=OneWay}">
+                <!--  ============ Daily mix: a row that opens its own page, like a Settings category ============  -->
+                <Button
+                    MinHeight="68"
+                    Margin="0,14,0,0"
+                    Padding="20,14,16,14"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    AutomationProperties.Name="Daily mix"
+                    Click="DailyMix_Click"
+                    CornerRadius="{StaticResource OrielCardRadius}">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon
+                            VerticalAlignment="Center"
+                            FontSize="18"
+                            Foreground="{ThemeResource OrielMutedBrush}"
+                            Glyph="&#xE8B3;" />
+                        <StackPanel
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Spacing="2">
+                            <TextBlock FontWeight="SemiBold" Text="Daily mix" />
+                            <TextBlock
+                                FontSize="12"
+                                Foreground="{ThemeResource OrielMutedBrush}"
+                                Text="{x:Bind ViewModel.MixSummary, Mode=OneWay}"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                        <FontIcon
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Foreground="{ThemeResource OrielMutedBrush}"
+                            Glyph="&#xE76C;" />
+                    </Grid>
+                </Button>
+
+                <!--  ============ Results: photo first, credit and action on the photo ============  -->
+                <StackPanel Margin="0,8,0,0" Visibility="{x:Bind ViewModel.HasSearched, Mode=OneWay}">
                     <Grid Margin="0,8,0,12">
                         <TextBlock
+                            Margin="2,0,0,0"
                             VerticalAlignment="Center"
                             Style="{StaticResource SectionHeaderStyle}"
                             Text="{x:Bind ViewModel.ResultsTitle, Mode=OneWay}" />
@@ -82,31 +147,26 @@
                         <ItemsRepeater.Layout>
                             <UniformGridLayout
                                 ItemsStretch="Fill"
-                                MinColumnSpacing="12"
+                                MinColumnSpacing="14"
                                 MinItemWidth="280"
-                                MinRowSpacing="12" />
+                                MinRowSpacing="14" />
                         </ItemsRepeater.Layout>
                         <ItemsRepeater.ItemTemplate>
                             <DataTemplate x:DataType="vm:PhotoResultViewModel">
                                 <Grid
-                                    Padding="8"
-                                    Background="{ThemeResource OrielSurfaceBrush}"
-                                    CornerRadius="{StaticResource OrielCardRadius}"
-                                    RowSpacing="10">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="150" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <Grid Background="{ThemeResource OrielLineBrush}" CornerRadius="8">
-                                        <Image
-                                            AutomationProperties.Name="{x:Bind Description}"
-                                            Source="{x:Bind Thumbnail}"
-                                            Stretch="UniformToFill"
-                                            ToolTipService.ToolTip="{x:Bind Size}" />
-                                    </Grid>
+                                    Height="210"
+                                    Background="{ThemeResource OrielLineBrush}"
+                                    CornerRadius="{StaticResource OrielCardRadius}">
+                                    <Image
+                                        AutomationProperties.Name="{x:Bind Description}"
+                                        Source="{x:Bind Thumbnail}"
+                                        Stretch="UniformToFill"
+                                        ToolTipService.ToolTip="{x:Bind Size}" />
+                                    <!--  The fade keeps the white text readable on any photo.  -->
                                     <Grid
-                                        Grid.Row="1"
-                                        Padding="6,0,0,2"
+                                        Padding="14,44,10,10"
+                                        VerticalAlignment="Bottom"
+                                        Background="{StaticResource OrielPhotoScrimBrush}"
                                         ColumnSpacing="8">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -117,18 +177,37 @@
                                             Padding="6,1"
                                             VerticalAlignment="Center"
                                             Content="{x:Bind PhotographerName}"
+                                            FontSize="12"
+                                            Foreground="White"
                                             NavigateUri="{x:Bind PhotographerUri}"
-                                            ToolTipService.ToolTip="Photographer on Unsplash" />
+                                            ToolTipService.ToolTip="Photographer on Unsplash">
+                                            <HyperlinkButton.Resources>
+                                                <SolidColorBrush x:Key="HyperlinkButtonForegroundPointerOver" Color="#E0E0E0" />
+                                                <SolidColorBrush x:Key="HyperlinkButtonForegroundPressed" Color="#C0C0C0" />
+                                            </HyperlinkButton.Resources>
+                                        </HyperlinkButton>
                                         <Button
                                             Grid.Column="1"
+                                            Padding="14,5"
                                             Command="{x:Bind SetCommand}"
+                                            FontSize="13"
                                             IsEnabled="{x:Bind IsIdle, Mode=OneWay}"
-                                            Style="{StaticResource PrimaryPillButtonStyle}">
+                                            Style="{StaticResource PillButtonStyle}">
+                                            <Button.Resources>
+                                                <SolidColorBrush x:Key="ButtonBackground" Color="#F2F2F2" />
+                                                <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#E0E0E0" />
+                                                <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#D0D0D0" />
+                                                <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="#F2F2F2" />
+                                                <SolidColorBrush x:Key="ButtonForeground" Color="#141414" />
+                                                <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#141414" />
+                                                <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#141414" />
+                                                <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="#6B6B6B" />
+                                            </Button.Resources>
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <ProgressRing
-                                                    Width="14"
-                                                    Height="14"
-                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                    Width="12"
+                                                    Height="12"
+                                                    Foreground="#141414"
                                                     IsActive="{x:Bind IsBusy, Mode=OneWay}"
                                                     Visibility="{x:Bind IsBusy, Mode=OneWay}" />
                                                 <TextBlock Text="Set as wallpaper" />
@@ -149,130 +228,6 @@
                         Visibility="{x:Bind ViewModel.CanLoadMore, Mode=OneWay}" />
                 </StackPanel>
 
-                <!--  Daily mix  -->
-                <Grid Margin="0,24,0,12">
-                    <TextBlock
-                        VerticalAlignment="Center"
-                        Style="{StaticResource SectionHeaderStyle}"
-                        Text="Daily mix" />
-                    <StackPanel
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center"
-                        Orientation="Horizontal"
-                        Spacing="6">
-                        <Button
-                            Command="{x:Bind ViewModel.SelectAllCommand}"
-                            Content="All"
-                            Style="{StaticResource PillButtonStyle}"
-                            ToolTipService.ToolTip="Turn on all built-in topics">
-                            <Button.CommandParameter>
-                                <x:Boolean>True</x:Boolean>
-                            </Button.CommandParameter>
-                        </Button>
-                        <Button
-                            Command="{x:Bind ViewModel.SelectAllCommand}"
-                            Content="None"
-                            Style="{StaticResource PillButtonStyle}"
-                            ToolTipService.ToolTip="Turn off all built-in topics">
-                            <Button.CommandParameter>
-                                <x:Boolean>False</x:Boolean>
-                            </Button.CommandParameter>
-                        </Button>
-                    </StackPanel>
-                </Grid>
-
-                <InfoBar
-                    Margin="0,0,0,12"
-                    IsClosable="False"
-                    IsOpen="{x:Bind ViewModel.NothingEnabled, Mode=OneWay}"
-                    Message="Nothing is on, so Oriel will use generic landscape photos."
-                    Severity="Warning" />
-
-                <ItemsControl ItemsSource="{x:Bind ViewModel.BuiltInTopics}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:TopicViewModel">
-                            <ToggleButton
-                                AutomationProperties.Name="{x:Bind Label}"
-                                Content="{x:Bind Label}"
-                                IsChecked="{x:Bind IsEnabled, Mode=TwoWay}"
-                                Style="{StaticResource ChipStyle}" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <ItemsControl
-                    Margin="0,8,0,0"
-                    ItemsSource="{x:Bind ViewModel.CustomTopics}"
-                    Visibility="{x:Bind ViewModel.HasCustomTopics, Mode=OneWay}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:TopicViewModel">
-                            <!--  Chip toggles the search on/off; the small x removes it  -->
-                            <StackPanel Orientation="Horizontal" Spacing="2">
-                                <ToggleButton
-                                    AutomationProperties.Name="{x:Bind Label}"
-                                    Content="{x:Bind Label}"
-                                    IsChecked="{x:Bind IsEnabled, Mode=TwoWay}"
-                                    Style="{StaticResource ChipStyle}" />
-                                <Button
-                                    Width="30"
-                                    Height="30"
-                                    VerticalAlignment="Center"
-                                    AutomationProperties.Name="Remove search"
-                                    Command="{x:Bind RemoveCommand}"
-                                    Style="{StaticResource IconButtonStyle}"
-                                    ToolTipService.ToolTip="Remove">
-                                    <FontIcon FontSize="10" Glyph="&#xE711;" />
-                                </Button>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-                <!--  Exclusions  -->
-                <TextBlock Margin="2,36,0,12" Style="{StaticResource SectionHeaderStyle}" Text="Exclude" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBox
-                        Width="260"
-                        AutomationProperties.Name="Keyword to exclude"
-                        KeyDown="NewKeyword_KeyDown"
-                        PlaceholderText="e.g. people"
-                        Style="{StaticResource PillTextBoxStyle}"
-                        Text="{x:Bind ViewModel.NewKeyword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    <Button
-                        Command="{x:Bind ViewModel.AddKeywordCommand}"
-                        Content="Exclude"
-                        Style="{StaticResource PillButtonStyle}" />
-                </StackPanel>
-                <ItemsControl Margin="0,12,0,0" ItemsSource="{x:Bind ViewModel.ExcludedKeywords}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:KeywordViewModel">
-                            <Button
-                                AutomationProperties.Name="{x:Bind Keyword}"
-                                Command="{x:Bind RemoveCommand}"
-                                Style="{StaticResource PillButtonStyle}"
-                                ToolTipService.ToolTip="Remove">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="{x:Bind Keyword}" />
-                                    <FontIcon FontSize="9" Glyph="&#xE711;" />
-                                </StackPanel>
-                            </Button>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
             </StackPanel>
         </Grid>
     </ScrollViewer>

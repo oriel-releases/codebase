@@ -7,6 +7,25 @@ service cloud.firestore {
       allow get: if true;
     }
 
+    // One document per account, keyed by Firebase uid. Only its owner can touch it.
+    match /users/{uid} {
+      allow get: if request.auth.uid == uid;
+      allow create: if request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email', 'displayName', 'photoURL', 'createdAt'])
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.createdAt == request.time;
+      allow update: if request.auth.uid == uid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.keys().hasOnly(['email', 'displayName', 'photoURL', 'createdAt'])
+        && request.resource.data.email == request.auth.token.email;
+
+      // One document per signed-in app, extension or device. The app deletes its own on sign-out;
+      // a missing document means that sign-in was revoked.
+      match /sessions/{sessionId} {
+        allow read, create, update, delete: if request.auth.uid == uid;
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

@@ -3,67 +3,72 @@
     x:Class="Oriel.UI.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Oriel.UI.Controls"
     Title="Oriel">
 
-    <Grid Background="{ThemeResource OrielPaperBrush}">
+    <!--  No background here: the window's Mica backdrop shows through, like the Settings app.  -->
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!--  The title bar is the app header: logo, tabs, settings. Controls in it stay clickable.  -->
-        <TitleBar x:Name="AppTitleBar" Height="52" Title="Oriel (Beta)">
+        <TitleBar x:Name="AppTitleBar" Title="Oriel (Beta)">
             <TitleBar.IconSource>
                 <ImageIconSource ImageSource="{ThemeResource OrielLogoImage}" />
             </TitleBar.IconSource>
-            <TitleBar.Content>
-                <Grid
-                    Padding="3"
-                    HorizontalAlignment="Center"
-                    Background="{ThemeResource OrielSurfaceBrush}"
-                    CornerRadius="{StaticResource OrielPillRadius}">
-                    <Border
-                        x:Name="TabIndicator"
-                        Background="{ThemeResource OrielInkBrush}"
-                        CornerRadius="{StaticResource OrielTabItemRadius}" />
-                    <StackPanel
-                        x:Name="TabStrip"
-                        Orientation="Horizontal"
-                        Spacing="2">
-                        <RadioButton
-                            Checked="Tab_Checked"
-                            Content="Home"
-                            GroupName="Nav"
-                            IsChecked="True"
-                            Style="{StaticResource PillTabStyle}"
-                            Tag="home" />
-                        <RadioButton
-                            Checked="Tab_Checked"
-                            Content="Collections"
-                            GroupName="Nav"
-                            Style="{StaticResource PillTabStyle}"
-                            Tag="collections" />
-                        <RadioButton
-                            Checked="Tab_Checked"
-                            Content="History"
-                            GroupName="Nav"
-                            Style="{StaticResource PillTabStyle}"
-                            Tag="history" />
-                        <RadioButton
-                            Checked="Tab_Checked"
-                            Content="Settings"
-                            GroupName="Nav"
-                            Style="{StaticResource PillTabStyle}"
-                            Tag="settings" />
-                    </StackPanel>
-                </Grid>
-            </TitleBar.Content>
         </TitleBar>
 
-        <Frame
-            x:Name="ContentFrame"
+        <!--  Left pane like the Windows Settings app; Settings sits at the bottom of the pane.  -->
+        <NavigationView
+            x:Name="Nav"
             Grid.Row="1"
-            HorizontalContentAlignment="Stretch"
-            VerticalContentAlignment="Stretch" />
+            IsBackButtonVisible="Collapsed"
+            IsSettingsVisible="True"
+            OpenPaneLength="240"
+            IsPaneOpen="False"
+            PaneDisplayMode="Left"
+            ItemInvoked="Nav_ItemInvoked"
+            SelectionChanged="Nav_SelectionChanged">
+            <NavigationView.Resources>
+                <!--  The pane and page share the window's paper colour; no card or border around the page.  -->
+                <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+                <Thickness x:Key="NavigationViewContentGridBorderThickness">0</Thickness>
+                <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="Transparent" />
+                <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="Transparent" />
+                <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="{ThemeResource OrielSurface}" />
+                <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="{ThemeResource OrielLine}" />
+                <SolidColorBrush x:Key="NavigationViewItemBackgroundPointerOver" Color="{ThemeResource OrielSurface}" />
+                <SolidColorBrush x:Key="NavigationViewSelectionIndicatorForeground" Color="{ThemeResource OrielInk}" />
+            </NavigationView.Resources>
+            <NavigationView.MenuItems>
+                <NavigationViewItem
+                    Content="Home"
+                    IsSelected="True"
+                    Tag="home">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE80F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Search" Tag="collections">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE721;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="History" Tag="history">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE81C;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <Frame
+                x:Name="ContentFrame"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch" />
+        </NavigationView>
+
+        <!--  Covers the app until the account is signed in.  -->
+        <controls:SignInView x:Name="SignIn" Grid.Row="1" Visibility="Collapsed" />
     </Grid>
 </Window>

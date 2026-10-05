@@ -24,7 +24,7 @@
     <!-- We own Main() so the same exe can run headless (apply-today CLI mode). -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
 
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <Product>Oriel</Product>
   </PropertyGroup>
 
@@ -36,6 +36,7 @@
   <ItemGroup>
     <Content Include="Assets\AppIcon.ico" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\AppIcon.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\GoogleG.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\Logo.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\Logo-Dark.png" CopyToOutputDirectory="PreserveNewest" />
     <Manifest Include="$(ApplicationManifest)" />

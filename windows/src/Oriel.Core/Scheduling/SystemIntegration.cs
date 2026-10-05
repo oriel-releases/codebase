@@ -24,6 +24,26 @@ public sealed class StartupRegistration : IStartupRegistration
     }
 }
 
+/// <summary>
+/// Makes <c>oriel://</c> links (the website's "Open Oriel" button) launch this exe with the link as its argument.
+/// Per user, no admin needed; re-registered on every start so it follows the installed copy across updates.
+/// </summary>
+public static class ProtocolRegistration
+{
+    const string Key = @"Software\Classes\oriel";
+
+    public static void Register(string exePath)
+    {
+        using var key = Registry.CurrentUser.CreateSubKey(Key);
+        key.SetValue("", "URL:Oriel");
+        key.SetValue("URL Protocol", "");
+        using var command = key.CreateSubKey(@"shell\open\command");
+        command.SetValue("", $"\"{exePath}\" \"%1\"");
+    }
+
+    public static void Unregister() => Registry.CurrentUser.DeleteSubKeyTree(Key, throwOnMissingSubKey: false);
+}
+
 public interface IScheduledTasks
 {
     /// <summary>

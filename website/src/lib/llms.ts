@@ -14,7 +14,7 @@ export function buildLlmsTxt(): string {
     "",
     "## Key facts",
     `- Platform: ${release.requirements}`,
-    `- Price: free, no account or API key needed`,
+    `- Price: free, sign in with Google, no API key needed`,
     `- Latest version: ${release.version} (${release.releasedOn})`,
     `- Download: ${absoluteUrl(routes.download)}`,
     `- Photos: from Unsplash, credited to their photographers`,

@@ -2,7 +2,7 @@
 
 export const downloadPage = {
   title: "Download Oriel",
-  body: "Free, no account, no setup. Your first wallpaper arrives a moment after you open it.",
+  body: "Free, just sign in with Google. Your first wallpaper arrives a moment after you open it.",
   installSteps: [
     "Open Oriel-Setup.exe. It installs in seconds, no admin needed.",
     "If Windows says it protected your PC, click More info, then Run anyway.",
