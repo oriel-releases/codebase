@@ -26,8 +26,11 @@ public sealed class StartupRegistration : IStartupRegistration
 
 public interface IScheduledTasks
 {
-    /// <summary>Daily run at <paramref name="time"/>, plus one at sign-in when <paramref name="atSignIn"/>.</summary>
-    bool Register(string exePath, TimeOnly time, bool atSignIn);
+    /// <summary>
+    /// Daily run at <paramref name="time"/> (repeating every <paramref name="repeatEvery"/> through the day
+    /// for a slideshow), plus one at sign-in when <paramref name="atSignIn"/>.
+    /// </summary>
+    bool Register(string exePath, TimeOnly time, bool atSignIn, TimeSpan? repeatEvery = null);
 
     /// <summary>One-shot run after a failed change (offline, rate limited). Replaces any earlier retry.</summary>
     bool ScheduleRetry(string exePath, DateTimeOffset at);
@@ -46,11 +49,15 @@ public sealed class TaskSchedulerRegistration(ILogger<TaskSchedulerRegistration>
     public const string DailyTask = @"Oriel\ApplyToday";
     public const string RetryTask = @"Oriel\Retry";
 
-    public bool Register(string exePath, TimeOnly time, bool atSignIn)
+    public bool Register(string exePath, TimeOnly time, bool atSignIn, TimeSpan? repeatEvery = null)
     {
         var start = DateTime.Today.Add(time.ToTimeSpan()).ToString("yyyy-MM-ddTHH:mm:ss");
+        var repetition = repeatEvery is { } every
+            ? $"<Repetition><Interval>PT{(int)every.TotalMinutes}M</Interval><Duration>P1D</Duration></Repetition>"
+            : "";
         var trigger = $"""
             <CalendarTrigger>
+              {repetition}
               <StartBoundary>{start}</StartBoundary>
               <ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay>
             </CalendarTrigger>

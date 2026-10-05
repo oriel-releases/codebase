@@ -27,6 +27,8 @@ public sealed class UpdateService(ILogger<UpdateService> log) : IDisposable
     public event EventHandler? StateChanged;
 
     public UpdateState State { get; private set; }
+    /// <summary>Download progress, 0 to 100.</summary>
+    public int Progress { get; private set; }
     public string? AvailableVersion => _pending?.TargetFullRelease.Version.ToString();
     public bool IsInstalled => _manager.IsInstalled;
 
@@ -49,8 +51,14 @@ public sealed class UpdateService(ILogger<UpdateService> log) : IDisposable
                 return;
             }
             _pending = update;
+            Progress = 0;
             Set(UpdateState.Downloading);
-            await _manager.DownloadUpdatesAsync(update);
+            await _manager.DownloadUpdatesAsync(update, p =>
+            {
+                if (p == Progress) return;
+                Progress = p;
+                StateChanged?.Invoke(this, EventArgs.Empty);
+            });
             log.LogInformation("Update {Version} downloaded", AvailableVersion);
             Set(UpdateState.ReadyToRestart);
         }

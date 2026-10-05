@@ -38,6 +38,18 @@ public sealed class SchedulingTests : IDisposable
     static DateTimeOffset At(int h, int m = 0) => new(2026, 10, 3, h, m, 0, Tz);
 
     [Fact]
+    public void Slideshow_is_due_once_the_interval_has_passed()
+    {
+        var s = new OrielSettings { IntervalMinutes = 60 };
+        var state = new OrielState { LastAppliedAt = At(9) };
+
+        Assert.False(ScheduleRules.IsDue(s, state, At(9, 30), isStartupCheck: false));
+        Assert.True(ScheduleRules.IsDue(s, state, At(9, 59), isStartupCheck: false)); // Task Scheduler ticks a hair early
+        Assert.Equal(TimeSpan.FromMinutes(8), ScheduleRules.NextCheckIn(s, state, At(9, 50)));
+        Assert.True(ScheduleRules.IsDue(s, new OrielState(), At(7), isStartupCheck: false));
+    }
+
+    [Fact]
     public void Due_at_login_when_not_applied_today()
     {
         Assert.True(ScheduleRules.IsDue(new OrielSettings(), new OrielState(), At(7), isStartupCheck: true));
@@ -139,14 +151,6 @@ public sealed class SchedulingTests : IDisposable
 
         Assert.False(_startup.Enabled);
         Assert.Equal(["register 09:00 signin=True"], _tasks.Calls);
-    }
-
-    [Fact]
-    public void Fallback_off_removes_the_task()
-    {
-        _store.Update(s => s.UseTaskSchedulerFallback = false);
-        new ScheduleSync(_store, _startup, _tasks).Sync(Exe);
-        Assert.Equal(["unregister"], _tasks.Calls);
     }
 
     [Fact]

@@ -12,6 +12,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        _ = new Controls.TabHighlight(TabStrip, TabIndicator);
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);

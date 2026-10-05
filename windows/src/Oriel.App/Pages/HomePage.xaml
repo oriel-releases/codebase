@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <ScrollViewer>
+        <Grid>
         <StackPanel
             MaxWidth="{StaticResource PageMaxWidth}"
             Margin="{StaticResource PageContentMargin}"
@@ -68,11 +69,6 @@
                             FontWeight="SemiBold"
                             NavigateUri="{x:Bind ViewModel.PhotoPageUri, Mode=OneWay}" />
                     </StackPanel>
-                    <TextBlock
-                        Style="{StaticResource MutedTextStyle}"
-                        Text="{x:Bind ViewModel.Caption, Mode=OneWay}"
-                        TextTrimming="CharacterEllipsis"
-                        TextWrapping="NoWrap" />
                 </StackPanel>
 
                 <StackPanel
@@ -88,13 +84,6 @@
                         ToolTipService.ToolTip="Favorite: keep this one forever">
                         <FontIcon FontSize="15" Glyph="&#xE734;" />
                     </ToggleButton>
-                    <Button
-                        AutomationProperties.Name="Open in folder"
-                        Command="{x:Bind ViewModel.OpenInFolderCommand}"
-                        Style="{StaticResource IconButtonStyle}"
-                        ToolTipService.ToolTip="Show the file in File Explorer">
-                        <FontIcon FontSize="15" Glyph="&#xED25;" />
-                    </Button>
                     <Button
                         Height="36"
                         AutomationProperties.Name="Change wallpaper now"
@@ -117,37 +106,7 @@
                     </Button>
                 </StackPanel>
             </Grid>
-
-            <!--  Schedule  -->
-            <Grid
-                Margin="0,8,0,0"
-                Padding="20,8,12,8"
-                Background="{ThemeResource OrielSurfaceBrush}"
-                ColumnSpacing="12"
-                CornerRadius="{StaticResource OrielMediumRadius}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <FontIcon
-                    VerticalAlignment="Center"
-                    FontSize="15"
-                    Foreground="{ThemeResource OrielMutedBrush}"
-                    Glyph="&#xE823;" />
-                <TextBlock Grid.Column="1" VerticalAlignment="Center">
-                    <Run Foreground="{ThemeResource OrielMutedBrush}" Text="Next change" />
-                    <Run Text="  " />
-                    <Run Text="{x:Bind ViewModel.NextChangeText, Mode=OneWay}" />
-                </TextBlock>
-                <ToggleSwitch
-                    Grid.Column="2"
-                    MinWidth="0"
-                    AutomationProperties.Name="Pause daily changes"
-                    IsOn="{x:Bind ViewModel.IsPaused, Mode=TwoWay}"
-                    OffContent="Pause"
-                    OnContent="Paused" />
-            </Grid>
         </StackPanel>
+        </Grid>
     </ScrollViewer>
 </Page>

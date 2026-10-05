@@ -1,7 +1,13 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Oriel.Core.Models;
+using Oriel.Core.Providers;
+using Oriel.Core.Services;
 using Oriel.Core.Settings;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Oriel.UI.ViewModels;
 
@@ -27,30 +33,80 @@ public sealed partial class KeywordViewModel(CollectionsViewModel owner, string 
     void Remove() => owner.RemoveKeyword(this);
 }
 
+/// <summary>One search result: a photo the user can set as the wallpaper.</summary>
+public sealed partial class PhotoResultViewModel(CollectionsViewModel owner, PhotoCandidate photo) : ObservableObject
+{
+    public PhotoCandidate Photo { get; } = photo;
+    public string PhotographerName => Photo.PhotographerName;
+    public Uri PhotographerUri { get; } = new(photo.PhotographerUrl);
+    public string Description => Photo.Description ?? "";
+    public string Size => $"{Photo.Width} × {Photo.Height}";
+
+    public ImageSource Thumbnail { get; } = new BitmapImage(new Uri(photo.ThumbnailUrl))
+    {
+        DecodePixelWidth = 360,
+        DecodePixelType = DecodePixelType.Logical,
+    };
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsIdle))]
+    public partial bool IsBusy { get; set; }
+    public bool IsIdle => !IsBusy;
+
+    [RelayCommand]
+    Task Set() => owner.SetAsync(this);
+}
+
 public sealed partial class CollectionsViewModel : ObservableObject
 {
-    readonly ISettingsStore _settings;
-    bool _loading;
+    const int MinResultsPerSearch = 6;
+    const int MaxPagesPerSearch = 3;
 
-    public CollectionsViewModel(ISettingsStore settings)
+    readonly ISettingsStore _settings;
+    readonly WallpaperService _wallpapers;
+    bool _loading;
+    string _query = "";
+    int _page;
+
+    public CollectionsViewModel(ISettingsStore settings, WallpaperService wallpapers)
     {
         _settings = settings;
+        _wallpapers = wallpapers;
         Load();
     }
 
     public ObservableCollection<TopicViewModel> BuiltInTopics { get; } = [];
     public ObservableCollection<TopicViewModel> CustomTopics { get; } = [];
     public ObservableCollection<KeywordViewModel> ExcludedKeywords { get; } = [];
+    public ObservableCollection<PhotoResultViewModel> Results { get; } = [];
 
+    // Search
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(AddTopicCommand))]
-    public partial string NewTopic { get; set; } = "";
+    [NotifyCanExecuteChangedFor(nameof(SearchCommand))]
+    public partial string SearchText { get; set; } = "";
+    [ObservableProperty] public partial string ResultsTitle { get; set; } = "";
+    [ObservableProperty] public partial bool HasSearched { get; set; }
+    [ObservableProperty] public partial bool HasNoResults { get; set; }
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(LoadMoreCommand))]
+    public partial bool CanLoadMore { get; set; }
+    [ObservableProperty] public partial bool CanAddToMix { get; set; }
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SearchCommand))]
+    [NotifyCanExecuteChangedFor(nameof(LoadMoreCommand))]
+    public partial bool IsSearching { get; set; }
 
+    // Result of searching or setting a wallpaper
+    [ObservableProperty] public partial bool IsInfoOpen { get; set; }
+    [ObservableProperty] public partial string InfoTitle { get; set; } = "";
+    [ObservableProperty] public partial string InfoMessage { get; set; } = "";
+    [ObservableProperty] public partial InfoBarSeverity InfoSeverity { get; set; }
+
+    // Keywords
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AddKeywordCommand))]
     public partial string NewKeyword { get; set; } = "";
 
-    [ObservableProperty] public partial string Summary { get; set; } = "";
     [ObservableProperty] public partial bool NothingEnabled { get; set; }
     [ObservableProperty] public partial bool HasCustomTopics { get; set; }
     [ObservableProperty]
@@ -72,6 +128,14 @@ public sealed partial class CollectionsViewModel : ObservableObject
         UpdateSummary();
     }
 
+    /// <summary>Window closed: drop the result thumbnails.</summary>
+    public void Release()
+    {
+        Results.Clear();
+        HasSearched = false;
+        CanLoadMore = false;
+    }
+
     internal void Save()
     {
         if (_loading) return;
@@ -87,25 +151,96 @@ public sealed partial class CollectionsViewModel : ObservableObject
 
     void UpdateSummary()
     {
-        var on = BuiltInTopics.Concat(CustomTopics).Count(t => t.IsEnabled);
-        NothingEnabled = on == 0;
-        Summary = on switch
-        {
-            0 => "No topics on",
-            1 => "1 topic on. Every day uses it.",
-            _ => $"{on} topics on. Each day picks one at random.",
-        };
+        NothingEnabled = !BuiltInTopics.Concat(CustomTopics).Any(t => t.IsEnabled);
         HasCustomTopics = CustomTopics.Count > 0;
         HasKeywords = ExcludedKeywords.Count > 0;
+        CanAddToMix = HasSearched && !BuiltInTopics.Concat(CustomTopics)
+            .Any(t => t.Query.Equals(_query, StringComparison.OrdinalIgnoreCase));
     }
 
-    bool CanAddTopic() => !string.IsNullOrWhiteSpace(NewTopic);
+    // ---- Search and set ----
 
-    [RelayCommand(CanExecute = nameof(CanAddTopic))]
-    void AddTopic()
+    bool CanSearch() => !IsSearching && !string.IsNullOrWhiteSpace(SearchText);
+
+    [RelayCommand(CanExecute = nameof(CanSearch))]
+    async Task Search()
     {
-        var q = NewTopic.Trim().ToLowerInvariant();
-        NewTopic = "";
+        _query = SearchText.Trim();
+        _page = 0;
+        IsInfoOpen = false;
+        Results.Clear();
+        CanLoadMore = false;
+        HasSearched = true;
+        ResultsTitle = $"Results for “{_query}”";
+        await LoadPagesAsync();
+    }
+
+    bool CanLoadMoreResults() => !IsSearching && CanLoadMore;
+
+    [RelayCommand(CanExecute = nameof(CanLoadMoreResults))]
+    Task LoadMore() => LoadPagesAsync();
+
+    /// <summary>Loads the next page, and one or two more if too few photos were big enough for the screen.</summary>
+    async Task LoadPagesAsync()
+    {
+        IsSearching = true;
+        try
+        {
+            var added = 0;
+            for (var i = 0; i < MaxPagesPerSearch && added < MinResultsPerSearch; i++)
+            {
+                var found = await _wallpapers.SearchAsync(_query, ++_page);
+                foreach (var photo in found.Photos) Results.Add(new PhotoResultViewModel(this, photo));
+                added += found.Photos.Count;
+                CanLoadMore = _page < found.TotalPages;
+                if (!CanLoadMore) break;
+            }
+        }
+        catch (ProviderException ex)
+        {
+            ShowInfo(ex.Kind is ProviderErrorKind.MissingKey or ProviderErrorKind.Unauthorized
+                ? InfoBarSeverity.Error : InfoBarSeverity.Warning, "Couldn't search", ex.Message);
+        }
+        finally
+        {
+            IsSearching = false;
+            HasNoResults = HasSearched && Results.Count == 0 && !IsInfoOpen;
+            UpdateSummary();
+        }
+    }
+
+    internal async Task SetAsync(PhotoResultViewModel item)
+    {
+        if (Results.Any(r => r.IsBusy)) return;
+        item.IsBusy = true;
+        IsInfoOpen = false;
+        try
+        {
+            var result = await Task.Run(() => _wallpapers.ApplyPhotoAsync(item.Photo, _query));
+            if (result.Status != ApplyStatus.Applied)
+                ShowInfo(InfoBarSeverity.Warning, "Couldn't set the wallpaper", result.Error ?? "Try again.");
+        }
+        finally
+        {
+            item.IsBusy = false;
+        }
+    }
+
+    void ShowInfo(InfoBarSeverity severity, string title, string message)
+    {
+        InfoSeverity = severity;
+        InfoTitle = title;
+        InfoMessage = message;
+        IsInfoOpen = true;
+    }
+
+    // ---- Topic mix ----
+
+    [RelayCommand]
+    void AddToMix()
+    {
+        var q = _query.Trim().ToLowerInvariant();
+        if (q.Length == 0) return;
         var existing = BuiltInTopics.Concat(CustomTopics).FirstOrDefault(t => t.Query.Equals(q, StringComparison.OrdinalIgnoreCase));
         if (existing is not null)
         {

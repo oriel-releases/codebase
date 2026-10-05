@@ -4,6 +4,9 @@ namespace Oriel.Core.Providers;
 
 public sealed record ImageQuery(string Query, PixelSize TargetSize, int Count = 10);
 
+/// <summary>One page of search results, most relevant first.</summary>
+public sealed record SearchPage(IReadOnlyList<PhotoCandidate> Photos, int TotalPages);
+
 /// <summary>
 /// A source of random photos. Unsplash today; Pexels / Bing / Wikimedia later.
 /// </summary>
@@ -15,6 +18,9 @@ public interface IImageProvider
     bool IsConfigured { get; }
 
     Task<IReadOnlyList<PhotoCandidate>> GetRandomAsync(ImageQuery query, CancellationToken ct);
+
+    /// <summary>Photos matching the words, most relevant first. Pages start at 1.</summary>
+    Task<SearchPage> SearchAsync(string query, int page, CancellationToken ct);
 
     /// <summary>Downloads the photo sized for <paramref name="size"/> as JPEG bytes.</summary>
     Task<byte[]> DownloadAsync(PhotoCandidate photo, PixelSize size, CancellationToken ct);

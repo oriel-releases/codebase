@@ -9,6 +9,15 @@ public static class ScheduleRules
     /// <summary>Longest sleep between checks: catches sleep/resume and clock changes without system hooks.</summary>
     public static readonly TimeSpan MaxWait = TimeSpan.FromMinutes(10);
 
+    /// <summary>A slideshow tick may land a moment before the interval is up (Task Scheduler repeats on a fixed grid).</summary>
+    static readonly TimeSpan Slack = TimeSpan.FromMinutes(2);
+
+    /// <summary>True when the wallpaper was already changed for the current day (or slideshow interval).</summary>
+    public static bool IsFresh(OrielSettings settings, OrielState state, DateTimeOffset now) =>
+        settings.Interval is { } interval
+            ? state.LastAppliedAt is { } at && now - at < interval - Slack
+            : state.LastAppliedDate == DateOnly.FromDateTime(now.LocalDateTime);
+
     /// <summary>
     /// Should we change the wallpaper now?
     /// At login (first check after start) if today's isn't set yet; otherwise once the daily time has passed.
@@ -16,9 +25,9 @@ public static class ScheduleRules
     public static bool IsDue(OrielSettings settings, OrielState state, DateTimeOffset now, bool isStartupCheck)
     {
         if (settings.Paused) return false;
-        var today = DateOnly.FromDateTime(now.LocalDateTime);
-        if (state.LastAppliedDate == today) return false;
+        if (IsFresh(settings, state, now)) return false;
         if (state.NextRetryAt is { } retry && now < retry) return false;
+        if (settings.Interval is not null) return true;
         if (isStartupCheck && settings.ApplyAtLogin) return true;
         return TimeOnly.FromDateTime(now.LocalDateTime) >= settings.GetDailyTime();
     }
@@ -27,6 +36,14 @@ public static class ScheduleRules
     public static TimeSpan NextCheckIn(OrielSettings settings, OrielState state, DateTimeOffset now)
     {
         if (settings.Paused) return MaxWait;
+        if (settings.Interval is { } interval)
+        {
+            var due = state.LastAppliedAt is { } at ? at + interval - Slack : now;
+            if (state.NextRetryAt is { } r && r > due) due = r;
+            var wait = due - now;
+            return wait < TimeSpan.FromSeconds(1) ? TimeSpan.FromSeconds(1) : wait > MaxWait ? MaxWait : wait;
+        }
+
         var local = now.LocalDateTime;
         var dailyAt = local.Date + settings.GetDailyTime().ToTimeSpan();
         if (state.LastAppliedDate == DateOnly.FromDateTime(local) || local >= dailyAt) dailyAt = dailyAt.AddDays(1);

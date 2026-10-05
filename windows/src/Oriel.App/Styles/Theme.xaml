@@ -14,6 +14,8 @@
         minus padding so corners stay concentric.
     -->
     <CornerRadius x:Key="OrielPillRadius">12</CornerRadius>
+    <!--  Tab inside the 3px-padded tab strip: strip radius minus padding, so the corners are concentric  -->
+    <CornerRadius x:Key="OrielTabItemRadius">9</CornerRadius>
     <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
     <CornerRadius x:Key="OverlayCornerRadius">12</CornerRadius>
     <CornerRadius x:Key="OrielMediumRadius">12</CornerRadius>
@@ -129,9 +131,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Grid CornerRadius="{StaticResource OrielPillRadius}">
-                        <Border x:Name="HoverFill" Background="{ThemeResource OrielLineBrush}" Opacity="0" />
-                        <Border x:Name="CheckedFill" Background="{ThemeResource OrielInkBrush}" Opacity="0" />
+                    <Grid CornerRadius="{StaticResource OrielTabItemRadius}">
                         <ContentPresenter
                             x:Name="ContentPresenter"
                             Padding="{TemplateBinding Padding}"
@@ -143,16 +143,8 @@
                         <VisualStateManager.VisualStateGroups>
                             <VisualStateGroup x:Name="CommonStates">
                                 <VisualState x:Name="Normal" />
-                                <VisualState x:Name="PointerOver">
-                                    <VisualState.Setters>
-                                        <Setter Target="HoverFill.Opacity" Value="1" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                                <VisualState x:Name="Pressed">
-                                    <VisualState.Setters>
-                                        <Setter Target="HoverFill.Opacity" Value="1" />
-                                    </VisualState.Setters>
-                                </VisualState>
+                                <VisualState x:Name="PointerOver" />
+                                <VisualState x:Name="Pressed" />
                                 <VisualState x:Name="Disabled">
                                     <VisualState.Setters>
                                         <Setter Target="ContentPresenter.Opacity" Value="0.4" />
@@ -162,7 +154,6 @@
                             <VisualStateGroup x:Name="CheckStates">
                                 <VisualState x:Name="Checked">
                                     <VisualState.Setters>
-                                        <Setter Target="CheckedFill.Opacity" Value="1" />
                                         <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource OrielPaperBrush}" />
                                     </VisualState.Setters>
                                 </VisualState>

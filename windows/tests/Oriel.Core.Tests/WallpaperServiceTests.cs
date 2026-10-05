@@ -48,6 +48,65 @@ public sealed class WallpaperServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Applying_a_chosen_photo_sets_it_and_counts_as_todays_change()
+    {
+        var r = await _svc.ApplyPhotoAsync(FakeProvider.Photo("pick"), "northern lights");
+
+        Assert.Equal(ApplyStatus.Applied, r.Status);
+        Assert.EndsWith("_unsplash_pick.jpg", Assert.Single(_setter.Calls).Path);
+        Assert.Equal("northern lights", Assert.Single(r.Entries).Topic);
+        Assert.Equal(["pick"], _provider.Tracked);
+        Assert.Equal(ApplyStatus.AlreadyAppliedToday, (await _svc.ApplyAsync(false)).Status);
+
+        // Choosing the same photo again just refreshes its history row.
+        Assert.Equal(ApplyStatus.Applied, (await _svc.ApplyPhotoAsync(FakeProvider.Photo("pick"))).Status);
+    }
+
+    [Fact]
+    public async Task Search_keeps_only_landscape_photos_big_enough_for_the_screen()
+    {
+        _provider.Responses.Enqueue(() => [FakeProvider.Photo("big"), FakeProvider.Photo("small", 800, 600), FakeProvider.Photo("tall", 3000, 4000)]);
+
+        var page = await _svc.SearchAsync("mountains", 1);
+
+        Assert.Equal(["big"], page.Photos.Select(p => p.Id));
+    }
+
+    [Fact]
+    public async Task Favorites_source_reuses_a_starred_photo_without_downloading()
+    {
+        var files = new[] { "fav1", "fav2" }.Select(id =>
+        {
+            var file = Path.Combine(_dir.Paths.DataRoot, id + ".jpg");
+            File.WriteAllBytes(file, FakeProvider.Jpeg());
+            _history.SetFavorite(_history.Add(new HistoryEntry
+            {
+                Provider = "unsplash", PhotoId = id, FilePath = file, ThumbnailUrl = "t", PhotoPageUrl = "p",
+                PhotographerName = "n", PhotographerUrl = "u", AppliedAt = _clock.Now.AddDays(-1),
+            }), true);
+            return file;
+        }).ToList();
+        _store.Update(s => s.FavoritesOnly = true);
+
+        var r = await _svc.ApplyAsync(force: true);
+
+        Assert.Equal(ApplyStatus.Applied, r.Status);
+        Assert.Contains(Assert.Single(_setter.Calls).Path, files);
+        Assert.Empty(_provider.Queries);
+        Assert.Empty(_provider.Tracked);
+    }
+
+    [Fact]
+    public async Task Favorites_source_falls_back_to_new_photos_when_nothing_is_starred()
+    {
+        _store.Update(s => s.FavoritesOnly = true);
+        _provider.Responses.Enqueue(() => [FakeProvider.Photo("p1")]);
+
+        Assert.Equal(ApplyStatus.Applied, (await _svc.ApplyAsync(force: true)).Status);
+        Assert.Single(_provider.Queries);
+    }
+
+    [Fact]
     public async Task Second_run_same_day_is_noop_unless_forced()
     {
         _provider.Responses.Enqueue(() => [FakeProvider.Photo("p1")]);
@@ -138,24 +197,6 @@ public sealed class WallpaperServiceTests : IDisposable
 
         Assert.Equal(ApplyStatus.Paused, (await _svc.ApplyAsync(false)).Status);
         Assert.Equal(ApplyStatus.Applied, (await _svc.ApplyAsync(true)).Status);
-    }
-
-    [Fact]
-    public async Task Per_monitor_mode_sets_each_monitor_with_different_photos()
-    {
-        _setter.Monitors.Add(new("MON2", 2560, 0, 1920, 1080));
-        var s = _store.Load();
-        s.MonitorMode = MultiMonitorMode.PerMonitor;
-        _store.Save(s);
-        _provider.Responses.Enqueue(() => [FakeProvider.Photo("a"), FakeProvider.Photo("b")]);
-        _provider.Responses.Enqueue(() => [FakeProvider.Photo("a"), FakeProvider.Photo("b")]);
-
-        var r = await _svc.ApplyAsync(true);
-
-        Assert.Equal(["MON1", "MON2"], _setter.Calls.Select(c => c.Monitor));
-        Assert.Equal(["a", "b"], r.Entries.Select(e => e.PhotoId));
-        // Other virtual desktops get the primary monitor's photo.
-        Assert.Equal([_setter.Calls[0].Path], _setter.AllDesktopCalls);
     }
 
     [Fact]

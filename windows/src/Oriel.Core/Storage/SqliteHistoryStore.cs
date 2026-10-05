@@ -90,8 +90,10 @@ public sealed class SqliteHistoryStore : IHistoryStore
         cmd.CommandText = """
             INSERT INTO history (provider, photo_id, file_path, thumbnail_url, photo_page_url,
                 photographer_name, photographer_url, description, topic, monitor_path, applied_at, is_favorite)
-            VALUES ($provider, $photo_id, $file_path, $thumb, $page, $pname, $purl, $desc, $topic, $mon, $at, $fav);
-            SELECT last_insert_rowid();
+            VALUES ($provider, $photo_id, $file_path, $thumb, $page, $pname, $purl, $desc, $topic, $mon, $at, $fav)
+            ON CONFLICT (provider, photo_id) DO UPDATE SET file_path = excluded.file_path,
+                topic = excluded.topic, applied_at = excluded.applied_at, is_deleted = 0;
+            SELECT id FROM history WHERE provider = $provider AND photo_id = $photo_id;
             """;
         cmd.Parameters.AddWithValue("$provider", e.Provider);
         cmd.Parameters.AddWithValue("$photo_id", e.PhotoId);

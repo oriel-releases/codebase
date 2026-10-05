@@ -14,10 +14,10 @@ public sealed partial class CollectionsPage : Page
         InitializeComponent();
     }
 
-    void NewTopic_KeyDown(object sender, KeyRoutedEventArgs e)
+    void Search_KeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key != VirtualKey.Enter || !ViewModel.AddTopicCommand.CanExecute(null)) return;
-        ViewModel.AddTopicCommand.Execute(null);
+        if (e.Key != VirtualKey.Enter || !ViewModel.SearchCommand.CanExecute(null)) return;
+        ViewModel.SearchCommand.Execute(null);
         e.Handled = true;
     }
 

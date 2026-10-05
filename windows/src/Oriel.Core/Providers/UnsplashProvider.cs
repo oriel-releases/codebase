@@ -23,18 +23,33 @@ public sealed class UnsplashProvider(HttpClient http, IApiKeyStore keys, ILogger
 
     public async Task<IReadOnlyList<PhotoCandidate>> GetRandomAsync(ImageQuery query, CancellationToken ct)
     {
-        var url = $"{ApiBase}photos/random?orientation=landscape&content_filter=high" +
-                  $"&count={Math.Clamp(query.Count, 1, 30)}&query={Uri.EscapeDataString(query.Query)}";
+        // Relevance first: pick from the best matches (a random one of the first few pages, so
+        // days differ) instead of Unsplash's loosely-related random endpoint.
+        var page = Random.Shared.Next(1, 4);
+        var found = await SearchAsync(query.Query, page, ct);
+        if (found.Photos.Count == 0 && page > 1) found = await SearchAsync(query.Query, 1, ct);
+        if (found.Photos.Count == 0)
+            throw new ProviderException(ProviderErrorKind.NoResults, "No photos found for that topic.");
+
+        var shuffled = found.Photos.ToArray();
+        Random.Shared.Shuffle(shuffled);
+        return shuffled;
+    }
+
+    public async Task<SearchPage> SearchAsync(string query, int page, CancellationToken ct)
+    {
+        var url = $"{ApiBase}search/photos?orientation=landscape&content_filter=high&order_by=relevant" +
+                  $"&per_page=30&page={Math.Max(1, page)}&query={Uri.EscapeDataString(query)}";
 
         using var resp = await SendApiAsync(url, ct);
         await using var stream = await resp.Content.ReadAsStreamAsync(ct);
         try
         {
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
-            var list = doc.RootElement.ValueKind == JsonValueKind.Array
-                ? doc.RootElement.EnumerateArray().Select(Parse).ToList()
-                : [Parse(doc.RootElement)];
-            return list;
+            var root = doc.RootElement;
+            var photos = root.GetProperty("results").EnumerateArray().Select(Parse).ToList();
+            var pages = root.TryGetProperty("total_pages", out var tp) && tp.ValueKind == JsonValueKind.Number ? tp.GetInt32() : 1;
+            return new SearchPage(photos, pages);
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
         {

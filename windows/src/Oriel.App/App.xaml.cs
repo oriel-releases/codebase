@@ -51,6 +51,7 @@ public partial class App : Application
         {
             services.AddSingleton<TrayIconService>();
             services.AddSingleton<UpdateService>();
+            services.AddSingleton<HotkeyService>();
             services.AddSingleton<HomeViewModel>();
             services.AddSingleton<CollectionsViewModel>();
             services.AddSingleton<HistoryViewModel>();
@@ -63,7 +64,16 @@ public partial class App : Application
 
         Toasts.Register((_, e) => Dispatcher.TryEnqueue(() => HandleToast(e.Arguments)));
 
-        Get<TrayIconService>().Create(open: ShowWindow, changeNow: ChangeFromTrayAsync, quit: Quit);
+        Get<TrayIconService>().Create(open: ShowWindow, changeNow: () => ChangeFromTrayAsync(), quit: Quit);
+
+        var hotkeys = Get<HotkeyService>();
+        hotkeys.Pressed += () =>
+        {
+            _log?.LogInformation("Shortcut pressed");
+            Dispatcher.TryEnqueue(() => _ = ChangeFromTrayAsync(alwaysShowPopup: true));
+        };
+        _ = hotkeys.ApplyAsync(Hotkey.Parse(Get<ISettingsStore>().Load().Hotkey))
+            .ContinueWith(t => _log?.LogInformation("Shortcut registered: {Result}", t.Result ?? "ok"));
 
         Get<WallpaperService>().Applied += (_, r) => Dispatcher.TryEnqueue(() => OnApplied(r));
 
@@ -133,14 +143,47 @@ public partial class App : Application
             _ = Get<HomeViewModel>().RefreshAsync();
             return;
         }
-        if (!Get<ISettingsStore>().Load().ShowNotifications) return;
-        foreach (var entry in result.Entries.Take(1))
-            _ = Toasts.ShowAppliedAsync(entry, Get<AppPaths>());
     }
 
-    async Task ChangeFromTrayAsync()
+    /// <summary>
+    /// Tray menu or shortcut: change now. The popup says it's working; the open window already
+    /// shows its own spinner, so it only appears there when the shortcut was used.
+    /// </summary>
+    async Task ChangeFromTrayAsync(bool alwaysShowPopup = false)
     {
-        var result = await Get<HomeViewModel>().ChangeAsync();
+        var home = Get<HomeViewModel>();
+        ChangePopup? popup = null;
+        if (!home.IsBusy && (alwaysShowPopup || !IsWindowVisible))
+        {
+            try
+            {
+                popup = new ChangePopup();
+                popup.ShowPopup();
+            }
+            catch (Exception ex)
+            {
+                // The popup is a nicety: never let it stop the change itself.
+                _log?.LogWarning(ex, "Couldn't show the change popup");
+                popup = null;
+            }
+        }
+        var wallpapers = Get<WallpaperService>();
+        EventHandler<ApplyPhase>? onPhase = null;
+        if (popup is not null)
+        {
+            onPhase = (_, phase) => Dispatcher.TryEnqueue(() => popup.SetPhase(phase));
+            wallpapers.PhaseChanged += onPhase;
+        }
+        ApplyResult result;
+        try
+        {
+            result = await home.ChangeAsync();
+        }
+        finally
+        {
+            if (onPhase is not null) wallpapers.PhaseChanged -= onPhase;
+            popup?.Dismiss();
+        }
         if (result.Status == ApplyStatus.Failed && !IsWindowVisible)
             Toasts.ShowError(result.Error ?? "Unknown error.");
     }
@@ -168,6 +211,7 @@ public partial class App : Application
     {
         Get<HomeViewModel>().ReleaseImages();
         Get<HistoryViewModel>().Release();
+        Get<CollectionsViewModel>().Release();
         MemoryTrim.Now();
         EfficiencyMode.Set(true);
     }
@@ -177,6 +221,7 @@ public partial class App : Application
         _quitting = true;
         Get<DailyScheduler>().Dispose();
         Get<TrayIconService>().Dispose();
+        Get<HotkeyService>().Dispose();
         Get<UpdateService>().ApplyOnExit();
         _window?.Close();
         _services?.Dispose();

@@ -9,7 +9,7 @@ public static class CandidateFilter
     public static string? Reject(PhotoCandidate c, PixelSize target, OrielSettings s)
     {
         if (!c.IsLandscape) return "portrait";
-        if (s.SkipSmallerThanScreen && (c.Width < target.Width || c.Height < target.Height)) return "too small";
+        if (c.Width < target.Width || c.Height < target.Height) return "too small";
         if (s.SkipLowLikes && c.Likes < s.MinLikes) return "low likes";
         if (c.Description is { } d && s.ExcludedKeywords.FirstOrDefault(k =>
                 !string.IsNullOrWhiteSpace(k) && d.Contains(k.Trim(), StringComparison.OrdinalIgnoreCase)) is { } hit)
