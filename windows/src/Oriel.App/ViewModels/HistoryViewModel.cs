@@ -39,11 +39,15 @@ public sealed partial class HistoryViewModel(IHistoryStore history, WallpaperSer
     /// <summary>Set by the page: shows a ContentDialog and returns true if the user confirmed.</summary>
     public Func<string, Task<bool>>? ConfirmDelete { get; set; }
 
+    [ObservableProperty] public partial bool IsGrid { get; set; } = true;
+    [ObservableProperty] public partial bool IsList { get; set; }
     [ObservableProperty] public partial int FilterIndex { get; set; }
     [ObservableProperty] public partial bool IsEmpty { get; set; }
     [ObservableProperty] public partial string? Message { get; set; }
     [ObservableProperty] public partial bool IsMessageOpen { get; set; }
 
+    partial void OnIsGridChanged(bool value) => IsList = !value;
+    partial void OnIsListChanged(bool value) => IsGrid = !value;
     partial void OnFilterIndexChanged(int value) => ApplyFilter();
 
     public async Task LoadAsync()
@@ -75,18 +79,17 @@ public sealed partial class HistoryViewModel(IHistoryStore history, WallpaperSer
         if (FilterIndex == 1 && !value) ApplyFilter();
     }
 
-    internal Task ReapplyAsync(HistoryItemViewModel item)
+    internal async Task ReapplyAsync(HistoryItemViewModel item)
     {
         try
         {
-            wallpapers.Reapply(item.Entry);
+            await wallpapers.ReapplyAsync(item.Entry);
             Show($"Wallpaper set back to the photo by {item.PhotographerName}.");
         }
         catch (Exception ex)
         {
             Show($"Couldn't re-apply: {ex.Message}");
         }
-        return Task.CompletedTask;
     }
 
     internal async Task DeleteAsync(HistoryItemViewModel item)

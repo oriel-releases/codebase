@@ -66,7 +66,6 @@ static class Cli
             case ApplyStatus.Applied:
                 foreach (var e in result.Entries)
                     Out($"Applied '{e.Topic}' photo by {e.PhotographerName}: {e.FilePath}");
-                Toasts.TryShowApplied(result, sp.GetRequiredService<ISettingsStore>(), sp.GetRequiredService<AppPaths>());
                 return 0;
             case ApplyStatus.AlreadyAppliedToday:
                 Out("Today's wallpaper is already set.");

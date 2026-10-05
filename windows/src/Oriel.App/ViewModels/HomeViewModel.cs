@@ -134,10 +134,6 @@ public sealed partial class HomeViewModel : ObservableObject
     {
         switch (result.Status)
         {
-            case ApplyStatus.Applied:
-                var e = result.Entries[0];
-                ShowInfo(InfoBarSeverity.Success, "Wallpaper changed", $"Photo by {e.PhotographerName}.");
-                break;
             case ApplyStatus.Failed:
                 var isKeyProblem = result.ErrorKind is ProviderErrorKind.MissingKey or ProviderErrorKind.Unauthorized;
                 ShowInfo(isKeyProblem ? InfoBarSeverity.Error : InfoBarSeverity.Warning,

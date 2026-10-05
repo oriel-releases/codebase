@@ -8,13 +8,13 @@ namespace Oriel.Core.Tests;
 public class UnsplashProviderTests
 {
     const string OnePhoto = """
-        [{
+        {"total": 1, "total_pages": 1, "results": [{
           "id": "abc123", "width": 6000, "height": 4000, "likes": 321, "color": "#0c2626",
           "description": null, "alt_description": "a mountain at dawn",
           "urls": { "raw": "https://images.unsplash.com/photo-1?ixid=foo", "full": "x", "regular": "x", "small": "https://s", "thumb": "https://t" },
           "links": { "html": "https://unsplash.com/photos/abc123", "download_location": "https://api.unsplash.com/photos/abc123/download?ixid=foo" },
           "user": { "name": "Jane Doe", "username": "jane", "links": { "html": "https://unsplash.com/@jane" } }
-        }]
+        }]}
         """;
 
     static (UnsplashProvider, StubHandler) Create(Func<HttpRequestMessage, HttpResponseMessage> respond, string? key = "secret")

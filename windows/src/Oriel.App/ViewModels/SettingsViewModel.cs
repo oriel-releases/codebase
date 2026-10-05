@@ -18,21 +18,24 @@ public sealed partial class SettingsViewModel : ObservableObject
     readonly AppPaths _paths;
     readonly WallpaperFolderMover _folderMover;
     readonly UpdateService _updates;
+    readonly HotkeyService _hotkeys;
     bool _loading;
 
     public SettingsViewModel(ISettingsStore settings, IWallpaperSetter setter, AppPaths paths,
-        WallpaperFolderMover folderMover, UpdateService updates)
+        WallpaperFolderMover folderMover, UpdateService updates, HotkeyService hotkeys)
     {
         _settings = settings;
         _setter = setter;
         _paths = paths;
         _folderMover = folderMover;
         _updates = updates;
+        _hotkeys = hotkeys;
         Load();
         RefreshUpdate();
     }
 
-    public string[] MonitorModes { get; } = ["Same image on all monitors", "Different image per monitor"];
+    public string[] IntervalOptions { get; } = ["Once a day", "Every hour", "Every 3 hours", "Every 6 hours", "Every 12 hours"];
+    static readonly int[] IntervalMinutes = [0, 60, 180, 360, 720];
     public string[] FitModes { get; } = ["Fill", "Fit", "Stretch", "Tile", "Center", "Span"];
     public string Version => Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
     /// <summary>"Beta" while the csproj says so (AssemblyMetadata Stage), otherwise empty.</summary>
@@ -41,22 +44,23 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     // Schedule
     [ObservableProperty] public partial TimeSpan DailyTime { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDaily))]
+    public partial int IntervalIndex { get; set; }
+    /// <summary>The daily time and sign-in options only make sense when not running a slideshow.</summary>
+    public bool IsDaily => IntervalIndex <= 0;
+    [ObservableProperty] public partial int SourceIndex { get; set; }
+    public string[] SourceOptions { get; } = ["New photos", "My favorites"];
     [ObservableProperty] public partial bool ApplyAtLogin { get; set; }
-    [ObservableProperty] public partial bool UseTaskSchedulerFallback { get; set; }
 
     // Display
-    [ObservableProperty] public partial int MonitorModeIndex { get; set; }
     [ObservableProperty] public partial int FitIndex { get; set; }
-    [ObservableProperty] public partial string MonitorSummary { get; set; } = "";
-    [ObservableProperty] public partial bool HasMultipleMonitors { get; set; }
 
     // Quality
-    [ObservableProperty] public partial bool SkipSmallerThanScreen { get; set; }
     [ObservableProperty] public partial bool SkipLowLikes { get; set; }
     [ObservableProperty] public partial double MinLikes { get; set; }
 
     // Storage & app
-    [ObservableProperty] public partial double RetentionDays { get; set; }
     [ObservableProperty] public partial bool StartWithWindows { get; set; }
     [ObservableProperty] public partial string PicturesFolder { get; set; } = "";
     [ObservableProperty]
@@ -68,11 +72,27 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Set by the page: shows a folder picker and returns the chosen path, or null.</summary>
     public Func<Task<string?>>? PickFolder { get; set; }
-    [ObservableProperty] public partial bool ShowNotifications { get; set; }
+    [ObservableProperty] public partial bool ChangeLockScreen { get; set; }
+
+    // Keyboard shortcut for "next wallpaper"
+    [ObservableProperty] public partial string Shortcut { get; set; } = "";
+    [ObservableProperty] public partial string ShortcutNote { get; set; } = "";
+
+    /// <summary>Saves the new shortcut and registers it right away. Null clears it.</summary>
+    public async Task SetShortcutAsync(Hotkey? key)
+    {
+        Shortcut = key?.ToString() ?? "";
+        _settings.Update(s => s.Hotkey = Shortcut);
+        ShortcutNote = await _hotkeys.ApplyAsync(key) ?? "";
+    }
+
+    [RelayCommand] Task ClearShortcut() => SetShortcutAsync(null);
 
     // Updates
     public bool CanUpdate => _updates.IsInstalled;
     [ObservableProperty] public partial string UpdateStatus { get; set; } = "";
+    [ObservableProperty] public partial double UpdateProgress { get; set; }
+    [ObservableProperty] public partial bool IsDownloading { get; set; }
     [ObservableProperty] public partial string UpdateButtonText { get; set; } = "";
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(UpdateCommand))]
@@ -83,33 +103,17 @@ public sealed partial class SettingsViewModel : ObservableObject
         _loading = true;
         var s = _settings.Load();
         DailyTime = s.GetDailyTime().ToTimeSpan();
+        IntervalIndex = Math.Max(0, Array.IndexOf(IntervalMinutes, s.IntervalMinutes));
+        SourceIndex = s.FavoritesOnly ? 1 : 0;
+        Shortcut = s.Hotkey;
         ApplyAtLogin = s.ApplyAtLogin;
-        UseTaskSchedulerFallback = s.UseTaskSchedulerFallback;
-        MonitorModeIndex = (int)s.MonitorMode;
         FitIndex = (int)s.Fit;
-        SkipSmallerThanScreen = s.SkipSmallerThanScreen;
         SkipLowLikes = s.SkipLowLikes;
         MinLikes = s.MinLikes;
-        RetentionDays = s.RetentionDays;
         StartWithWindows = s.StartWithWindows;
         PicturesFolder = _paths.WallpaperFolder(s);
-        ShowNotifications = s.ShowNotifications;
-        RefreshMonitors();
+        ChangeLockScreen = s.ChangeLockScreen;
         _loading = false;
-    }
-
-    void RefreshMonitors()
-    {
-        try
-        {
-            var monitors = _setter.GetMonitors();
-            HasMultipleMonitors = monitors.Count > 1;
-            MonitorSummary = string.Join(",  ", monitors.Select(m => $"{m.Width}×{m.Height}{(m.IsPrimary ? " (primary)" : "")}"));
-        }
-        catch (Exception)
-        {
-            MonitorSummary = "Couldn't read monitors";
-        }
     }
 
     [RelayCommand] void OpenPicturesFolder() => ImageLoader.OpenFolder(PicturesFolder);
@@ -144,7 +148,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         FolderInfoMessage = message;
         IsFolderInfoOpen = true;
     }
-    [RelayCommand] void OpenLogsFolder() => ImageLoader.OpenFolder(_paths.LogsDir);
 
     /// <summary>The page calls these on Loaded/Unloaded so the singleton service doesn't keep this VM alive.</summary>
     public void AttachUpdates() => _updates.StateChanged += OnUpdateStateChanged;
@@ -154,23 +157,27 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     void RefreshUpdate()
     {
+        var version = Stage is { Length: > 0 } stage ? $"Version {Version} {stage.ToLowerInvariant()}" : $"Version {Version}";
         if (!CanUpdate)
         {
-            UpdateStatus = "Updates work in the installed app.";
+            UpdateStatus = $"{version} · Updates work in the installed app.";
             return;
         }
         var state = _updates.State;
+        IsDownloading = state == UpdateState.Downloading;
+        UpdateProgress = _updates.Progress;
         IsUpdateBusy = state is UpdateState.Checking or UpdateState.Downloading;
         UpdateButtonText = state == UpdateState.ReadyToRestart ? "Restart to update" : "Check for updates";
-        UpdateStatus = state switch
+        var status = state switch
         {
             UpdateState.Checking => "Checking for updates…",
             UpdateState.UpToDate => "You have the latest version.",
-            UpdateState.Downloading => $"Downloading version {_updates.AvailableVersion}…",
+            UpdateState.Downloading => $"Downloading version {_updates.AvailableVersion}… {_updates.Progress}%",
             UpdateState.ReadyToRestart => $"Version {_updates.AvailableVersion} is ready. It installs when you restart or quit Oriel.",
             UpdateState.Failed => "Couldn't check for updates. Check your connection and try again.",
             _ => "Oriel checks for updates once a day and installs them in the background.",
         };
+        UpdateStatus = $"{version} · {status}";
     }
 
     [RelayCommand(CanExecute = nameof(CanRunUpdate))]
@@ -189,18 +196,15 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     partial void OnDailyTimeChanged(TimeSpan value) =>
         Save(s => s.DailyTime = $"{value.Hours:00}:{value.Minutes:00}");
+    partial void OnIntervalIndexChanged(int value)
+    {
+        if (value >= 0) Save(s => s.IntervalMinutes = IntervalMinutes[value]);
+    }
+    partial void OnSourceIndexChanged(int value) => Save(s => s.FavoritesOnly = value == 1);
     partial void OnApplyAtLoginChanged(bool value) => Save(s => s.ApplyAtLogin = value);
-    partial void OnUseTaskSchedulerFallbackChanged(bool value) => Save(s => s.UseTaskSchedulerFallback = value);
-    partial void OnMonitorModeIndexChanged(int value) { if (value >= 0) Save(s => s.MonitorMode = (MultiMonitorMode)value); }
     partial void OnFitIndexChanged(int value) { if (value >= 0) Save(s => s.Fit = (WallpaperFit)value); }
-    partial void OnSkipSmallerThanScreenChanged(bool value) => Save(s => s.SkipSmallerThanScreen = value);
     partial void OnSkipLowLikesChanged(bool value) => Save(s => s.SkipLowLikes = value);
     partial void OnMinLikesChanged(double value) => Save(s => s.MinLikes = (int)value);
-    partial void OnRetentionDaysChanged(double value)
-    {
-        if (double.IsNaN(value)) return;
-        Save(s => s.RetentionDays = Math.Clamp((int)value, 1, 3650));
-    }
     partial void OnStartWithWindowsChanged(bool value) => Save(s => s.StartWithWindows = value);
-    partial void OnShowNotificationsChanged(bool value) => Save(s => s.ShowNotifications = value);
+    partial void OnChangeLockScreenChanged(bool value) => Save(s => s.ChangeLockScreen = value);
 }

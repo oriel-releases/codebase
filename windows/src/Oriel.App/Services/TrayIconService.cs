@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace Oriel.UI.Services;
 
-/// <summary>System tray icon with a native popup menu: Change now / Open / Pause / Quit.</summary>
+/// <summary>System tray icon with a native popup menu: Next wallpaper / Open / Pause / Quit.</summary>
 public sealed class TrayIconService(ISettingsStore settings) : IDisposable
 {
     TaskbarIcon? _icon;
@@ -21,7 +21,7 @@ public sealed class TrayIconService(ISettingsStore settings) : IDisposable
         };
 
         var menu = new MenuFlyout();
-        menu.Items.Add(new MenuFlyoutItem { Text = "Change now", Command = new AsyncRelayCommand(changeNow) });
+        menu.Items.Add(new MenuFlyoutItem { Text = "Next wallpaper", Command = new AsyncRelayCommand(changeNow) });
         menu.Items.Add(new MenuFlyoutItem { Text = "Open Oriel", Command = new RelayCommand(open) });
         menu.Items.Add(_pause);
         menu.Items.Add(new MenuFlyoutSeparator());

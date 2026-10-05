@@ -2,6 +2,7 @@ import type { Release } from "@/config/release";
 import { downloadPage } from "@/content/download";
 import { AnchorButton } from "@/components/ui/Button";
 import { WindowsIcon } from "@/components/ui/icons";
+import { LatestVersion } from "@/components/download/LatestVersion";
 import { PlatformNotice } from "@/components/download/PlatformNotice";
 import { SharedElement } from "@/components/motion/SharedElement";
 import { sharedElement } from "@/lib/transitions";
@@ -16,7 +17,7 @@ export function DownloadCard({ release }: { release: Release }) {
         </AnchorButton>
       </SharedElement>
       <p className="text-sm text-balance text-muted">
-        Version {release.version} · Free · {release.requirements}
+        Version <LatestVersion initial={release.version} /> · Free · {release.requirements}
       </p>
       <PlatformNotice message={downloadPage.unsupportedNotice} />
     </div>

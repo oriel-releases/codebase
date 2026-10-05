@@ -22,7 +22,6 @@ public sealed class StorageTests : IDisposable
     {
         var store = new JsonSettingsStore(_dir.Paths);
         var s = store.Load();
-        Assert.Equal(30, s.RetentionDays);
         Assert.Contains("nature", s.EnabledQueries());
 
         s.Fit = WallpaperFit.Span;

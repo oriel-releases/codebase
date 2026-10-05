@@ -26,7 +26,6 @@ public sealed record PhotoCandidate
 
 public enum WallpaperFit { Fill, Fit, Stretch, Tile, Center, Span }
 
-public enum MultiMonitorMode { SameOnAll, PerMonitor }
 
 public sealed record MonitorInfo(string DevicePath, int Left, int Top, int Width, int Height)
 {

@@ -9,14 +9,16 @@ namespace Oriel.Core.Services;
 public sealed class RetentionService(IHistoryStore history, ISettingsStore settings, IWallpaperSetter setter,
     IClock clock, ILogger<RetentionService> log)
 {
+    /// <summary>Old non-favorite photos are deleted after this many days (sooner for a slideshow, which makes many).</summary>
+    const int KeepDays = 30;
+    const int SlideshowKeepDays = 7;
+
     public int Cleanup()
     {
-        var days = settings.Load().RetentionDays;
-        if (days <= 0) return 0;
-
+        var keepDays = settings.Load().IntervalMinutes > 0 ? SlideshowKeepDays : KeepDays;
         var inUse = CurrentWallpapers();
         var removed = 0;
-        foreach (var e in history.ExpiredBefore(clock.Now.AddDays(-days)))
+        foreach (var e in history.ExpiredBefore(clock.Now.AddDays(-keepDays)))
         {
             if (inUse.Contains(e.FilePath)) continue; // never delete what's on screen
             if (TryDeleteFile(e.FilePath))

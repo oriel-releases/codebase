@@ -17,42 +17,53 @@
                 <ImageIconSource ImageSource="{ThemeResource OrielLogoImage}" />
             </TitleBar.IconSource>
             <TitleBar.Content>
-                <StackPanel
+                <Grid
                     Padding="3"
                     HorizontalAlignment="Center"
                     Background="{ThemeResource OrielSurfaceBrush}"
-                    CornerRadius="{StaticResource OrielPillRadius}"
-                    Orientation="Horizontal"
-                    Spacing="2">
-                    <RadioButton
-                        Checked="Tab_Checked"
-                        Content="Home"
-                        GroupName="Nav"
-                        IsChecked="True"
-                        Style="{StaticResource PillTabStyle}"
-                        Tag="home" />
-                    <RadioButton
-                        Checked="Tab_Checked"
-                        Content="Collections"
-                        GroupName="Nav"
-                        Style="{StaticResource PillTabStyle}"
-                        Tag="collections" />
-                    <RadioButton
-                        Checked="Tab_Checked"
-                        Content="History"
-                        GroupName="Nav"
-                        Style="{StaticResource PillTabStyle}"
-                        Tag="history" />
-                    <RadioButton
-                        Checked="Tab_Checked"
-                        Content="Settings"
-                        GroupName="Nav"
-                        Style="{StaticResource PillTabStyle}"
-                        Tag="settings" />
-                </StackPanel>
+                    CornerRadius="{StaticResource OrielPillRadius}">
+                    <Border
+                        x:Name="TabIndicator"
+                        Background="{ThemeResource OrielInkBrush}"
+                        CornerRadius="{StaticResource OrielTabItemRadius}" />
+                    <StackPanel
+                        x:Name="TabStrip"
+                        Orientation="Horizontal"
+                        Spacing="2">
+                        <RadioButton
+                            Checked="Tab_Checked"
+                            Content="Home"
+                            GroupName="Nav"
+                            IsChecked="True"
+                            Style="{StaticResource PillTabStyle}"
+                            Tag="home" />
+                        <RadioButton
+                            Checked="Tab_Checked"
+                            Content="Collections"
+                            GroupName="Nav"
+                            Style="{StaticResource PillTabStyle}"
+                            Tag="collections" />
+                        <RadioButton
+                            Checked="Tab_Checked"
+                            Content="History"
+                            GroupName="Nav"
+                            Style="{StaticResource PillTabStyle}"
+                            Tag="history" />
+                        <RadioButton
+                            Checked="Tab_Checked"
+                            Content="Settings"
+                            GroupName="Nav"
+                            Style="{StaticResource PillTabStyle}"
+                            Tag="settings" />
+                    </StackPanel>
+                </Grid>
             </TitleBar.Content>
         </TitleBar>
 
-        <Frame x:Name="ContentFrame" Grid.Row="1" />
+        <Frame
+            x:Name="ContentFrame"
+            Grid.Row="1"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch" />
     </Grid>
 </Window>

@@ -1,11 +1,15 @@
 using Oriel.Core.Models;
 using Oriel.Core.Providers;
+using Oriel.Core.Scheduling;
 using Oriel.Core.Settings;
 using Oriel.Core.Storage;
 using Oriel.Core.Wallpaper;
 using Microsoft.Extensions.Logging;
 
 namespace Oriel.Core.Services;
+
+/// <summary>What a change is doing right now, for progress UI.</summary>
+public enum ApplyPhase { Finding, Changing }
 
 public enum ApplyStatus { Applied, AlreadyAppliedToday, Paused, Failed, Busy }
 
@@ -24,12 +28,16 @@ public sealed class WallpaperService(
     ITopicPicker topics,
     IClock clock,
     AppPaths paths,
-    ILogger<WallpaperService> log)
+    ILogger<WallpaperService> log,
+    ILockScreenSetter? lockScreen = null)
 {
     const int MaxQueriesPerTarget = 3;
 
     /// <summary>Raised after a new wallpaper is applied (from any trigger in this process).</summary>
     public event EventHandler<ApplyResult>? Applied;
+
+    /// <summary>Raised from whatever thread is working: finding and downloading a photo, then setting it.</summary>
+    public event EventHandler<ApplyPhase>? PhaseChanged;
 
     /// <param name="force">Change even if today's wallpaper was already set ("Change now").</param>
     public async Task<ApplyResult> ApplyAsync(bool force, CancellationToken ct = default)
@@ -38,7 +46,7 @@ public sealed class WallpaperService(
         var state = settingsStore.LoadState();
 
         if (!force && settings.Paused) return new(ApplyStatus.Paused, []);
-        if (!force && state.LastAppliedDate == clock.Today) return new(ApplyStatus.AlreadyAppliedToday, []);
+        if (!force && ScheduleRules.IsFresh(settings, state, clock.Now)) return new(ApplyStatus.AlreadyAppliedToday, []);
 
         // Cross-process guard: the tray app and a Task Scheduler run can fire at the same moment.
         using var gate = ApplyLock.TryAcquire(paths.LockFile);
@@ -46,13 +54,14 @@ public sealed class WallpaperService(
 
         // Re-check under the lock; the other process may have just finished.
         state = settingsStore.LoadState();
-        if (!force && state.LastAppliedDate == clock.Today) return new(ApplyStatus.AlreadyAppliedToday, []);
+        if (!force && ScheduleRules.IsFresh(settings, state, clock.Now)) return new(ApplyStatus.AlreadyAppliedToday, []);
 
         state.LastAttemptAt = clock.Now;
         try
         {
             var entries = await ApplyCoreAsync(settings, ct);
             state.LastAppliedDate = clock.Today;
+            state.LastAppliedAt = clock.Now;
             state.LastError = null;
             state.ConsecutiveFailures = 0;
             state.NextRetryAt = null;
@@ -76,8 +85,94 @@ public sealed class WallpaperService(
         }
     }
 
+    /// <summary>Photos for the words, most relevant first. Only ones big enough for the screen, so they look sharp.</summary>
+    public async Task<SearchPage> SearchAsync(string query, int page, CancellationToken ct = default)
+    {
+        if (!provider.IsConfigured)
+            throw new ProviderException(ProviderErrorKind.MissingKey, "This build of Oriel has no Unsplash access key.");
+
+        var size = PlanTargets(setter.GetMonitors(), settingsStore.Load())[0].Size;
+        var found = await provider.SearchAsync(query, page, ct);
+        var fits = found.Photos.Where(c => c.IsLandscape && c.Width >= size.Width && c.Height >= size.Height).ToList();
+        return found with { Photos = fits };
+    }
+
+    /// <summary>Sets one specific photo (chosen by the user) as the wallpaper.</summary>
+    public async Task<ApplyResult> ApplyPhotoAsync(PhotoCandidate photo, string? topic = null, CancellationToken ct = default)
+    {
+        var settings = settingsStore.Load();
+        using var gate = ApplyLock.TryAcquire(paths.LockFile);
+        if (gate is null) return new(ApplyStatus.Busy, [], "Another change is already in progress.");
+
+        try
+        {
+            var size = PlanTargets(setter.GetMonitors(), settings)[0].Size;
+            var bytes = await provider.DownloadAsync(photo, size, ct);
+            if (!LooksLikeJpeg(bytes))
+                throw new WallpaperException("Downloaded file isn't a valid image; keeping your current wallpaper.");
+            var file = await SaveAsync(photo, bytes, 0, paths.WallpaperFolder(settings), ct);
+
+            // Lock screen first: it is the slow one, and the desktop changing is the user's "done" signal.
+            await SetLockScreenAsync(file, settings);
+            try
+            {
+                setter.SetForAll(file, settings.Fit);
+                SetOtherDesktops(file);
+            }
+            catch (Exception ex) when (ex is not WallpaperException)
+            {
+                throw new WallpaperException($"Windows refused to set the wallpaper: {ex.Message}", ex);
+            }
+
+            var entry = RecordEntry(photo, file, topic ?? "search", null, clock.Now);
+            await provider.TrackUsageAsync(photo, ct);
+
+            // Counts as today's change, so the scheduler doesn't replace it right away.
+            var state = settingsStore.LoadState();
+            state.LastAppliedDate = clock.Today;
+            state.LastAppliedAt = clock.Now;
+            state.LastError = null;
+            state.ConsecutiveFailures = 0;
+            state.NextRetryAt = null;
+            settingsStore.SaveState(state);
+
+            var result = new ApplyResult(ApplyStatus.Applied, [entry]);
+            Applied?.Invoke(this, result);
+            return result;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            var kind = (ex as ProviderException)?.Kind;
+            var message = ex is ProviderException or WallpaperException ? ex.Message : $"Something went wrong: {ex.Message}";
+            log.LogWarning(ex, "Setting the chosen wallpaper failed ({Kind})", kind);
+            return new(ApplyStatus.Failed, [], message, kind);
+        }
+    }
+
+    HistoryEntry RecordEntry(PhotoCandidate photo, string file, string topic, string? monitorPath, DateTimeOffset at)
+    {
+        var entry = new HistoryEntry
+        {
+            Provider = photo.Provider,
+            PhotoId = photo.Id,
+            FilePath = file,
+            ThumbnailUrl = photo.ThumbnailUrl,
+            PhotoPageUrl = photo.PhotoPageUrl,
+            PhotographerName = photo.PhotographerName,
+            PhotographerUrl = photo.PhotographerUrl,
+            Description = photo.Description,
+            Topic = topic,
+            MonitorPath = monitorPath,
+            AppliedAt = at,
+        };
+        return entry with { Id = history.Add(entry) };
+    }
+
     async Task<IReadOnlyList<HistoryEntry>> ApplyCoreAsync(OrielSettings settings, CancellationToken ct)
     {
+        PhaseChanged?.Invoke(this, ApplyPhase.Finding);
+        if (settings.FavoritesOnly && await TryApplyFavoriteAsync() is { } favorite) return [favorite];
+
         if (!provider.IsConfigured)
             throw new ProviderException(ProviderErrorKind.MissingKey, "This build of Oriel has no Unsplash access key.");
 
@@ -105,7 +200,9 @@ public sealed class WallpaperService(
             picked.Add((target, photo, topic, file));
         }
 
-        // 2. Apply.
+        PhaseChanged?.Invoke(this, ApplyPhase.Changing);
+        // 2. Apply. Lock screen first: it is the slow one, and the desktop changing is the user's "done" signal.
+        await SetLockScreenAsync(picked[0].File, settings);
         try
         {
             if (targets.Count == 1 && targets[0].MonitorPath is null)
@@ -133,21 +230,7 @@ public sealed class WallpaperService(
         var entries = new List<HistoryEntry>();
         foreach (var p in picked)
         {
-            var entry = new HistoryEntry
-            {
-                Provider = p.Photo.Provider,
-                PhotoId = p.Photo.Id,
-                FilePath = p.File,
-                ThumbnailUrl = p.Photo.ThumbnailUrl,
-                PhotoPageUrl = p.Photo.PhotoPageUrl,
-                PhotographerName = p.Photo.PhotographerName,
-                PhotographerUrl = p.Photo.PhotographerUrl,
-                Description = p.Photo.Description,
-                Topic = p.Topic,
-                MonitorPath = p.Target.MonitorPath,
-                AppliedAt = now,
-            };
-            entries.Add(entry with { Id = history.Add(entry) });
+            entries.Add(RecordEntry(p.Photo, p.File, p.Topic, p.Target.MonitorPath, now));
             await provider.TrackUsageAsync(p.Photo, ct);
         }
 
@@ -197,12 +280,36 @@ public sealed class WallpaperService(
             "Couldn't find a new photo that passes your filters. Try more topics or looser filters.");
     }
 
+    /// <summary>
+    /// A random favorite other than the one on screen, applied without any download. Null when there
+    /// are no favorites, so the caller falls back to fetching a new photo.
+    /// </summary>
+    async Task<HistoryEntry?> TryApplyFavoriteAsync()
+    {
+        PhaseChanged?.Invoke(this, ApplyPhase.Changing);
+        var favorites = history.List().Where(e => e.IsFavorite && File.Exists(e.FilePath)).ToList();
+        if (favorites.Count == 0) return null;
+
+        var current = setter.GetCurrent();
+        var pool = favorites.Count > 1
+            ? favorites.Where(e => !string.Equals(e.FilePath, current, StringComparison.OrdinalIgnoreCase)).ToList()
+            : favorites;
+        var pick = pool[Random.Shared.Next(pool.Count)];
+
+        await ReapplyAsync(pick);
+        var entry = pick with { AppliedAt = clock.Now };
+        history.Add(entry);
+        log.LogInformation("Applied favorite {Id}", pick.PhotoId);
+        return entry;
+    }
+
     /// <summary>Re-applies an image from history.</summary>
-    public void Reapply(HistoryEntry entry)
+    public async Task ReapplyAsync(HistoryEntry entry)
     {
         if (!File.Exists(entry.FilePath))
             throw new WallpaperException("That image file is gone from disk.");
         var settings = settingsStore.Load();
+        await SetLockScreenAsync(entry.FilePath, settings);
         var monitors = setter.GetMonitors();
         if (entry.MonitorPath is not null && monitors.Any(m => m.DevicePath == entry.MonitorPath))
             setter.SetForMonitor(entry.MonitorPath, entry.FilePath, settings.Fit);
@@ -210,6 +317,20 @@ public sealed class WallpaperService(
         {
             setter.SetForAll(entry.FilePath, settings.Fit);
             SetOtherDesktops(entry.FilePath);
+        }
+    }
+
+    async Task SetLockScreenAsync(string file, OrielSettings settings)
+    {
+        if (!settings.ChangeLockScreen || lockScreen is null) return;
+        try
+        {
+            if (!await lockScreen.TrySetAsync(file))
+                log.LogInformation("Windows didn't allow changing the lock screen picture");
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning(ex, "Couldn't change the lock screen picture");
         }
     }
 
@@ -241,9 +362,6 @@ public sealed class WallpaperService(
             var bottom = monitors.Max(m => m.Top + m.Height);
             return [new Target(0, null, new PixelSize(right - left, bottom - top))];
         }
-
-        if (settings.MonitorMode == MultiMonitorMode.PerMonitor && monitors.Count > 1)
-            return monitors.Select((m, i) => new Target(i, m.DevicePath, new PixelSize(m.Width, m.Height))).ToList();
 
         // Same image everywhere: size for the biggest screen so nothing gets upscaled.
         var biggest = monitors.MaxBy(m => (long)m.Width * m.Height)!;

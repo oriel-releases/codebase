@@ -44,7 +44,7 @@ sealed class FakeTasks : IScheduledTasks
     public List<string> Calls { get; } = [];
     public DateTimeOffset? RetryAt { get; private set; }
 
-    public bool Register(string exePath, TimeOnly time, bool atSignIn)
+    public bool Register(string exePath, TimeOnly time, bool atSignIn, TimeSpan? repeatEvery = null)
     {
         Calls.Add($"register {time:HH:mm} signin={atSignIn}");
         return true;
@@ -100,6 +100,9 @@ sealed class FakeProvider : IImageProvider
         Queries.Add(query.Query);
         return Task.FromResult(Responses.Count > 0 ? Responses.Dequeue()() : []);
     }
+
+    public Task<SearchPage> SearchAsync(string query, int page, CancellationToken ct) =>
+        Task.FromResult(new SearchPage(Responses.Count > 0 ? Responses.Dequeue()() : [], 1));
 
     public Task<byte[]> DownloadAsync(PhotoCandidate photo, PixelSize size, CancellationToken ct) => Task.FromResult(Bytes);
 
