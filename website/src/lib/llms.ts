@@ -1,4 +1,4 @@
-import { release } from "@/config/release";
+import { lastReleasedOn, releases } from "@/config/release";
 import { absoluteUrl, routes, site } from "@/config/site";
 import { faq, features, steps } from "@/content/home";
 
@@ -13,9 +13,9 @@ export function buildLlmsTxt(): string {
     `> ${site.description}`,
     "",
     "## Key facts",
-    `- Platform: ${release.requirements}`,
+    `- Platforms: Windows (${releases.windows.requirements}); Linux (${releases.linux.requirements})`,
     `- Price: free, sign in with Google, no API key needed`,
-    `- Latest version: ${release.version} (${release.releasedOn})`,
+    `- Latest version: ${releases.windows.version} for Windows, ${releases.linux.version} for Linux (${lastReleasedOn})`,
     `- Download: ${absoluteUrl(routes.download)}`,
     `- Photos: from Unsplash, credited to their photographers`,
     "",
@@ -29,7 +29,7 @@ export function buildLlmsTxt(): string {
     ...faq.flatMap((q) => [`### ${q.question}`, q.answer, ""]),
     "## Pages",
     `- [Home](${absoluteUrl(routes.home)}): what Oriel does`,
-    `- [Download](${absoluteUrl(routes.download)}): get Oriel for Windows`,
+    `- [Download](${absoluteUrl(routes.download)}): get Oriel for Windows or Linux`,
     "",
   ].join("\n");
 }

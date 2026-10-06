@@ -21,7 +21,7 @@ export function AccordionItem({ title, children }: Props) {
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => setOpen((o) => !o)}
-          className="flex w-full items-center justify-between gap-4 rounded-[2rem] px-6 py-5 text-left font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink sm:px-7"
+          className="flex w-full items-center justify-between gap-4 rounded-[2rem] px-6 py-5 text-left font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:px-7"
         >
           {title}
           <span

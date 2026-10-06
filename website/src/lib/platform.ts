@@ -10,7 +10,7 @@ export function detectPlatform(userAgent: string): Platform {
   return "unknown";
 }
 
-/** Oriel only runs on Windows; "unknown" gets the benefit of the doubt. */
+/** Oriel runs on Windows and Linux; "unknown" gets the benefit of the doubt. */
 export function canRunOriel(platform: Platform): boolean {
-  return platform === "windows" || platform === "unknown";
+  return platform === "windows" || platform === "linux" || platform === "unknown";
 }

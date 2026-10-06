@@ -1,0 +1,110 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Oriel.UI.ViewModels"
+             xmlns:views="using:Oriel.UI.Views"
+             xmlns:controls="using:Oriel.UI.Controls"
+             x:Class="Oriel.UI.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+    <ScrollViewer>
+        <StackPanel MaxWidth="960" Margin="40,8,40,40" Spacing="6">
+            <TextBlock Classes="title" Text="Settings" />
+
+            <!--  ============ Account ============  -->
+            <TextBlock Classes="section" Margin="2,4,0,8" Text="Account" />
+            <Border Classes="card" MinHeight="64" Padding="20,12,16,12">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                    <!--  Oriel's logo, covered by the Google photo once that loads.  -->
+                    <Panel Width="40" Height="40" VerticalAlignment="Center">
+                        <Border Background="{DynamicResource OrielPaperBrush}" CornerRadius="20">
+                            <Image Width="22" Height="22" Source="{DynamicResource OrielLogo}" />
+                        </Border>
+                        <Border CornerRadius="20" ClipToBounds="True" IsVisible="{Binding AccountPhoto, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Image Source="{Binding AccountPhoto}" Stretch="UniformToFill" />
+                        </Border>
+                    </Panel>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Text="{Binding AccountName}" TextWrapping="Wrap" />
+                        <TextBlock Classes="muted small" Text="{Binding AccountEmail}" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button Grid.Column="2" VerticalAlignment="Center" Content="Sign out" Command="{Binding SignOutCommand}" />
+                </Grid>
+            </Border>
+
+            <!--  ============ Schedule ============  -->
+            <TextBlock Classes="section" Text="Schedule" />
+            <controls:SettingRow Header="Change wallpaper" Description="Once a day, or as a slideshow that keeps changing through the day.">
+                <ComboBox MinWidth="150" ItemsSource="{Binding IntervalOptions}" SelectedIndex="{Binding IntervalIndex}" />
+            </controls:SettingRow>
+            <controls:SettingRow Header="Pick from" Description="Favorites cycles through the photos you starred in History. With none, new photos are used.">
+                <ComboBox MinWidth="150" ItemsSource="{Binding SourceOptions}" SelectedIndex="{Binding SourceIndex}" />
+            </controls:SettingRow>
+            <controls:SettingRow Header="Daily change time" Description="A new wallpaper once a day at this time." IsVisible="{Binding IsDaily}">
+                <!--  Wired in code-behind: a TwoWay binding on a TimePicker can push 00:00 back on load.  -->
+                <TimePicker x:Name="DailyTimePicker" ClockIdentifier="24HourClock" MinuteIncrement="5" />
+            </controls:SettingRow>
+            <controls:SettingRow Header="Change at login" Description="If today's wallpaper isn't set yet when you log in, change it right away." IsVisible="{Binding IsDaily}">
+                <ToggleSwitch OnContent="" OffContent="" IsChecked="{Binding ApplyAtLogin}" />
+            </controls:SettingRow>
+            <controls:SettingRow Header="Next wallpaper shortcut" Description="{Binding ShortcutNote}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBox x:Name="ShortcutBox" Width="170" IsReadOnly="True" PlaceholderText="Click, then press keys" Text="{Binding Shortcut, Mode=OneWay}" />
+                    <Button Content="Clear" Command="{Binding ClearShortcutCommand}" />
+                </StackPanel>
+            </controls:SettingRow>
+
+            <!--  ============ Display ============  -->
+            <TextBlock Classes="section" Text="Display" />
+            <controls:SettingRow Header="Fit" Description="How the photo fits your screen. Span stretches one photo across all monitors.">
+                <ComboBox MinWidth="110" ItemsSource="{Binding FitModes}" SelectedIndex="{Binding FitIndex}" />
+            </controls:SettingRow>
+            <controls:SettingRow Header="Apply to" Description="{Binding ApplyToNote}">
+                <ComboBox MinWidth="190" ItemsSource="{Binding ApplyToOptions}" SelectedIndex="{Binding ApplyToIndex}" />
+            </controls:SettingRow>
+
+            <!--  ============ Quality ============  -->
+            <TextBlock Classes="section" Text="Quality" />
+            <controls:SettingRow Header="Skip photos with few likes" Description="Prefer photos other people liked on Unsplash.">
+                <ToggleSwitch OnContent="" OffContent="" IsChecked="{Binding SkipLowLikes}" />
+            </controls:SettingRow>
+            <controls:SettingRow Header="Minimum likes" IsVisible="{Binding SkipLowLikes}">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Slider Width="200" VerticalAlignment="Center" Minimum="0" Maximum="1000" SmallChange="10" TickFrequency="10"
+                            IsSnapToTickEnabled="True" Value="{Binding MinLikes}" />
+                    <TextBlock MinWidth="36" VerticalAlignment="Center" Text="{Binding MinLikes}" />
+                </StackPanel>
+            </controls:SettingRow>
+
+            <!--  ============ Storage ============  -->
+            <TextBlock Classes="section" Text="Storage" />
+            <views:InfoBanner DataContext="{Binding FolderInfo}" />
+            <controls:SettingRow Header="Wallpaper folder" Description="{Binding PicturesFolder}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Open" Command="{Binding OpenPicturesFolderCommand}" />
+                    <Button Command="{Binding ChangeFolderCommand}" ToolTip.Tip="Pick an empty folder; your photos move there.">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Arc Classes="spinner" Classes.busy="{Binding IsMovingFolder}" Stroke="{DynamicResource OrielInkBrush}" />
+                            <TextBlock Text="Change" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </controls:SettingRow>
+
+            <!--  ============ App ============  -->
+            <TextBlock Classes="section" Text="App" />
+            <controls:SettingRow Header="Start at login" Description="Start minimized to the system tray when you log in.">
+                <ToggleSwitch OnContent="" OffContent="" IsChecked="{Binding StartAtLogin}" />
+            </controls:SettingRow>
+            <controls:SettingRow Header="Updates" Description="{Binding UpdateStatus}">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <ProgressBar Width="120" VerticalAlignment="Center" Maximum="100" Value="{Binding UpdateProgress}" IsVisible="{Binding IsDownloading}" />
+                    <Button Command="{Binding UpdateCommand}" IsVisible="{Binding CanUpdate}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Arc Classes="spinner" Classes.busy="{Binding IsUpdateBusy}" Stroke="{DynamicResource OrielInkBrush}" />
+                            <TextBlock Text="{Binding UpdateButtonText}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </controls:SettingRow>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

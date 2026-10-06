@@ -35,3 +35,11 @@ export function PlusIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function LinuxIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...defaults} {...props}>
+      <path d="M12 2c-2.2 0-3.5 1.9-3.5 4.4 0 1.3.2 2.2-.6 3.6C6.9 11.8 5.5 14 5.5 16.3c0 1.2.4 2 1.2 2.6-.2.9-.1 1.6.5 2 .8.5 1.9.1 2.7-.4.7.3 1.5.5 2.1.5s1.4-.2 2.1-.5c.8.5 1.9.9 2.7.4.6-.4.7-1.1.5-2 .8-.6 1.2-1.4 1.2-2.6 0-2.3-1.4-4.5-2.4-6.3-.8-1.4-.6-2.3-.6-3.6C15.5 3.9 14.2 2 12 2z" />
+    </svg>
+  );
+}

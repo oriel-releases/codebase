@@ -1,4 +1,4 @@
-import type { Release } from "@/config/release";
+import { lastReleasedOn, type Releases } from "@/config/release";
 import { absoluteUrl, routes, site } from "@/config/site";
 import type { Feature, FaqItem } from "@/content/home";
 
@@ -19,7 +19,7 @@ export function websiteSchema(): JsonLd {
   };
 }
 
-export function softwareApplicationSchema(release: Release, features: Feature[]): JsonLd {
+export function softwareApplicationSchema(releases: Releases, features: Feature[]): JsonLd {
   return {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -28,11 +28,11 @@ export function softwareApplicationSchema(release: Release, features: Feature[])
     url: absoluteUrl(routes.home),
     image: absoluteUrl("/logo.png"),
     applicationCategory: "DesktopEnhancementApplication",
-    operatingSystem: "Windows 10, Windows 11",
-    softwareVersion: release.version,
-    datePublished: release.releasedOn,
-    downloadUrl: absoluteUrl(release.url),
-    softwareRequirements: release.requirements,
+    operatingSystem: "Windows 10, Windows 11, Linux",
+    softwareVersion: `${releases.windows.version} (Windows), ${releases.linux.version} (Linux)`,
+    datePublished: lastReleasedOn,
+    downloadUrl: [releases.windows.url, releases.linux.url],
+    softwareRequirements: `${releases.windows.requirements}; ${releases.linux.requirements}`,
     featureList: features.map((f) => f.title),
     offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   };

@@ -36,7 +36,10 @@ src/app        routes + SEO files: sitemap, robots, manifest, opengraph-image, l
 
 ## Releasing
 
-Run `windows/scripts/release.ps1` (see the Windows README), then update `version` and
-`releasedOn` in `src/config/release.ts` and redeploy. The download button points at
-`https://github.com/oriel-releases/windows/releases/latest/download/Oriel-Setup.exe`, which always
-serves the newest installer, so the link itself never changes.
+Run `windows/scripts/release.ps1` (Windows) or `linux/scripts/release.sh` (Linux), then set `version` in the
+Firestore document for that app (`application/windows` or `application/linux`), update its `fallbackVersions`
+and `releasedOn` in `src/config/release.ts`, and redeploy. The download buttons point at
+`https://github.com/oriel-releases/windows/releases/latest/download/Oriel-Setup.exe` and
+`https://github.com/oriel-releases/linux/releases/latest/download/Oriel.AppImage`, which always
+serve the newest file, so the links themselves never change. `firestore.rules` lets the site read those two
+documents (and nothing else under `application/`).

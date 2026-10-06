@@ -4,6 +4,7 @@
 @theme inline {
   --color-paper: var(--paper);
   --color-ink: var(--ink);
+  --color-accent: var(--accent);
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-surface: var(--surface);
@@ -13,6 +14,8 @@
 }
 
 :root {
+  /* Black and white do the work; navy is a small accent (focus, steps, highlights). */
+  --accent: #1d3470;
   --paper: #fafafa;
   --surface: #f1f1f1;
   --ink: #141414;
@@ -24,6 +27,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --accent: #8fa8ee;
     --paper: #0f0f0f;
     --surface: #1a1a1a;
     --ink: #f2f2f2;

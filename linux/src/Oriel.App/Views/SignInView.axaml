@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Oriel.UI.ViewModels"
+             x:Class="Oriel.UI.Views.SignInView"
+             x:DataType="vm:SignInViewModel">
+    <StackPanel MaxWidth="360" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+        <Image Width="56" Height="56" HorizontalAlignment="Center" Source="{DynamicResource OrielLogo}" />
+        <TextBlock Classes="title" HorizontalAlignment="Center" Margin="0,12,0,8" Text="Sign in to Oriel" />
+
+        <Border CornerRadius="12" Padding="16,10" Background="#33D32F2F" IsVisible="{Binding HasError}">
+            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" />
+        </Border>
+
+        <!--  Light with dark text in both themes, like Google's own button.  -->
+        <Button Height="44" Margin="0,8,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center" Background="#F2F2F2" Foreground="#141414" CornerRadius="22"
+                Command="{Binding OpenBrowserCommand}" IsEnabled="{Binding IsIdle}">
+            <Button.Styles>
+                <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="#E4E4E4" />
+                    <Setter Property="Foreground" Value="#141414" />
+                </Style>
+            </Button.Styles>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Image Width="18" Height="18" Source="avares://Oriel/Assets/GoogleG.png" />
+                <TextBlock FontWeight="Medium" VerticalAlignment="Center" Text="{Binding ButtonText}" />
+            </StackPanel>
+        </Button>
+
+        <TextBlock Classes="muted" HorizontalAlignment="Center" Text="Waiting for you to finish in the browser…" IsVisible="{Binding IsWaiting}" />
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Oriel.App/Oriel.App.csproj" />
+    <Project Path="src/Oriel.Core/Oriel.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Oriel.Core.Tests/Oriel.Core.Tests.csproj" />
+  </Folder>
+</Solution>
