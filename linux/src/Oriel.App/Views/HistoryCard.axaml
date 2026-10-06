@@ -1,0 +1,61 @@
+<views:HistoryItemControl xmlns="https://github.com/avaloniaui"
+                          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                          xmlns:vm="using:Oriel.UI.ViewModels"
+                          xmlns:views="using:Oriel.UI.Views"
+                          xmlns:controls="using:Oriel.UI.Controls"
+                          x:Class="Oriel.UI.Views.HistoryCard"
+                          x:DataType="vm:HistoryItemViewModel">
+    <views:HistoryItemControl.Styles>
+        <!--  The action buttons stay hidden until the pointer is over the card (or it has keyboard focus).  -->
+        <Style Selector="Border.hoverable StackPanel.actions">
+            <Setter Property="Opacity" Value="0" />
+        </Style>
+        <Style Selector="Border.hoverable:pointerover StackPanel.actions">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="Border.hoverable:focus-within StackPanel.actions">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+    </views:HistoryItemControl.Styles>
+
+    <Border Classes="hoverable" Height="210" Background="{DynamicResource OrielLineBrush}" CornerRadius="16" ClipToBounds="True">
+        <Grid>
+            <Image controls:ImageReveal.Enabled="True" Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+
+            <!--  Favorites keep a small star on the photo even when the actions are hidden.  -->
+            <PathIcon Margin="12" HorizontalAlignment="Right" VerticalAlignment="Top" Width="16" Height="16"
+                      Data="{StaticResource IconStarFilled}" Foreground="{StaticResource OrielStarBrush}"
+                      IsVisible="{Binding IsFavorite}" />
+
+            <Border VerticalAlignment="Bottom" Padding="14,44,10,10" Background="{StaticResource OrielPhotoScrimBrush}">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <StackPanel VerticalAlignment="Center">
+                    <Button Classes="link onphoto" Margin="-6,0,0,0" HorizontalAlignment="Left"
+                            Content="{Binding PhotographerName}" Command="{Binding OpenUrlCommand}"
+                            CommandParameter="{Binding PhotographerUri}" ToolTip.Tip="Photographer on Unsplash" />
+                    <TextBlock FontSize="12" Foreground="#CCFFFFFF" TextTrimming="CharacterEllipsis" Text="{Binding Details}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Classes="actions" VerticalAlignment="Center" Orientation="Horizontal" Spacing="4">
+                    <Button Classes="icon small onphoto-icon" Command="{Binding ReapplyCommand}" IsEnabled="{Binding FileExists}"
+                            ToolTip.Tip="Set as wallpaper again">
+                        <PathIcon Data="{StaticResource IconImage}" Width="14" Height="14" />
+                    </Button>
+                    <ToggleButton Classes="icon small onphoto-icon" IsChecked="{Binding IsFavorite}" ToolTip.Tip="Favorite: never auto-delete">
+                        <Panel>
+                            <PathIcon Data="{StaticResource IconStar}" Width="14" Height="14" IsVisible="{Binding !IsFavorite}" />
+                            <PathIcon Data="{StaticResource IconStarFilled}" Width="14" Height="14"
+                                      Foreground="{StaticResource OrielStarBrush}" IsVisible="{Binding IsFavorite}" />
+                        </Panel>
+                    </ToggleButton>
+                    <Button Classes="icon small onphoto-icon" Command="{Binding OpenInFolderCommand}" ToolTip.Tip="Open in folder">
+                        <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" />
+                    </Button>
+                    <Button Classes="icon small onphoto-icon" Command="{Binding DeleteCommand}" ToolTip.Tip="Delete">
+                        <PathIcon Data="{StaticResource IconDelete}" Width="14" Height="14" />
+                    </Button>
+                </StackPanel>
+              </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</views:HistoryItemControl>

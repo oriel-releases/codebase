@@ -3,17 +3,21 @@
 ## Repositories
 
 - **Private, source code:** https://github.com/akbarjorayev/oriel (`origin`; the whole repo root is pushed here, branches like `release-1.0.3`, default `main`).
-- **Public, releases only:** https://github.com/oriel-releases/windows (org `oriel-releases`; installers / Velopack releases are published here so the updater can read them without a token). Moved from `akbarjorayev/oriel-public`, which is a transferred repo: **never create a new repo with that old name**, or installed apps (1.0.4 and older) lose their redirect and stop updating. A Linux app would get its own repo in the same org.
+- **Public, releases only:** https://github.com/oriel-releases/windows (org `oriel-releases`; installers / Velopack releases are published here so the updater can read them without a token). Moved from `akbarjorayev/oriel-public`, which is a transferred repo: **never create a new repo with that old name**, or installed apps (1.0.4 and older) lose their redirect and stop updating.
+- **Public, Linux releases only:** https://github.com/oriel-releases/linux (Velopack AppImage releases for the app in `linux/`, built by `linux/scripts/release.sh`).
 
 ## Workflow rules
 
 - **Pushing code to the private repo:** never push straight to `main`. Create a branch (e.g. `release-1.0.4`, or a short
   feature name) and open a **pull request** into `main`.
-- **Deploying a new version:** besides `windows\scripts\release.ps1` (publishes to `oriel-releases/windows`), also
-  1. update the Firestore version document **`application/version`**, field `version` (project `oriel-gcp`), to the new
-     version; the website reads it at build time and again in the browser on the download page,
-  2. update `fallbackVersion` and `releasedOn` in `website/src/config/release.ts`,
-  3. redeploy the website (`firebase deploy --only hosting`, after `npm run build`).
+- **Deploying a new version:** besides `windows/scripts/release.ps1` (publishes to `oriel-releases/windows`) or
+  `linux/scripts/release.sh` (publishes to `oriel-releases/linux`), also
+  1. update the Firestore version document of that app, field `version` (project `oriel-gcp`): **`application/windows`**
+     or **`application/linux`** (the old `application/version` is no longer used); the website reads them at build time
+     and again in the browser on the download page,
+  2. update that app's entry in `fallbackVersions` and its `releasedOn` in `website/src/config/release.ts`,
+  3. redeploy the website (`firebase deploy --only hosting`, after `npm run build`). If `website/firestore.rules`
+     changed, also `firebase deploy --only firestore:rules` (it must allow reading both `application/*` documents).
 
 Status: **decided, not built yet.** Nothing below is implemented. Windows app is in `windows/`, website in `website/`.
 Hard constraint: everything must stay **free** (Firebase Spark plan, no Blaze, no card) and light on phone battery.

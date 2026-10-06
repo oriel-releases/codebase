@@ -72,8 +72,7 @@ To publish a release:
 elease.ps1          # publish -> vpk pack -> upload to GitHub Releases as v<version>
    ```
    `-NoUpload` builds `releases\` locally without publishing.
-3. Update `version` and `releasedOn` in `website\src\config
-elease.ts` and redeploy the site.
+3. Set `version` in the Firestore document `application/windows`, update `fallbackVersions.windows` and `releasedOn` in `website/src/config/release.ts`, and redeploy the site.
 
 Notes:
 

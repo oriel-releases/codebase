@@ -1,0 +1,57 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Oriel.UI.ViewModels"
+             xmlns:views="using:Oriel.UI.Views"
+             x:Class="Oriel.UI.Views.HistoryView"
+             x:DataType="vm:HistoryViewModel">
+    <ScrollViewer>
+        <StackPanel MaxWidth="960" Margin="40,8,40,40">
+            <Grid>
+                <TextBlock Classes="title" Text="{Binding Title}" />
+                <Border HorizontalAlignment="Right" VerticalAlignment="Center" Padding="3" CornerRadius="12"
+                        Background="{DynamicResource OrielSurfaceBrush}">
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                        <ToggleButton Classes="icon small seg" Width="34" Height="30" CornerRadius="9" Background="Transparent"
+                                      IsChecked="{Binding IsGrid}" ToolTip.Tip="Grid">
+                            <PathIcon Data="{StaticResource IconGrid}" Width="14" Height="14" />
+                        </ToggleButton>
+                        <ToggleButton Classes="icon small seg" Width="34" Height="30" CornerRadius="9" Background="Transparent"
+                                      IsChecked="{Binding IsList}" ToolTip.Tip="List">
+                            <PathIcon Data="{StaticResource IconList}" Width="14" Height="14" />
+                        </ToggleButton>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <views:InfoBanner Margin="0,0,0,12" DataContext="{Binding Info}" />
+
+            <StackPanel Margin="0,80,0,0" HorizontalAlignment="Center" Spacing="12" IsVisible="{Binding IsEmpty}">
+                <Image Width="48" Height="48" Opacity="0.25" Source="{DynamicResource OrielLogo}" />
+                <TextBlock Classes="muted" HorizontalAlignment="Center" Text="{Binding EmptyText}" />
+            </StackPanel>
+
+            <!--  Virtualized: only the cards on screen exist, so a long history stays cheap  -->
+            <ItemsRepeater ItemsSource="{Binding Items}" IsVisible="{Binding IsGrid}">
+                <ItemsRepeater.Layout>
+                    <UniformGridLayout ItemsStretch="Fill" MinColumnSpacing="12" MinItemWidth="300" MinRowSpacing="12" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="vm:HistoryItemViewModel">
+                        <views:HistoryCard />
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+
+            <ItemsRepeater ItemsSource="{Binding Items}" IsVisible="{Binding IsList}">
+                <ItemsRepeater.Layout>
+                    <StackLayout Spacing="8" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="vm:HistoryItemViewModel">
+                        <views:HistoryRow />
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

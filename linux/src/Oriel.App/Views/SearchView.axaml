@@ -1,0 +1,133 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Oriel.UI.ViewModels"
+             xmlns:views="using:Oriel.UI.Views"
+             x:Class="Oriel.UI.Views.SearchView"
+             x:DataType="vm:CollectionsViewModel">
+    <ScrollViewer>
+        <Panel>
+            <!--  ============ Search ============  -->
+            <StackPanel MaxWidth="960" Margin="40,32,40,40" IsVisible="{Binding IsSearchShown}">
+
+                <!--  One rounded bar at the top, button inside  -->
+                <Border Height="52" Padding="18,0,6,0" Background="{DynamicResource OrielSurfaceBrush}" CornerRadius="26">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                        <PathIcon Data="{StaticResource IconSearch}" Width="16" Height="16" Foreground="{DynamicResource OrielMutedBrush}" />
+                        <TextBox Grid.Column="1" Classes="bare" VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                 PlaceholderText="Search wallpapers, like northern lights or tokyo night"
+                                 Text="{Binding SearchText}">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Enter" Command="{Binding SearchCommand}" />
+                            </TextBox.KeyBindings>
+                        </TextBox>
+                        <Button Grid.Column="2" Classes="primary" Height="40" Padding="22,0" CornerRadius="20" VerticalAlignment="Center"
+                                Command="{Binding SearchCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Arc Classes="spinner" Classes.busy="{Binding IsSearching}" Stroke="{DynamicResource OrielPaperBrush}" />
+                                <TextBlock Text="Search" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <views:InfoBanner Margin="0,12,0,0" DataContext="{Binding Info}" />
+
+                <!--  Daily mix: a row that opens its own page, like a Settings category  -->
+                <Button MinHeight="68" Margin="0,14,0,0" Padding="20,14,16,14" HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch" CornerRadius="16" Command="{Binding OpenMixCommand}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                        <PathIcon Data="{StaticResource IconRefresh}" Width="18" Height="18" Foreground="{DynamicResource OrielMutedBrush}" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                            <TextBlock FontWeight="SemiBold" Text="Daily mix" />
+                            <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding MixSummary}" />
+                        </StackPanel>
+                        <PathIcon Grid.Column="2" Data="{StaticResource IconChevron}" Width="12" Height="12" Foreground="{DynamicResource OrielMutedBrush}" />
+                    </Grid>
+                </Button>
+
+                <!--  Results: photo first, credit and action on the photo  -->
+                <StackPanel Margin="0,8,0,0" IsVisible="{Binding HasSearched}">
+                    <Grid Margin="0,8,0,12">
+                        <TextBlock Classes="section" Margin="2,0,0,0" VerticalAlignment="Center" Text="{Binding ResultsTitle}" />
+                        <Button HorizontalAlignment="Right" VerticalAlignment="Center" Command="{Binding AddToMixCommand}"
+                                IsVisible="{Binding CanAddToMix}" ToolTip.Tip="Include this search in the daily wallpaper mix">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" />
+                                <TextBlock Text="Add to my mix" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <TextBlock Classes="muted" Margin="2,0,0,0" Text="Nothing big enough found. Try other words." IsVisible="{Binding HasNoResults}" />
+
+                    <ItemsRepeater ItemsSource="{Binding Results}">
+                        <ItemsRepeater.Layout>
+                            <UniformGridLayout ItemsStretch="Fill" MinColumnSpacing="14" MinItemWidth="280" MinRowSpacing="14" />
+                        </ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PhotoResultViewModel">
+                                <views:PhotoResultCard />
+                            </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
+
+                    <Button Margin="0,16,0,0" HorizontalAlignment="Center" Content="Show more"
+                            Command="{Binding LoadMoreCommand}" IsVisible="{Binding CanLoadMore}" />
+                </StackPanel>
+            </StackPanel>
+
+            <!--  ============ Daily mix ============  -->
+            <StackPanel MaxWidth="960" Margin="40,32,40,40" IsVisible="{Binding IsMixOpen}">
+                <Grid Margin="0,0,0,20" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                    <Button Classes="icon" VerticalAlignment="Center" Command="{Binding CloseMixCommand}" ToolTip.Tip="Back">
+                        <PathIcon Data="{StaticResource IconBack}" Width="14" Height="14" />
+                    </Button>
+                    <TextBlock Grid.Column="1" Classes="title" Margin="0" VerticalAlignment="Center" Text="Daily mix" />
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal" Spacing="6">
+                        <Button Content="Select all" Command="{Binding SelectAllCommand}" CommandParameter="{x:True}"
+                                ToolTip.Tip="Turn on all built-in topics" />
+                        <Button Content="Clear" Command="{Binding SelectAllCommand}" CommandParameter="{x:False}"
+                                ToolTip.Tip="Turn off all built-in topics" />
+                    </StackPanel>
+                </Grid>
+
+                <views:InfoBanner Margin="0,0,0,12" DataContext="{Binding NothingOnInfo}" />
+
+                <ItemsControl ItemsSource="{Binding BuiltInTopics}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TopicViewModel">
+                            <ToggleButton Classes="chip" Margin="0,0,8,8" Content="{Binding ChipText}" IsChecked="{Binding IsEnabled}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <StackPanel Margin="0,14,0,0" IsVisible="{Binding HasCustomTopics}">
+                    <TextBlock Classes="section" Margin="2,0,0,10" Text="Your searches" />
+                    <ItemsControl ItemsSource="{Binding CustomTopics}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:TopicViewModel">
+                                <!--  The chip turns the search on or off; the small x removes it.  -->
+                                <StackPanel Orientation="Horizontal" Spacing="2" Margin="0,0,8,8">
+                                    <ToggleButton Classes="chip" Content="{Binding ChipText}" IsChecked="{Binding IsEnabled}" />
+                                    <Button Classes="icon small" VerticalAlignment="Center" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove">
+                                        <PathIcon Data="{StaticResource IconClose}" Width="10" Height="10" />
+                                    </Button>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </StackPanel>
+        </Panel>
+    </ScrollViewer>
+</UserControl>

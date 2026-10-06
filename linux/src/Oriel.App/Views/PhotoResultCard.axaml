@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Oriel.UI.ViewModels"
+             xmlns:controls="using:Oriel.UI.Controls"
+             x:Class="Oriel.UI.Views.PhotoResultCard"
+             x:DataType="vm:PhotoResultViewModel">
+    <Border Height="210" Background="{DynamicResource OrielLineBrush}" CornerRadius="16" ClipToBounds="True">
+        <Grid>
+            <Image controls:ImageReveal.Enabled="True" Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                   ToolTip.Tip="{Binding Size}" />
+            <!--  The fade keeps the white text readable on any photo.  -->
+            <Border VerticalAlignment="Bottom" Padding="14,44,10,10" Background="{StaticResource OrielPhotoScrimBrush}">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Button Classes="link onphoto" Margin="-6,0,0,0" VerticalAlignment="Center" FontSize="12"
+                        Content="{Binding PhotographerName}" Command="{Binding OpenUrlCommand}"
+                        CommandParameter="{Binding PhotographerUri}" ToolTip.Tip="Photographer on Unsplash" />
+                <Button Grid.Column="1" Classes="onphoto-pill" FontSize="13" Command="{Binding SetCommand}" IsEnabled="{Binding IsIdle}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Arc Classes="spinner" Classes.busy="{Binding IsBusy}" Width="12" Height="12" Stroke="#141414" />
+                        <TextBlock Text="Set as wallpaper" />
+                    </StackPanel>
+                </Button>
+              </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

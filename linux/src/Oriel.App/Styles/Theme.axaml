@@ -1,0 +1,251 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Oriel.UI.Controls">
+    <!--
+        Oriel's look, shared with the website and the Windows app: ink on paper, softly rounded, no borders.
+        Buttons, chips and tabs are pills; surfaces (cards, bars, the preview) are rounded to scale.
+    -->
+    <Styles.Resources>
+        <CornerRadius x:Key="OrielPill">12</CornerRadius>
+        <CornerRadius x:Key="OrielMedium">12</CornerRadius>
+        <CornerRadius x:Key="OrielCard">16</CornerRadius>
+        <CornerRadius x:Key="OrielLarge">20</CornerRadius>
+        <CornerRadius x:Key="OrielBar">26</CornerRadius>
+        <SolidColorBrush x:Key="OrielStarBrush" Color="#F5B301" />
+        <!--  Dark fade at the bottom of a photo: keeps white text and buttons readable on any picture  -->
+        <LinearGradientBrush x:Key="OrielPhotoScrimBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#00000000" />
+            <GradientStop Offset="0.45" Color="#59000000" />
+            <GradientStop Offset="1" Color="#CC000000" />
+        </LinearGradientBrush>
+
+        <!--  One row of Settings: title and description on the left, the control on the right.  -->
+        <ControlTheme x:Key="{x:Type controls:SettingRow}" TargetType="controls:SettingRow">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Classes="card" MinHeight="64" Padding="20,12,16,12">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                            <StackPanel VerticalAlignment="Center" Spacing="2">
+                                <ContentPresenter Content="{TemplateBinding Header}" />
+                                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                                           Text="{TemplateBinding Description}"
+                                           IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            </StackPanel>
+                            <ContentPresenter Grid.Column="1" VerticalAlignment="Center" Content="{TemplateBinding Content}" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+    </Styles.Resources>
+
+    <!--  Text  -->
+    <Style Selector="TextBlock.title">
+        <Setter Property="FontSize" Value="30" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="0,24,0,12" />
+    </Style>
+    <Style Selector="TextBlock.section">
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="2,28,0,8" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+        <Setter Property="Foreground" Value="{DynamicResource OrielMutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.small">
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <!--  Surfaces  -->
+    <Style Selector="Border.card">
+        <Setter Property="Background" Value="{DynamicResource OrielSurfaceBrush}" />
+        <Setter Property="CornerRadius" Value="{StaticResource OrielCard}" />
+    </Style>
+
+    <!--  Buttons: soft surface, no outline  -->
+    <Style Selector="Button">
+        <Setter Property="Background" Value="{DynamicResource OrielSurfaceBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource OrielInkBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{StaticResource OrielPill}" />
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OrielLineBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource OrielInkBrush}" />
+    </Style>
+    <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OrielLineBrush}" />
+    </Style>
+    <Style Selector="Button:disabled">
+        <Setter Property="Opacity" Value="0.55" />
+    </Style>
+
+    <!--  The main call to action: ink on paper  -->
+    <Style Selector="Button.primary">
+        <Setter Property="Background" Value="{DynamicResource OrielInkBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource OrielPaperBrush}" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Padding" Value="20,0" />
+        <Setter Property="CornerRadius" Value="18" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OrielInkHoverBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource OrielPaperBrush}" />
+    </Style>
+    <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OrielInkHoverBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource OrielPaperBrush}" />
+    </Style>
+
+    <!--  Round icon buttons  -->
+    <Style Selector="Button.icon, ToggleButton.icon">
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="18" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.icon.small, ToggleButton.icon.small">
+        <Setter Property="Width" Value="30" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="CornerRadius" Value="15" />
+    </Style>
+
+    <!--  Toggles keep the soft grey while checked; only a star inside turns yellow  -->
+    <Style Selector="ToggleButton">
+        <Setter Property="Background" Value="{DynamicResource OrielSurfaceBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource OrielInkBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{StaticResource OrielPill}" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OrielLineBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource OrielInkBrush}" />
+    </Style>
+    <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OrielSurfaceBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource OrielInkBrush}" />
+    </Style>
+    <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OrielLineBrush}" />
+    </Style>
+
+    <!--  Topic chips: ink when on  -->
+    <Style Selector="ToggleButton.chip">
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="CornerRadius" Value="18" />
+    </Style>
+    <Style Selector="ToggleButton.chip:checked /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OrielInkBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource OrielPaperBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.chip:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OrielInkHoverBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource OrielPaperBrush}" />
+    </Style>
+
+    <!--  Segmented choice (grid / list): ink when picked  -->
+    <Style Selector="ToggleButton.seg:checked /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OrielInkBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource OrielPaperBrush}" />
+    </Style>
+
+    <!--  Side menu items  -->
+    <Style Selector="Button.nav">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Padding" Value="14,10" />
+        <Setter Property="CornerRadius" Value="10" />
+    </Style>
+    <Style Selector="Button.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OrielSurfaceBrush}" />
+    </Style>
+    <Style Selector="Button.nav.selected /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OrielSurfaceBrush}" />
+    </Style>
+    <Style Selector="Button.nav.selected TextBlock">
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!--  Text links (photographer credit)  -->
+    <Style Selector="Button.link">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="5,2" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="Button.link:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource OrielMutedBrush}" />
+    </Style>
+    <Style Selector="Button.link.onphoto">
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.link.onphoto:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Foreground" Value="#E0E0E0" />
+    </Style>
+
+    <!--  Buttons sitting on a photo: light pill with dark text in both themes  -->
+    <Style Selector="Button.onphoto-pill">
+        <Setter Property="Background" Value="#F2F2F2" />
+        <Setter Property="Foreground" Value="#141414" />
+        <Setter Property="Padding" Value="14,5" />
+    </Style>
+    <Style Selector="Button.onphoto-pill:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="#E0E0E0" />
+        <Setter Property="Foreground" Value="#141414" />
+    </Style>
+    <Style Selector="Button.onphoto-icon, ToggleButton.onphoto-icon">
+        <Setter Property="Background" Value="#66000000" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.onphoto-icon:pointerover /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.onphoto-icon:pointerover /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.onphoto-icon:checked /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="#99000000" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+
+    <!--  Inputs  -->
+    <Style Selector="TextBox">
+        <Setter Property="CornerRadius" Value="{StaticResource OrielPill}" />
+    </Style>
+    <Style Selector="TextBox.bare">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FontSize" Value="15" />
+    </Style>
+    <Style Selector="TextBox.bare:focus /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="TextBox.bare:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <!--  A small arc that turns while something is busy. The turning only exists while it has the "busy" class.  -->
+    <Style Selector="Arc.spinner">
+        <Setter Property="Width" Value="14" />
+        <Setter Property="Height" Value="14" />
+        <Setter Property="StartAngle" Value="0" />
+        <Setter Property="SweepAngle" Value="270" />
+        <Setter Property="StrokeThickness" Value="2" />
+        <Setter Property="StrokeLineCap" Value="Round" />
+        <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+        <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="Arc.spinner.busy">
+        <Setter Property="IsVisible" Value="True" />
+        <Style.Animations>
+            <Animation Duration="0:0:0.9" IterationCount="Infinite">
+                <KeyFrame Cue="0%"><Setter Property="RotateTransform.Angle" Value="0" /></KeyFrame>
+                <KeyFrame Cue="100%"><Setter Property="RotateTransform.Angle" Value="360" /></KeyFrame>
+            </Animation>
+        </Style.Animations>
+    </Style>
+</Styles>

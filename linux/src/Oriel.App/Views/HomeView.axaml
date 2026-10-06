@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Oriel.UI.ViewModels"
+             xmlns:views="using:Oriel.UI.Views"
+             xmlns:controls="using:Oriel.UI.Controls"
+             x:Class="Oriel.UI.Views.HomeView"
+             x:DataType="vm:HomeViewModel">
+    <ScrollViewer>
+        <StackPanel MaxWidth="960" Margin="40,8,40,40" Spacing="16">
+            <views:InfoBanner DataContext="{Binding Info}" />
+
+            <!--  Today's wallpaper  -->
+            <Border Height="440" Background="{DynamicResource OrielSurfaceBrush}" CornerRadius="20" ClipToBounds="True">
+                <Grid>
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" IsVisible="{Binding HasNoCurrent}">
+                        <Image Width="48" Height="48" Opacity="0.25" Source="{DynamicResource OrielLogo}" />
+                        <TextBlock Classes="muted" HorizontalAlignment="Center" Text="No wallpaper yet. Press Change now." />
+                    </StackPanel>
+                    <Image controls:ImageReveal.Enabled="True" Source="{Binding Preview}" Stretch="UniformToFill" />
+
+                    <!--  One button on the photo: locked keeps this wallpaper (no automatic changes), unlocked lets it change.  -->
+                    <ToggleButton Classes="icon onphoto-icon" Margin="14" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                  IsChecked="{Binding IsPaused}"
+                                  ToolTip.Tip="Lock to keep this wallpaper. Unlock to let it change.">
+                        <Panel>
+                            <PathIcon Data="{StaticResource IconUnlock}" Width="15" Height="15" IsVisible="{Binding !IsPaused}" />
+                            <PathIcon Data="{StaticResource IconLock}" Width="15" Height="15" IsVisible="{Binding IsPaused}" />
+                        </Panel>
+                    </ToggleButton>
+                </Grid>
+            </Border>
+
+            <!--  Credit (required by Unsplash guidelines) and actions  -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                <StackPanel Margin="4,0,0,0" Orientation="Horizontal" VerticalAlignment="Center" IsVisible="{Binding HasCurrent}">
+                    <TextBlock VerticalAlignment="Center" Text="Photo by" />
+                    <Button Classes="link" Content="{Binding PhotographerName}"
+                            Command="{Binding OpenUrlCommand}" CommandParameter="{Binding PhotographerUri}" />
+                    <TextBlock VerticalAlignment="Center" Text="on" />
+                    <Button Classes="link" Content="Unsplash"
+                            Command="{Binding OpenUrlCommand}" CommandParameter="{Binding PhotoPageUri}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
+                    <ToggleButton Classes="icon" IsChecked="{Binding IsFavorite}" IsEnabled="{Binding HasCurrent}"
+                                  ToolTip.Tip="Favorite: keep this one forever">
+                        <Panel>
+                            <PathIcon Data="{StaticResource IconStar}" Width="16" Height="16" IsVisible="{Binding !IsFavorite}" />
+                            <PathIcon Data="{StaticResource IconStarFilled}" Width="16" Height="16"
+                                      Foreground="{StaticResource OrielStarBrush}" IsVisible="{Binding IsFavorite}" />
+                        </Panel>
+                    </ToggleButton>
+                    <Button Classes="primary" Command="{Binding ChangeNowCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Arc Classes="spinner" Classes.busy="{Binding IsBusy}" Stroke="{DynamicResource OrielPaperBrush}" />
+                            <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" IsVisible="{Binding ShowChangeIcon}" />
+                            <PathIcon Data="{StaticResource IconClock}" Width="14" Height="14" IsVisible="{Binding ShowLimitIcon}" />
+                            <TextBlock VerticalAlignment="Center" Text="{Binding ChangeLabel}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

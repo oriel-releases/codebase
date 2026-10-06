@@ -1,4 +1,4 @@
-import { release } from "@/config/release";
+import { releases } from "@/config/release";
 import { routes, site } from "@/config/site";
 import { faq, features, steps } from "@/content/home";
 import { pageMetadata } from "@/lib/seo/metadata";
@@ -20,7 +20,7 @@ export const metadata = pageMetadata({
 export default function HomePage() {
   return (
     <>
-      <JsonLd data={[websiteSchema(), softwareApplicationSchema(release, features), faqSchema(faq)]} />
+      <JsonLd data={[websiteSchema(), softwareApplicationSchema(releases, features), faqSchema(faq)]} />
       <PageTransition>
         <div>
           <Hero />

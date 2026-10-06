@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 import { routes } from "@/config/site";
 import { AnchorButton } from "@/components/ui/Button";
+import { navigation } from "@/lib/transitions";
 import { appLink, isFresh, signInWithGoogle, type SignedIn } from "@/lib/sign-in";
 
 type State =
@@ -57,9 +59,9 @@ export function LoginCard() {
           {state.opened && !expired && (
             <p className="text-xs text-balance text-muted">
               Nothing happened?{" "}
-              <a href={routes.download} className="underline underline-offset-4 hover:text-ink">
+              <Link href={routes.download} transitionTypes={[...navigation.forward]} className="underline underline-offset-4 hover:text-ink">
                 Install Oriel
-              </a>{" "}
+              </Link>{" "}
               first, then sign in here again.
             </p>
           )}

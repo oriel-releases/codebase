@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Oriel.UI.ViewModels"
+             x:Class="Oriel.UI.Views.InfoBanner"
+             x:DataType="vm:InfoState">
+    <UserControl.Styles>
+        <Style Selector="Border.banner">
+            <Setter Property="Background" Value="{DynamicResource OrielSurfaceBrush}" />
+        </Style>
+        <Style Selector="Border.banner.success"><Setter Property="Background" Value="#262E9E4A" /></Style>
+        <Style Selector="Border.banner.warning"><Setter Property="Background" Value="#33F5B301" /></Style>
+        <Style Selector="Border.banner.error"><Setter Property="Background" Value="#33D32F2F" /></Style>
+    </UserControl.Styles>
+
+    <Border x:Name="Bar" Classes="banner" IsVisible="{Binding IsOpen}" CornerRadius="12" Padding="16,10,10,10">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel VerticalAlignment="Center" Spacing="2">
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" IsVisible="{Binding HasTitle}" />
+                <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="icon small" Background="Transparent" VerticalAlignment="Center"
+                    Command="{Binding CloseCommand}" IsVisible="{Binding IsClosable}" ToolTip.Tip="Close">
+                <PathIcon Data="{StaticResource IconClose}" Width="10" Height="10" />
+            </Button>
+        </Grid>
+    </Border>
+</UserControl>

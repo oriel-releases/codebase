@@ -15,7 +15,7 @@ export function GetStarted({ steps }: { steps: Step[] }) {
         <ol className="mt-12 grid gap-4 md:grid-cols-3">
           {steps.map((s, i) => (
             <li key={s.title} className="rounded-[2rem] border border-line p-7 sm:p-8">
-              <span className="flex size-9 items-center justify-center rounded-full bg-ink text-sm font-medium text-paper">
+              <span className="flex size-9 items-center justify-center rounded-full bg-accent text-sm font-medium text-paper">
                 {i + 1}
               </span>
               <h3 className="mt-6 font-medium">{s.title}</h3>

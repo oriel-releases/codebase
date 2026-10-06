@@ -1,0 +1,72 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Oriel.UI.ViewModels"
+        xmlns:views="using:Oriel.UI.Views"
+        x:Class="Oriel.UI.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Oriel (Beta)"
+        Icon="avares://Oriel/Assets/AppIcon.png"
+        Width="1100" Height="780" MinWidth="560" MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource OrielPaperBrush}">
+    <Grid>
+        <Grid ColumnDefinitions="220,*" IsVisible="{Binding IsSignedIn}">
+            <!--  Side menu  -->
+            <DockPanel Margin="12,16,12,12">
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="12,4,0,20">
+                    <Image Width="24" Height="24" Source="{DynamicResource OrielLogo}" />
+                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" FontSize="16" Text="Oriel" />
+                    <TextBlock VerticalAlignment="Center" Classes="muted small" Text="Beta" />
+                </StackPanel>
+                <Button DockPanel.Dock="Bottom" Classes="nav" Classes.selected="{Binding IsSettings}"
+                        Command="{Binding NavigateCommand}" CommandParameter="settings">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <PathIcon Data="{StaticResource IconSettings}" Width="16" Height="16" />
+                        <TextBlock Text="Settings" />
+                    </StackPanel>
+                </Button>
+                <StackPanel Spacing="2">
+                    <Button Classes="nav" Classes.selected="{Binding IsHome}" Command="{Binding NavigateCommand}" CommandParameter="home">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="{StaticResource IconHome}" Width="16" Height="16" />
+                            <TextBlock Text="Home" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="nav" Classes.selected="{Binding IsSearch}" Command="{Binding NavigateCommand}" CommandParameter="search">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="{StaticResource IconSearch}" Width="16" Height="16" />
+                            <TextBlock Text="Search" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="nav" Classes.selected="{Binding IsHistory}" Command="{Binding NavigateCommand}" CommandParameter="history">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="{StaticResource IconHistory}" Width="16" Height="16" />
+                            <TextBlock Text="History" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="nav" Classes.selected="{Binding IsFavorites}" Command="{Binding NavigateCommand}" CommandParameter="favorites">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="{StaticResource IconStar}" Width="16" Height="16" />
+                            <TextBlock Text="Favorites" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+
+            <!--  The page. Each is created when shown and thrown away when left, so nothing stays in memory.  -->
+            <ContentControl Grid.Column="1" Content="{Binding CurrentPage}">
+                <ContentControl.DataTemplates>
+                    <DataTemplate DataType="vm:HomeViewModel"><views:HomeView /></DataTemplate>
+                    <DataTemplate DataType="vm:CollectionsViewModel"><views:SearchView /></DataTemplate>
+                    <DataTemplate DataType="vm:HistoryViewModel"><views:HistoryView /></DataTemplate>
+                    <DataTemplate DataType="vm:SettingsViewModel"><views:SettingsView /></DataTemplate>
+                </ContentControl.DataTemplates>
+            </ContentControl>
+        </Grid>
+
+        <!--  Covers the app until the account is signed in.  -->
+        <Panel IsVisible="{Binding IsSignedOut}">
+            <views:SignInView DataContext="{Binding SignIn}" />
+        </Panel>
+    </Grid>
+</Window>

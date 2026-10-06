@@ -22,6 +22,9 @@ export function SiteFooter({ wordmark = false }: { wordmark?: boolean }) {
           <Link href={routes.download} transitionTypes={[...navigation.forward]} className="hover:text-ink">
             Download
           </Link>
+          <Link href={routes.login} transitionTypes={[...navigation.forward]} className="hover:text-ink">
+            Sign in
+          </Link>
         </nav>
       </Container>
       {wordmark && (

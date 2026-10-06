@@ -1,4 +1,4 @@
-import { release } from "@/config/release";
+import { releases } from "@/config/release";
 import { routes, site } from "@/config/site";
 import { downloadPage } from "@/content/download";
 import { features } from "@/content/home";
@@ -15,21 +15,18 @@ import { SharedElement } from "@/components/motion/SharedElement";
 import { sharedElement } from "@/lib/transitions";
 
 export const metadata = pageMetadata({
-  title: "Download for Windows",
-  description: `Download ${site.name} ${release.version} for Windows. ${downloadPage.body}`,
+  title: "Download for Windows and Linux",
+  description: `Download ${site.name} for Windows (${releases.windows.version}) and Linux (${releases.linux.version}). Free, with no ads: sign in with Google and your first wallpaper arrives right away.`,
   path: routes.download,
 });
 
-/**
- * Exactly one screen tall, never scrolls. On short screens the less important parts
- * (install steps, then the logo) step aside so the download button always fits.
- */
+/** At least one screen tall; on small screens the cards and steps simply scroll. */
 export default function DownloadPage() {
   return (
-    <div className="flex h-svh flex-col overflow-hidden">
+    <div className="flex min-h-svh flex-col">
       <JsonLd
         data={[
-          softwareApplicationSchema(release, features),
+          softwareApplicationSchema(releases, features),
           breadcrumbSchema([
             { name: site.name, path: routes.home },
             { name: "Download", path: routes.download },
@@ -37,19 +34,18 @@ export default function DownloadPage() {
         ]}
       />
       <PageTransition>
-        <section className="flex min-h-0 flex-1 items-center pt-16">
-          <Container className="flex max-w-xl flex-col items-center text-center">
+        <section className="flex flex-1 items-center py-28">
+          <Container className="flex max-w-3xl flex-col items-center text-center">
             <SharedElement name={sharedElement.logo}>
-              <Logo size={72} priority className="size-14 sm:size-18 [@media(max-height:560px)]:hidden" />
+              <Logo size={72} priority className="size-14 sm:size-18" />
             </SharedElement>
-            <h1 className="mt-8 text-3xl font-semibold tracking-tight sm:mt-10 sm:text-5xl [@media(max-height:560px)]:mt-0">
+            <h1 className="mt-8 text-3xl font-semibold tracking-tight sm:mt-10 sm:text-5xl">
               {downloadPage.title}
             </h1>
-            <p className="mt-4 text-base text-pretty text-muted sm:mt-5 sm:text-lg">{downloadPage.body}</p>
             <div className="mt-8 w-full sm:mt-10">
-              <DownloadCard release={release} />
+              <DownloadCard releases={releases} />
             </div>
-            <div className="mt-10 w-full sm:mt-14 [@media(max-height:760px)]:hidden">
+            <div className="mt-8 w-full border-t border-line pt-6 sm:mt-10 sm:pt-8">
               <InstallSteps steps={downloadPage.installSteps} />
             </div>
           </Container>
