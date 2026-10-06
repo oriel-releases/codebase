@@ -3,13 +3,13 @@
 ## Repositories
 
 - **Private, source code:** https://github.com/akbarjorayev/oriel (`origin`; the whole repo root is pushed here, branches like `release-1.0.3`, default `main`).
-- **Public, releases only:** https://github.com/akbarjorayev/oriel-public (installers / Velopack releases are published here so the updater can read them without a token).
+- **Public, releases only:** https://github.com/oriel-releases/windows (org `oriel-releases`; installers / Velopack releases are published here so the updater can read them without a token). Moved from `akbarjorayev/oriel-public`, which is a transferred repo: **never create a new repo with that old name**, or installed apps (1.0.4 and older) lose their redirect and stop updating. A Linux app would get its own repo in the same org.
 
 ## Workflow rules
 
 - **Pushing code to the private repo:** never push straight to `main`. Create a branch (e.g. `release-1.0.4`, or a short
   feature name) and open a **pull request** into `main`.
-- **Deploying a new version:** besides `windows\scripts\release.ps1` (publishes to `oriel-public`), also
+- **Deploying a new version:** besides `windows\scripts\release.ps1` (publishes to `oriel-releases/windows`), also
   1. update the Firestore version document **`application/version`**, field `version` (project `oriel-gcp`), to the new
      version; the website reads it at build time and again in the browser on the download page,
   2. update `fallbackVersion` and `releasedOn` in `website/src/config/release.ts`,

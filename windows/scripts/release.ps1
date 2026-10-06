@@ -2,7 +2,7 @@
 # within a day (Settings > Updates > Check for updates to get it right away).
 #
 #   1. Bump <Version> in src\Oriel.App\Oriel.App.csproj
-#   2. $env:GITHUB_TOKEN = '<token with Contents: read and write on akbarjorayev/oriel-public>'
+#   2. $env:GITHUB_TOKEN = '<token with Contents: read and write on oriel-releases/windows>'
 #   3. .\scripts\release.ps1                (or -NoUpload to only build .\releases locally)
 param(
     [ValidateSet('x64', 'arm64')] [string]$Arch = 'x64',
@@ -13,7 +13,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$repoUrl = 'https://github.com/akbarjorayev/oriel-public'
+$repoUrl = 'https://github.com/oriel-releases/windows'
 $packId = 'OrielApp'          # install folder %LOCALAPPDATA%\OrielApp; never change it, or updates break
 $vpkVersion = '1.2.161'       # keep in step with the Velopack package in Oriel.App.csproj
 $channel = if ($Arch -eq 'x64') { 'win' } else { "win-$Arch" }

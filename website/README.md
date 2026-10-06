@@ -38,5 +38,5 @@ src/app        routes + SEO files: sitemap, robots, manifest, opengraph-image, l
 
 Run `windows/scripts/release.ps1` (see the Windows README), then update `version` and
 `releasedOn` in `src/config/release.ts` and redeploy. The download button points at
-`https://github.com/akbarjorayev/oriel-public/releases/latest/download/Oriel-Setup.exe`, which always
+`https://github.com/oriel-releases/windows/releases/latest/download/Oriel-Setup.exe`, which always
 serves the newest installer, so the link itself never changes.

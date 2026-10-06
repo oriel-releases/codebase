@@ -14,7 +14,7 @@ public enum UpdateState { Idle, Checking, UpToDate, Downloading, ReadyToRestart,
 public sealed class UpdateService(ILogger<UpdateService> log) : IDisposable
 {
     /// <summary>Public releases-only repo; the source repo is private, and updates must be readable without a token.</summary>
-    public const string RepoUrl = "https://github.com/akbarjorayev/oriel-public";
+    public const string RepoUrl = "https://github.com/oriel-releases/windows";
     static readonly TimeSpan CheckInterval = TimeSpan.FromHours(24);
 
     readonly UpdateManager _manager = new(new GithubSource(RepoUrl, null, prerelease: false));
