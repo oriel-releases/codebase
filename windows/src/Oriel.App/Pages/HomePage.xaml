@@ -49,9 +49,28 @@
                         Text="No wallpaper yet. Press Change now." />
                 </StackPanel>
                 <Image
+                    local:ImageReveal.Enabled="True"
                     AutomationProperties.Name="Current wallpaper"
                     Source="{x:Bind ViewModel.Preview, Mode=OneWay}"
                     Stretch="UniformToFill" />
+
+                <!--  One button on the photo: locked keeps this wallpaper (no automatic changes), unlocked lets it change.  -->
+                <ToggleButton
+                    Margin="14"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    AutomationProperties.Name="Keep this wallpaper"
+                    IsChecked="{x:Bind ViewModel.IsPaused, Mode=TwoWay}"
+                    Style="{StaticResource IconToggleButtonStyle}"
+                    ToolTipService.ToolTip="Lock to keep this wallpaper. Unlock to let it change.">
+                    <ToggleButton.Resources>
+                        <ResourceDictionary Source="ms-appx:///Styles/OnPhoto.xaml" />
+                    </ToggleButton.Resources>
+                    <Grid>
+                        <FontIcon FontSize="15" Glyph="&#xE785;" Visibility="{x:Bind local:Star.Hidden(ViewModel.IsPaused), Mode=OneWay}" />
+                        <FontIcon FontSize="15" Glyph="&#xE72E;" Visibility="{x:Bind local:Star.Shown(ViewModel.IsPaused), Mode=OneWay}" />
+                    </Grid>
+                </ToggleButton>
             </Grid>
 
             <!--  Credit (required by Unsplash guidelines) and actions  -->
@@ -102,7 +121,7 @@
                         Height="36"
                         AutomationProperties.Name="Change wallpaper now"
                         Command="{x:Bind ViewModel.ChangeNowCommand}"
-                        IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}"
+                        IsEnabled="{x:Bind ViewModel.CanChange, Mode=OneWay}"
                         Style="{StaticResource PrimaryPillButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <ProgressRing
@@ -114,8 +133,12 @@
                             <FontIcon
                                 FontSize="14"
                                 Glyph="&#xE72C;"
-                                Visibility="{x:Bind ViewModel.IsIdle, Mode=OneWay}" />
-                            <TextBlock Text="Change now" />
+                                Visibility="{x:Bind ViewModel.ShowChangeIcon, Mode=OneWay}" />
+                            <FontIcon
+                                FontSize="14"
+                                Glyph="&#xE121;"
+                                Visibility="{x:Bind ViewModel.ShowLimitIcon, Mode=OneWay}" />
+                            <TextBlock Text="{x:Bind ViewModel.ChangeLabel, Mode=OneWay}" />
                         </StackPanel>
                     </Button>
                 </StackPanel>

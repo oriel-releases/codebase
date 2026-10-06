@@ -4,7 +4,7 @@ import { fetchLatestVersion } from "@/lib/latest-version";
 export const repoUrl = "https://github.com/akbarjorayev/oriel-public";
 
 /** Used only when Firestore can't be read at build time. */
-const fallbackVersion = "1.0.3";
+const fallbackVersion = "1.0.4";
 
 /**
  * The current Windows release. The version comes from Firestore (`application/version`), at build
@@ -14,7 +14,7 @@ const fallbackVersion = "1.0.3";
  */
 export const release = {
   version: (await fetchLatestVersion()) ?? fallbackVersion,
-  releasedOn: "2026-10-05",
+  releasedOn: "2026-10-06",
   fileName: "Oriel-Setup.exe",
   url: process.env.ORIEL_DOWNLOAD_URL ?? `${repoUrl}/releases/latest/download/Oriel-Setup.exe`,
   platform: "Windows",

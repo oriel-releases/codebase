@@ -46,9 +46,40 @@ public sealed partial class HomeViewModel : ObservableObject
     [ObservableProperty] public partial string NextChangeText { get; set; } = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsIdle))]
+    [NotifyPropertyChangedFor(nameof(IsIdle), nameof(CanChange), nameof(ShowChangeIcon), nameof(ShowLimitIcon))]
     public partial bool IsBusy { get; set; }
     public bool IsIdle => !IsBusy;
+
+    // "Change now" is limited per hour: until it works again the button counts down, e.g. "Try after 20 min".
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanChange), nameof(ShowChangeIcon), nameof(ShowLimitIcon), nameof(ChangeLabel))]
+    public partial int LimitMinutes { get; set; }
+    bool IsLimited => LimitMinutes > 0;
+    public bool CanChange => IsIdle && !IsLimited;
+    public bool ShowChangeIcon => IsIdle && !IsLimited;
+    public bool ShowLimitIcon => IsIdle && IsLimited;
+    public string ChangeLabel => IsLimited ? $"Try after {LimitMinutes} min" : "Change now";
+    Microsoft.UI.Dispatching.DispatcherQueueTimer? _limitTimer;
+
+    /// <summary>Shows the minutes left and re-checks every 15 s while limited, so the button comes back by itself.</summary>
+    void UpdateLimit(OrielState state)
+    {
+        var now = DateTimeOffset.Now;
+        var until = WallpaperService.ManualChangeAvailableAt(state, now);
+        LimitMinutes = until is { } at ? WallpaperService.MinutesUntil(at, now) : 0;
+        if (until is null)
+        {
+            _limitTimer?.Stop();
+            return;
+        }
+        if (_limitTimer is null)
+        {
+            _limitTimer = App.Dispatcher.CreateTimer();
+            _limitTimer.Interval = TimeSpan.FromSeconds(15);
+            _limitTimer.Tick += (_, _) => UpdateLimit(_settings.LoadState());
+        }
+        if (!_limitTimer.IsRunning) _limitTimer.Start();
+    }
 
     [ObservableProperty] public partial bool IsInfoOpen { get; set; }
     [ObservableProperty] public partial string InfoTitle { get; set; } = "";
@@ -63,6 +94,7 @@ public sealed partial class HomeViewModel : ObservableObject
             var s = _settings.Load();
             var state = _settings.LoadState();
             IsPaused = s.Paused;
+            UpdateLimit(state);
             NextChangeText = DescribeNextChange(s, state);
 
             var latest = _history.List().FirstOrDefault();
@@ -141,6 +173,9 @@ public sealed partial class HomeViewModel : ObservableObject
                 break;
             case ApplyStatus.Busy:
                 ShowInfo(InfoBarSeverity.Informational, "Hang on", result.Error ?? "Already changing.");
+                break;
+            case ApplyStatus.RateLimited:
+                ShowInfo(InfoBarSeverity.Informational, "Slow down a little", result.Error ?? "Try again later.");
                 break;
         }
     }

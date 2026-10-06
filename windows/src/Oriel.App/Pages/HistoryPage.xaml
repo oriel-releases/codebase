@@ -21,7 +21,7 @@
         <StackPanel MaxWidth="{StaticResource PageMaxWidth}" Margin="{StaticResource PageContentMargin}">
             <Grid>
                 <StackPanel>
-                    <TextBlock Style="{StaticResource PageTitleStyle}" Text="History" />
+                    <TextBlock Style="{StaticResource PageTitleStyle}" Text="{x:Bind ViewModel.Title, Mode=OneWay}" />
                 </StackPanel>
                 <StackPanel
                     HorizontalAlignment="Right"
@@ -58,13 +58,6 @@
                             </RadioButton>
                         </StackPanel>
                     </Grid>
-                                    <ComboBox
-                        MinWidth="130"
-                                            AutomationProperties.Name="Show"
-                        SelectedIndex="{x:Bind ViewModel.FilterIndex, Mode=TwoWay}">
-                        <x:String>All</x:String>
-                        <x:String>Favorites</x:String>
-                    </ComboBox>
                 </StackPanel>
             </Grid>
 
@@ -87,7 +80,7 @@
                 <TextBlock
                     HorizontalAlignment="Center"
                     Style="{StaticResource MutedTextStyle}"
-                    Text="Nothing here yet." />
+                    Text="{x:Bind ViewModel.EmptyText, Mode=OneWay}" />
             </StackPanel>
 
             <!--  ItemsRepeater: a plain responsive grid, no list selection chrome  -->
@@ -110,6 +103,7 @@
                             PointerEntered="Card_Enter"
                             PointerExited="Card_Exit">
                             <Image
+                                local:ImageReveal.Enabled="True"
                                 AutomationProperties.Name="{x:Bind Topic}"
                                 Source="{x:Bind Thumbnail, Mode=OneWay}"
                                 Stretch="UniformToFill" />
@@ -228,6 +222,7 @@
                                 Background="{ThemeResource OrielLineBrush}"
                                 CornerRadius="{StaticResource OrielThumbRadius}">
                                 <Image
+                                    local:ImageReveal.Enabled="True"
                                     AutomationProperties.Name="{x:Bind Topic}"
                                     Source="{x:Bind Thumbnail, Mode=OneWay}"
                                     Stretch="UniformToFill" />

@@ -86,9 +86,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] public partial string FolderInfoMessage { get; set; } = "";
     [ObservableProperty] public partial InfoBarSeverity FolderInfoSeverity { get; set; }
 
+    bool _revertingStartup;
+    /// <summary>Set by the page: asks before "Start with Windows" is turned off; true means go ahead.</summary>
+    public Func<Task<bool>>? ConfirmTurnOffStartup { get; set; }
+
     /// <summary>Set by the page: shows a folder picker and returns the chosen path, or null.</summary>
     public Func<Task<string?>>? PickFolder { get; set; }
-    [ObservableProperty] public partial bool ChangeLockScreen { get; set; }
+    /// <summary>0 = desktop only, 1 = desktop and lock screen.</summary>
+    [ObservableProperty] public partial int ApplyToIndex { get; set; }
+    public string[] ApplyToOptions { get; } = ["Desktop only", "Desktop and lock screen"];
 
     // Keyboard shortcut for "next wallpaper"
     [ObservableProperty] public partial string Shortcut { get; set; } = "";
@@ -128,7 +134,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         MinLikes = s.MinLikes;
         StartWithWindows = s.StartWithWindows;
         PicturesFolder = _paths.WallpaperFolder(s);
-        ChangeLockScreen = s.ChangeLockScreen;
+        ApplyToIndex = s.ChangeLockScreen ? 1 : 0;
         _loading = false;
     }
 
@@ -221,6 +227,23 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnFitIndexChanged(int value) { if (value >= 0) Save(s => s.Fit = (WallpaperFit)value); }
     partial void OnSkipLowLikesChanged(bool value) => Save(s => s.SkipLowLikes = value);
     partial void OnMinLikesChanged(double value) => Save(s => s.MinLikes = (int)value);
-    partial void OnStartWithWindowsChanged(bool value) => Save(s => s.StartWithWindows = value);
-    partial void OnChangeLockScreenChanged(bool value) => Save(s => s.ChangeLockScreen = value);
-}
+    partial void OnStartWithWindowsChanged(bool value)
+    {
+        if (_loading || _revertingStartup) return;
+        if (value || ConfirmTurnOffStartup is null) Save(s => s.StartWithWindows = value);
+        else _ = ConfirmStartupOffAsync();
+    }
+
+    /// <summary>Turning it off is only saved after the user confirms; otherwise the switch goes back on.</summary>
+    async Task ConfirmStartupOffAsync()
+    {
+        if (await ConfirmTurnOffStartup!())
+        {
+            Save(s => s.StartWithWindows = false);
+            return;
+        }
+        _revertingStartup = true;
+        StartWithWindows = true;
+        _revertingStartup = false;
+    }
+    partial void OnApplyToIndexChanged(int value) { if (value >= 0) Save(s => s.ChangeLockScreen = value == 1); }}

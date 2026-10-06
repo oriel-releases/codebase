@@ -18,7 +18,17 @@ public sealed partial class HistoryPage : Page
         ViewModel.ConfirmDelete = ConfirmDeleteAsync;
     }
 
-    protected override async void OnNavigatedTo(NavigationEventArgs e) => await ViewModel.LoadAsync();
+    /// <summary>The Favorites menu item opens this same page with the parameter "favorites".</summary>
+    public bool FavoritesOnly { get; private set; }
+
+    protected override void OnNavigatedTo(NavigationEventArgs e) => ShowMode(e.Parameter as string == "favorites");
+
+    /// <summary>Shows everything (History) or only starred photos (Favorites) on this same page.</summary>
+    public async void ShowMode(bool favorites)
+    {
+        FavoritesOnly = favorites;
+        await ViewModel.LoadAsync(favorites);
+    }
 
     // Each item's action buttons stay hidden until the pointer is over it (or it has keyboard focus).
     void Card_Enter(object sender, PointerRoutedEventArgs e) => ShowActions(sender, true);

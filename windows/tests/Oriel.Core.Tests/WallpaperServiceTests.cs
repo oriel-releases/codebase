@@ -198,6 +198,58 @@ public sealed class WallpaperServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Change_now_is_limited_to_two_per_hour()
+    {
+        for (var i = 1; i <= 3; i++)
+        {
+            var id = $"p{i}";
+            _provider.Responses.Enqueue(() => [FakeProvider.Photo(id)]);
+        }
+
+        Assert.Equal(ApplyStatus.Applied, (await _svc.ApplyAsync(true)).Status);
+        Assert.Equal(ApplyStatus.Applied, (await _svc.ApplyAsync(true)).Status);
+        Assert.Equal(ApplyStatus.RateLimited, (await _svc.ApplyAsync(true)).Status);
+        Assert.Equal(2, _setter.Calls.Count);
+
+        var at = WallpaperService.ManualChangeAvailableAt(_store.LoadState(), _clock.Now);
+        Assert.Equal(_clock.Now + TimeSpan.FromHours(1), at);
+    }
+
+    [Fact]
+    public async Task Manual_change_does_not_move_the_schedule_and_automatic_still_runs_when_limited()
+    {
+        for (var i = 1; i <= 3; i++)
+        {
+            var id = $"p{i}";
+            _provider.Responses.Enqueue(() => [FakeProvider.Photo(id)]);
+        }
+        await _svc.ApplyAsync(true);
+        await _svc.ApplyAsync(true);
+
+        var state = _store.LoadState();
+        Assert.Null(state.LastAppliedDate);
+        Assert.Null(state.LastAppliedAt);
+        Assert.NotNull(WallpaperService.ManualChangeAvailableAt(state, _clock.Now));
+
+        // Change now is blocked, but the app's own change still happens, and is not counted against the limit.
+        Assert.Equal(ApplyStatus.Applied, (await _svc.ApplyAsync(false)).Status);
+        Assert.Equal(_clock.Today, _store.LoadState().LastAppliedDate);
+        Assert.Equal(2, _store.LoadState().ManualChanges.Count);
+    }
+
+    [Fact]
+    public async Task Failed_manual_change_does_not_hold_back_the_automatic_one()
+    {
+        var r = await _svc.ApplyAsync(true); // no photos available
+
+        Assert.Equal(ApplyStatus.Failed, r.Status);
+        var state = _store.LoadState();
+        Assert.Null(state.NextRetryAt);
+        Assert.Equal(0, state.ConsecutiveFailures);
+        Assert.Empty(state.ManualChanges);
+    }
+
+    [Fact]
     public void Span_targets_whole_virtual_desktop()
     {
         var monitors = new List<MonitorInfo> { new("A", 0, 0, 2560, 1440), new("B", 2560, 0, 1920, 1080) };

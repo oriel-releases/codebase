@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:local="using:Oriel.UI"
     xmlns:vm="using:Oriel.UI.ViewModels">
 
     <ScrollViewer>
@@ -158,6 +159,7 @@
                                     Background="{ThemeResource OrielLineBrush}"
                                     CornerRadius="{StaticResource OrielCardRadius}">
                                     <Image
+                                        local:ImageReveal.Enabled="True"
                                         AutomationProperties.Name="{x:Bind Description}"
                                         Source="{x:Bind Thumbnail}"
                                         Stretch="UniformToFill"

@@ -69,4 +69,6 @@ public sealed class OrielState
     public string? LastError { get; set; }
     public int ConsecutiveFailures { get; set; }
     public DateTimeOffset? NextRetryAt { get; set; }
+    /// <summary>When "Change now" last succeeded, for its per-hour limit. Only the last hour matters.</summary>
+    public List<DateTimeOffset> ManualChanges { get; set; } = [];
 }
