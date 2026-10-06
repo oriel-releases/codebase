@@ -26,7 +26,10 @@
                         <TextBlock Text="{Binding AccountName}" TextWrapping="Wrap" />
                         <TextBlock Classes="muted small" Text="{Binding AccountEmail}" TextWrapping="Wrap" />
                     </StackPanel>
-                    <Button Grid.Column="2" VerticalAlignment="Center" Content="Sign out" Command="{Binding SignOutCommand}" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button Content="Manage account" Command="{Binding OpenAccountCommand}" ToolTip.Tip="Opens your account page on the website" />
+                        <Button Content="Sign out" Command="{Binding SignOutCommand}" />
+                    </StackPanel>
                 </Grid>
             </Border>
 
@@ -104,6 +107,12 @@
                         </StackPanel>
                     </Button>
                 </StackPanel>
+            </controls:SettingRow>
+
+            <!--  ============ Help ============  -->
+            <TextBlock Classes="section" Text="Help" />
+            <controls:SettingRow Header="Contact support" Description="Questions, bugs or ideas? Message the Oriel support bot on Telegram.">
+                <Button Content="Open Telegram" Command="{Binding OpenSupportCommand}" />
             </controls:SettingRow>
         </StackPanel>
     </ScrollViewer>

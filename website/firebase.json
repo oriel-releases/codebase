@@ -9,7 +9,8 @@
     ],
     "rewrites": [
       { "source": "/download", "destination": "/download.html" },
-      { "source": "/login", "destination": "/login.html" }
+      { "source": "/login", "destination": "/login.html" },
+      { "source": "/me", "destination": "/me.html" }
     ]
   }
 }

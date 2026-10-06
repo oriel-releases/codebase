@@ -28,5 +28,10 @@
         </Button>
 
         <TextBlock Classes="muted" HorizontalAlignment="Center" Text="Waiting for you to finish in the browser…" IsVisible="{Binding IsWaiting}" />
+
+        <Button Margin="0,12,0,0" HorizontalAlignment="Center" Background="Transparent" Padding="10,6" CornerRadius="16"
+                Command="{Binding OpenSupportCommand}" ToolTip.Tip="Opens t.me/oriel_support_bot">
+            <TextBlock Classes="muted" FontSize="12" Text="Need help? Message support on Telegram" />
+        </Button>
     </StackPanel>
 </UserControl>

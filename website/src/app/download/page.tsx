@@ -10,6 +10,7 @@ import { SiteFooter } from "@/components/layout/SiteFooter";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { Container } from "@/components/ui/Container";
 import { Logo } from "@/components/ui/Logo";
+import { SupportHint } from "@/components/ui/SupportCard";
 import { PageTransition } from "@/components/motion/PageTransition";
 import { SharedElement } from "@/components/motion/SharedElement";
 import { sharedElement } from "@/lib/transitions";
@@ -47,6 +48,9 @@ export default function DownloadPage() {
             </div>
             <div className="mt-8 w-full border-t border-line pt-6 sm:mt-10 sm:pt-8">
               <InstallSteps steps={downloadPage.installSteps} />
+            </div>
+            <div className="mt-6">
+              <SupportHint>Trouble installing?</SupportHint>
             </div>
           </Container>
         </section>

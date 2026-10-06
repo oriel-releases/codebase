@@ -31,7 +31,8 @@ public sealed class WallpaperService(
     AppPaths paths,
     ILogger<WallpaperService> log,
     ILockScreenSetter? lockScreen = null,
-    IAuthState? auth = null)
+    IAuthState? auth = null,
+    ISyncPublisher? sync = null)
 {
     const int MaxQueriesPerTarget = 3;
 
@@ -111,6 +112,9 @@ public sealed class WallpaperService(
             }
             settingsStore.SaveState(state);
 
+            // Let the account's other devices (the browser extension) show the same photo. Never fails the change.
+            if (sync is not null && entries.Count > 0) await sync.PublishAsync(entries[0], CancellationToken.None);
+
             var result = new ApplyResult(ApplyStatus.Applied, entries);
             Applied?.Invoke(this, result);
             return result;
@@ -187,6 +191,8 @@ public sealed class WallpaperService(
             state.ConsecutiveFailures = 0;
             state.NextRetryAt = null;
             settingsStore.SaveState(state);
+
+            if (sync is not null) await sync.PublishAsync(entry, CancellationToken.None);
 
             var result = new ApplyResult(ApplyStatus.Applied, [entry]);
             Applied?.Invoke(this, result);
@@ -355,6 +361,8 @@ public sealed class WallpaperService(
         await ReapplyCoreAsync(entry);
         var touched = entry with { AppliedAt = clock.Now };
         history.Add(touched);
+        // History is another way to change the wallpaper: share it with the account's other devices like the rest.
+        if (sync is not null) await sync.PublishAsync(touched, CancellationToken.None);
         Applied?.Invoke(this, new ApplyResult(ApplyStatus.Applied, [touched]));
     }
 

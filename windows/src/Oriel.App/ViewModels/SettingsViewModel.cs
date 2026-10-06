@@ -58,6 +58,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     Task SignOut() => _auth.SignOutAsync();
 
+    [RelayCommand]
+    async Task OpenAccount() => await Windows.System.Launcher.LaunchUriAsync(new Uri(OrielLinks.Account));
+
+    [RelayCommand]
+    async Task OpenSupport() => await Windows.System.Launcher.LaunchUriAsync(new Uri(OrielLinks.Support));
+
     // Schedule
     [ObservableProperty] public partial TimeSpan DailyTime { get; set; }
     [ObservableProperty]

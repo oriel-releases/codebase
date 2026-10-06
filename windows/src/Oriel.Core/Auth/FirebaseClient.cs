@@ -19,6 +19,10 @@ public sealed record FirebaseProfile(string Uid, string Email, string DisplayNam
 
 public sealed record SessionInfo(string Platform, string DeviceName, string AppVersion);
 
+/// <summary>The wallpaper a desktop app applied last, shared through <c>users/{uid}/sync/current</c> so the browser extension can show the same photo.</summary>
+public sealed record CurrentWallpaper(string PhotoId, string ImageUrl, string PageUrl, string Photographer, string PhotographerUrl,
+    string? Description, string? Topic, string Source);
+
 /// <summary>
 /// Firebase Auth and Firestore over their REST APIs (there's no Firebase SDK for .NET desktop). The key is the
 /// public web key: what protects the data is Firebase Auth plus firestore.rules, not secrecy of this value.
@@ -98,6 +102,36 @@ public sealed class FirebaseClient(HttpClient http)
         using var response = await SendAsync(() => http.SendAsync(request, ct));
         if (response.StatusCode != HttpStatusCode.NotFound) await EnsureOkAsync(response, ct);
     }
+
+    /// <summary>Publishes the wallpaper just applied (creates or replaces <c>sync/current</c>; the latest write wins).</summary>
+    public Task SetCurrentWallpaperAsync(FirebaseTokens tokens, CurrentWallpaper wallpaper, CancellationToken ct = default)
+    {
+        var fields = new Dictionary<string, object>
+        {
+            ["photoId"] = Str(wallpaper.PhotoId),
+            ["imageUrl"] = Str(wallpaper.ImageUrl),
+            ["pageUrl"] = Str(wallpaper.PageUrl),
+            ["photographer"] = Str(wallpaper.Photographer),
+            ["photographerUrl"] = Str(wallpaper.PhotographerUrl),
+            ["source"] = Str(wallpaper.Source),
+            ["updatedAt"] = Time(DateTimeOffset.UtcNow),
+        };
+        if (!string.IsNullOrWhiteSpace(wallpaper.Description)) fields["description"] = Str(wallpaper.Description);
+        if (!string.IsNullOrWhiteSpace(wallpaper.Topic)) fields["topic"] = Str(wallpaper.Topic);
+        return WriteDocumentAsync(CurrentUrl(tokens.Uid), tokens, fields, ct);
+    }
+
+    public async Task<bool> HasCurrentWallpaperAsync(FirebaseTokens tokens, CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, CurrentUrl(tokens.Uid) + "?mask.fieldPaths=photoId");
+        request.Headers.Authorization = new("Bearer", tokens.IdToken);
+        using var response = await SendAsync(() => http.SendAsync(request, ct));
+        if (response.StatusCode == HttpStatusCode.NotFound) return false;
+        await EnsureOkAsync(response, ct);
+        return true;
+    }
+
+    static string CurrentUrl(string uid) => $"{DocumentsUrl}/users/{uid}/sync/current";
 
     static string SessionUrl(string uid, string sessionId) => $"{DocumentsUrl}/users/{uid}/sessions/{sessionId}";
 

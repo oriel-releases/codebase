@@ -37,6 +37,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITopicPicker>(_ => new RandomTopicPicker());
         services.AddSingleton<UnsplashProvider>();
         services.AddSingleton<IImageProvider>(sp => sp.GetRequiredService<UnsplashProvider>());
+        services.AddSingleton<SyncPublisher>();
+        services.AddSingleton<ISyncPublisher>(sp => sp.GetRequiredService<SyncPublisher>());
         services.AddSingleton<WallpaperService>();
         services.AddSingleton<RetentionService>();
         services.AddSingleton<WallpaperFolderMover>();

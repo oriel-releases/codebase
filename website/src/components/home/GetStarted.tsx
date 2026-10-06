@@ -14,8 +14,8 @@ export function GetStarted({ steps }: { steps: Step[] }) {
         <SectionHeading id="get-started-title">Get started in a minute</SectionHeading>
         <ol className="mt-12 grid gap-4 md:grid-cols-3">
           {steps.map((s, i) => (
-            <li key={s.title} className="rounded-[2rem] border border-line p-7 sm:p-8">
-              <span className="flex size-9 items-center justify-center rounded-full bg-accent text-sm font-medium text-paper">
+            <li key={s.title} data-spotlight className="group rounded-[2rem] border border-line p-7 transition-[translate,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1 hover:border-ink/25 hover:shadow-xl hover:shadow-ink/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:p-8">
+              <span className="flex size-9 items-center justify-center rounded-full bg-accent text-sm font-medium text-paper transition-transform duration-300 group-hover:scale-110">
                 {i + 1}
               </span>
               <h3 className="mt-6 font-medium">{s.title}</h3>

@@ -71,6 +71,18 @@
                 Style="{StaticResource MutedTextStyle}"
                 Text="Waiting for you to finish in the browser…"
                 Visibility="{x:Bind ViewModel.IsWaiting, Mode=OneWay}" />
+
+            <HyperlinkButton
+                Margin="0,12,0,0"
+                HorizontalAlignment="Center"
+                AutomationProperties.Name="Contact support on Telegram"
+                Command="{x:Bind ViewModel.OpenSupportCommand}"
+                FontSize="12">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon FontSize="13" Glyph="&#xE8F2;" />
+                    <TextBlock Text="Need help? Message support on Telegram" />
+                </StackPanel>
+            </HyperlinkButton>
         </StackPanel>
     </Grid>
 </UserControl>

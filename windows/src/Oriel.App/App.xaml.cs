@@ -100,6 +100,10 @@ public partial class App : Application
         // Back from the browser after signing in: bring Oriel to the front, active (not dimmed).
         auth.Changed += (_, _) => { if (auth.IsSignedIn) Dispatcher.TryEnqueue(ShowWindow); };
         auth.Start();
+        // Make sure a browser extension that gets linked later has a wallpaper to show right away.
+        var sync = Get<SyncPublisher>();
+        auth.Changed += (_, _) => { if (auth.IsSignedIn) _ = sync.PublishLatestIfMissingAsync(); };
+        _ = sync.PublishLatestIfMissingAsync();
 
         var background = Environment.GetCommandLineArgs().Contains("--background", StringComparer.OrdinalIgnoreCase);
         if (activation.Kind == ExtendedActivationKind.AppNotification)
@@ -121,6 +125,7 @@ public partial class App : Application
     {
         var list = args.ToList();
         if (!DeepLink.IsLink(list)) return false;
+        if (DeepLink.IsOpen(list)) return true; // just show the window
         _log?.LogInformation("Sign-in link received");
         var signIn = Get<SignInViewModel>();
         if (DeepLink.TryGetGoogleToken(list, out var token)) _ = signIn.CompleteAsync(token);

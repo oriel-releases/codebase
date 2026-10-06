@@ -58,6 +58,22 @@ public sealed class AuthService(IAccountStore store, FirebaseClient firebase, IL
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>Fresh Firebase credentials for the signed-in account, or null when signed out.</summary>
+    public async Task<FirebaseTokens?> GetTokensAsync(CancellationToken ct = default)
+    {
+        var account = _account;
+        if (account is null) return null;
+        await _gate.WaitAsync(ct);
+        try
+        {
+            return await EnsureTokensAsync(account, ct);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task SignOutAsync()
     {
         var account = _account;

@@ -21,6 +21,8 @@ export const site = {
     "GNOME KDE wallpaper changer",
     "desktop background",
   ],
+  /** Telegram bot where people get help. */
+  supportUrl: "https://t.me/oriel_support_bot",
   unsplashUrl: "https://unsplash.com/?utm_source=oriel&utm_medium=referral",
 } as const;
 
@@ -28,6 +30,7 @@ export const routes = {
   home: "/",
   download: "/download",
   login: "/login",
+  me: "/me",
 } as const;
 
 export function absoluteUrl(path: string): string {

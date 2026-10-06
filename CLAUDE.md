@@ -19,7 +19,18 @@
   3. redeploy the website (`firebase deploy --only hosting`, after `npm run build`). If `website/firestore.rules`
      changed, also `firebase deploy --only firestore:rules` (it must allow reading both `application/*` documents).
 
-Status: **decided, not built yet.** Nothing below is implemented. Windows app is in `windows/`, website in `website/`.
+## Browser extension (built)
+
+- Code in `extension/` (see its README): new tab page for Chrome/Edge/Brave/Firefox. Optional link to the Oriel account:
+  "Match my desktop" follows `users/{uid}/sync/current`, "Its own" picks from a bundled pool (`extension/src/data/pool.json`).
+- Windows and Linux apps publish `sync/current` after every applied wallpaper (`SyncPublisher`, best effort, never fails a change)
+  and once at start if it doesn't exist yet. Fields: photoId, imageUrl (Unsplash thumb URL; each device re-crops), pageUrl,
+  photographer, photographerUrl, description, topic, source (windows|linux), updatedAt. The extension's own settings live in the extension.
+- Sign-in reuses the website: `/login?for=extension` posts the Google credential to the extension's content script.
+- When the sync work below is built, keep `sync/current` as the "current photo" document (the plan's `users/{uid}/current` is not a valid
+  document path; it lives at `users/{uid}/sync/current`).
+
+Status of the Android + sync plan below: **decided, not built yet** (except the `sync/current` document above). Windows app is in `windows/`, Linux in `linux/`, website in `website/`.
 Hard constraint: everything must stay **free** (Firebase Spark plan, no Blaze, no card) and light on phone battery.
 
 ## Goal

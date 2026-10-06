@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>New Tab</title>
+    <link rel="icon" href="icons/icon-32.png" />
+  </head>
+  <body class="fixed inset-0 overflow-hidden bg-neutral-950 text-white antialiased">
+    <!-- Photo: colour first, then a blurred sliver of the photo, then the full-size image fades in. -->
+    <div id="bg" class="absolute inset-0 bg-neutral-900 transition-colors duration-700">
+      <img id="lo" alt="" class="absolute inset-0 size-full scale-110 object-cover opacity-0 blur-2xl transition-opacity duration-500" />
+    </div>
+    <div id="scrim" class="pointer-events-none absolute inset-0"></div>
+
+    <!-- Top bar -->
+    <header class="absolute inset-x-0 top-0 z-10 flex items-start justify-between p-4">
+      <button id="open-panel" title="Settings" aria-label="Settings" class="icon-btn soft" data-adapt>
+        <svg viewBox="0 0 24 24" class="size-[1.15rem]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
+      </button>
+      <div class="flex items-center gap-3">
+        <img id="avatar" alt="Your account" title="Account" role="button" tabindex="0" hidden referrerpolicy="no-referrer" class="size-8 cursor-pointer rounded-full object-cover ring-2 ring-white/40 transition hover:scale-105 hover:ring-white/70 focus-visible:ring-white" />
+      </div>
+    </header>
+
+    <main id="stage" class="relative flex h-full flex-col items-center justify-center px-6 pb-14">
+      <div class="flex flex-col items-center text-center" data-adapt>
+        <div id="clock" class="text-[clamp(4.5rem,10.5vw,8.5rem)] leading-none font-semibold tracking-tight tabular-nums"></div>
+        <div id="greeting" class="mt-2 text-[clamp(1.1rem,2vw,1.6rem)] font-medium"></div>
+      </div>
+
+      <form id="search" data-adapt class="glass mt-8 cursor-text flex w-full max-w-md items-center gap-2.5 rounded-full px-4 py-2.5 transition focus-within:bg-white/25 focus-within:ring-2 focus-within:ring-white/40" autocomplete="off">
+        <svg viewBox="0 0 24 24" class="size-4 shrink-0 opacity-70" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+        <input id="q" type="text" spellcheck="false" placeholder="Search the web" class="min-w-0 flex-1 bg-transparent text-base outline-none" />
+      </form>
+
+    </main>
+
+    <!-- Bottom bar: photo info button, quote, shuffle -->
+    <footer class="absolute inset-x-0 bottom-0 z-10 grid grid-cols-[1fr_auto_1fr] items-end gap-4 p-4">
+      <div class="flex min-w-0 items-end">
+        <!-- The photo credit lives behind this "i" button (it can be turned off in Appearance). -->
+        <button id="info-btn" title="Photo info" aria-label="Photo info" class="icon-btn soft" data-adapt hidden>
+          <svg viewBox="0 0 24 24" class="size-[1.15rem]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
+        </button>
+      </div>
+      <blockquote id="quote" role="button" tabindex="0" title="Click to copy" class="rise max-w-[min(34rem,46vw)] text-center text-xs italic" style="animation-delay:300ms" data-adapt></blockquote>
+      <div class="col-start-3 flex justify-end">
+        <button id="shuffle" title="Another photo" aria-label="Another photo" class="icon-btn soft" data-adapt hidden>
+          <svg viewBox="0 0 24 24" class="size-[1.15rem]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path fill="currentColor" stroke="none" d="M12,6V9L16,5L12,1V4A8,8 0 0,0 4,12C4,13.57 4.46,15.03 5.24,16.26L6.7,14.8C6.25,13.97 6,13 6,12A6,6 0 0,1 12,6M18.76,7.74L17.3,9.2C17.74,10.04 18,11 18,12A6,6 0 0,1 12,18V15L8,19L12,23V20A8,8 0 0,0 20,12C20,10.43 19.54,8.97 18.76,7.74Z" /></svg>
+        </button>
+      </div>
+    </footer>
+
+    <div id="toast" class="toast glass"></div>
+
+    <!-- Settings: a centered dialog with a menu on the left, like the desktop apps -->
+    <div id="backdrop" class="backdrop"></div>
+    <div id="info" class="info-card" role="dialog" aria-modal="true" aria-label="Photo info" inert></div>
+    <div id="panel" class="modal" role="dialog" aria-modal="true" aria-label="Oriel settings" inert></div>
+
+    <script type="module" src="/src/newtab/main.ts"></script>
+  </body>
+</html>
