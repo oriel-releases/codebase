@@ -7,7 +7,7 @@ namespace Oriel.UI.Services;
 public enum UpdateState { Idle, Checking, UpToDate, Downloading, ReadyToRestart, Failed }
 
 /// <summary>
-/// Self-updates from GitHub Releases (Velopack). Checks a minute after start and then once a day,
+/// Self-updates from GitHub Releases (Velopack). Checks when Oriel opens, after every new wallpaper, and once a day,
 /// downloads in the background, and installs when the user clicks Restart or when Oriel quits.
 /// A no-op unless Oriel was installed with Setup.exe (not under dotnet run or a copied folder).
 /// </summary>
@@ -15,7 +15,6 @@ public sealed class UpdateService(ILogger<UpdateService> log) : IDisposable
 {
     /// <summary>Public releases-only repo; the source repo is private, and updates must be readable without a token.</summary>
     public const string RepoUrl = "https://github.com/akbarjorayev/oriel-public";
-    static readonly TimeSpan FirstCheckDelay = TimeSpan.FromMinutes(1);
     static readonly TimeSpan CheckInterval = TimeSpan.FromHours(24);
 
     readonly UpdateManager _manager = new(new GithubSource(RepoUrl, null, prerelease: false));
@@ -35,7 +34,7 @@ public sealed class UpdateService(ILogger<UpdateService> log) : IDisposable
     public void Start()
     {
         if (!IsInstalled) return;
-        _timer = new Timer(_ => _ = CheckAsync(), null, FirstCheckDelay, CheckInterval);
+        _timer = new Timer(_ => _ = CheckAsync(), null, TimeSpan.Zero, CheckInterval);
     }
 
     public async Task CheckAsync()

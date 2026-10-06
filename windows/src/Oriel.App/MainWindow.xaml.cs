@@ -124,11 +124,19 @@ public sealed partial class MainWindow : Window
             : tag switch
             {
                 "collections" => typeof(CollectionsPage),
-                "history" => typeof(HistoryPage),
+                "history" or "favorites" => typeof(HistoryPage),
                 _ => typeof(HomePage),
             };
+        // History and Favorites are one page. Switching between them reloads that page instead of navigating:
+        // two History pages alive at once would fight over the shared view-mode radio buttons.
+        var favorites = !settings && tag == "favorites";
+        if (page == typeof(HistoryPage) && ContentFrame.Content is HistoryPage current)
+        {
+            if (current.FavoritesOnly != favorites) current.ShowMode(favorites);
+            return;
+        }
         if (ContentFrame.CurrentSourcePageType != page)
-            ContentFrame.Navigate(page, null, new EntranceNavigationTransitionInfo());
+            ContentFrame.Navigate(page, favorites ? "favorites" : null, new EntranceNavigationTransitionInfo());
     }
 
     void ResizeAndCenter(int width, int height)

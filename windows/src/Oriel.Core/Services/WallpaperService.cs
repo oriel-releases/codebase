@@ -12,7 +12,7 @@ namespace Oriel.Core.Services;
 /// <summary>What a change is doing right now, for progress UI.</summary>
 public enum ApplyPhase { Finding, Changing }
 
-public enum ApplyStatus { Applied, AlreadyAppliedToday, Paused, Failed, Busy, SignInRequired }
+public enum ApplyStatus { Applied, AlreadyAppliedToday, Paused, Failed, Busy, SignInRequired, RateLimited }
 
 public sealed record ApplyResult(ApplyStatus Status, IReadOnlyList<HistoryEntry> Entries, string? Error = null,
     ProviderErrorKind? ErrorKind = null)
@@ -34,6 +34,21 @@ public sealed class WallpaperService(
     IAuthState? auth = null)
 {
     const int MaxQueriesPerTarget = 3;
+
+    /// <summary>"Change now" (button, tray, shortcut) is limited to this many successful changes per hour.</summary>
+    const int MaxManualChangesPerHour = 2;
+    static readonly TimeSpan ManualChangeWindow = TimeSpan.FromHours(1);
+
+    /// <summary>Whole minutes left until <paramref name="at"/>, rounded up, at least 1 (so never "0 min").</summary>
+    public static int MinutesUntil(DateTimeOffset at, DateTimeOffset now) =>
+        Math.Max(1, (int)Math.Ceiling((at - now).TotalMinutes));
+
+    /// <summary>When "Change now" works again, or null if it is available right now.</summary>
+    public static DateTimeOffset? ManualChangeAvailableAt(OrielState state, DateTimeOffset now)
+    {
+        var recent = state.ManualChanges.Where(t => now - t < ManualChangeWindow).Order().ToList();
+        return recent.Count >= MaxManualChangesPerHour ? recent[^MaxManualChangesPerHour] + ManualChangeWindow : null;
+    }
 
     /// <summary>
     /// Requests kept back for the daily wallpaper: the Unsplash demo key allows 50 an hour, and a search
@@ -68,15 +83,32 @@ public sealed class WallpaperService(
         state = settingsStore.LoadState();
         if (!force && ScheduleRules.IsFresh(settings, state, clock.Now)) return new(ApplyStatus.AlreadyAppliedToday, []);
 
-        state.LastAttemptAt = clock.Now;
+        if (force)
+        {
+            state.ManualChanges.RemoveAll(t => clock.Now - t >= ManualChangeWindow);
+            if (ManualChangeAvailableAt(state, clock.Now) is { } next)
+                return new(ApplyStatus.RateLimited, [],
+                    $"You can use Change now twice an hour. Try again in {MinutesUntil(next, clock.Now)} min.");
+        }
+
+        // The schedule belongs to the app and "Change now" to the user, so they stay apart: only an automatic
+        // change moves the schedule (last applied, retries); a manual one only counts toward its own limit.
+        if (!force) state.LastAttemptAt = clock.Now;
         try
         {
             var entries = await ApplyCoreAsync(settings, ct);
-            state.LastAppliedDate = clock.Today;
-            state.LastAppliedAt = clock.Now;
-            state.LastError = null;
-            state.ConsecutiveFailures = 0;
-            state.NextRetryAt = null;
+            if (force)
+            {
+                state.ManualChanges.Add(clock.Now);
+            }
+            else
+            {
+                state.LastAppliedDate = clock.Today;
+                state.LastAppliedAt = clock.Now;
+                state.LastError = null;
+                state.ConsecutiveFailures = 0;
+                state.NextRetryAt = null;
+            }
             settingsStore.SaveState(state);
 
             var result = new ApplyResult(ApplyStatus.Applied, entries);
@@ -89,10 +121,14 @@ public sealed class WallpaperService(
             var message = ex is ProviderException or WallpaperException ? ex.Message : $"Something went wrong: {ex.Message}";
             log.LogWarning(ex, "Wallpaper change failed ({Kind})", kind);
 
-            state.LastError = message;
-            state.ConsecutiveFailures++;
-            state.NextRetryAt = clock.Now + RetryBackoff.Delay(state.ConsecutiveFailures);
-            settingsStore.SaveState(state);
+            // A failed "Change now" is reported to the user right away; it must not delay the automatic change.
+            if (!force)
+            {
+                state.LastError = message;
+                state.ConsecutiveFailures++;
+                state.NextRetryAt = clock.Now + RetryBackoff.Delay(state.ConsecutiveFailures);
+                settingsStore.SaveState(state);
+            }
             return new(ApplyStatus.Failed, [], message, kind);
         }
     }
@@ -313,15 +349,26 @@ public sealed class WallpaperService(
             : favorites;
         var pick = pool[Random.Shared.Next(pool.Count)];
 
-        await ReapplyAsync(pick);
+        await ReapplyCoreAsync(pick);
         var entry = pick with { AppliedAt = clock.Now };
         history.Add(entry);
         log.LogInformation("Applied favorite {Id}", pick.PhotoId);
         return entry;
     }
 
-    /// <summary>Re-applies an image from history.</summary>
+    /// <summary>
+    /// Re-applies an image from history. It becomes the newest entry, so Home shows it,
+    /// and <see cref="Applied"/> is raised like for any other change.
+    /// </summary>
     public async Task ReapplyAsync(HistoryEntry entry)
+    {
+        await ReapplyCoreAsync(entry);
+        var touched = entry with { AppliedAt = clock.Now };
+        history.Add(touched);
+        Applied?.Invoke(this, new ApplyResult(ApplyStatus.Applied, [touched]));
+    }
+
+    async Task ReapplyCoreAsync(HistoryEntry entry)
     {
         if (!File.Exists(entry.FilePath))
             throw new WallpaperException("That image file is gone from disk.");

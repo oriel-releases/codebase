@@ -28,6 +28,7 @@ public sealed partial class SettingsPage : Page
             // On failure the ellipse stays hidden and the logo underneath shows.
         }
         ViewModel.PickFolder = PickFolderAsync;
+        ViewModel.ConfirmTurnOffStartup = ConfirmTurnOffStartupAsync;
         Loaded += (_, _) => ViewModel.AttachUpdates();
         Unloaded += (_, _) => ViewModel.DetachUpdates();
     }
@@ -48,6 +49,20 @@ public sealed partial class SettingsPage : Page
         var key = (uint)e.Key;
         if (Hotkey.KeyName(key) is null || (mods & ~Hotkey.Shift) == 0) return;
         _ = ViewModel.SetShortcutAsync(new Hotkey(mods, key));
+    }
+
+    async Task<bool> ConfirmTurnOffStartupAsync()
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Turn off Start with Windows?",
+            Content = "Oriel won't open when you sign in, so the tray icon and your shortcut won't work until you open it yourself. Scheduled wallpaper changes will still run.",
+            PrimaryButtonText = "Turn off",
+            CloseButtonText = "Keep on",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
     async Task<string?> PickFolderAsync()

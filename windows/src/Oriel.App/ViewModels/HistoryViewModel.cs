@@ -41,17 +41,22 @@ public sealed partial class HistoryViewModel(IHistoryStore history, WallpaperSer
 
     [ObservableProperty] public partial bool IsGrid { get; set; } = true;
     [ObservableProperty] public partial bool IsList { get; set; }
-    [ObservableProperty] public partial int FilterIndex { get; set; }
+    /// <summary>The same page serves History (everything) and Favorites (starred photos only).</summary>
+    [ObservableProperty] public partial bool FavoritesOnly { get; set; }
+    public string Title => FavoritesOnly ? "Favorites" : "History";
+    public string EmptyText => FavoritesOnly ? "No favorites yet. Star a photo to keep it here." : "Nothing here yet.";
     [ObservableProperty] public partial bool IsEmpty { get; set; }
     [ObservableProperty] public partial string? Message { get; set; }
     [ObservableProperty] public partial bool IsMessageOpen { get; set; }
 
     partial void OnIsGridChanged(bool value) => IsList = !value;
     partial void OnIsListChanged(bool value) => IsGrid = !value;
-    partial void OnFilterIndexChanged(int value) => ApplyFilter();
 
-    public async Task LoadAsync()
+    public async Task LoadAsync(bool favoritesOnly = false)
     {
+        FavoritesOnly = favoritesOnly;
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(EmptyText));
         _all = history.List().Select(e => new HistoryItemViewModel(this, e)).ToList();
         ApplyFilter();
         // Thumbnails after the grid is populated, so the page shows up instantly.
@@ -69,14 +74,18 @@ public sealed partial class HistoryViewModel(IHistoryStore history, WallpaperSer
     void ApplyFilter()
     {
         Items.Clear();
-        foreach (var i in _all.Where(i => FilterIndex == 0 || i.IsFavorite)) Items.Add(i);
+        foreach (var i in _all.Where(i => !FavoritesOnly || i.IsFavorite)) Items.Add(i);
         IsEmpty = Items.Count == 0;
     }
 
     internal void SetFavorite(HistoryItemViewModel item, bool value)
     {
         history.SetFavorite(item.Entry.Id, value);
-        if (FilterIndex == 1 && !value) ApplyFilter();
+        if (FavoritesOnly && !value)
+        {
+            Items.Remove(item);
+            IsEmpty = Items.Count == 0;
+        }
     }
 
     internal async Task ReapplyAsync(HistoryItemViewModel item)

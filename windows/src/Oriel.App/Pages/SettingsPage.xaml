@@ -143,15 +143,14 @@
             </controls:SettingRow>
 
             <controls:SettingRow
-                Description="Use each new wallpaper as the lock screen picture too."
+                Description="Choose whether each new wallpaper also becomes your lock screen picture."
                 Glyph="&#xE72E;"
-                Header="Change lock screen">
-                <ToggleSwitch
-                    MinWidth="0"
-                    AutomationProperties.Name="Change lock screen"
-                    IsOn="{x:Bind ViewModel.ChangeLockScreen, Mode=TwoWay}"
-                    OffContent=""
-                    OnContent="" />
+                Header="Apply to">
+                <ComboBox
+                    MinWidth="190"
+                    AutomationProperties.Name="Apply to"
+                    ItemsSource="{x:Bind ViewModel.ApplyToOptions}"
+                    SelectedIndex="{x:Bind ViewModel.ApplyToIndex, Mode=TwoWay}" />
             </controls:SettingRow>
 
             <!--  ============ Quality ============  -->

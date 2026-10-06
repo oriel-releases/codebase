@@ -77,7 +77,11 @@ public partial class App : Application
         _ = hotkeys.ApplyAsync(Hotkey.Parse(Get<ISettingsStore>().Load().Hotkey))
             .ContinueWith(t => _log?.LogInformation("Shortcut registered: {Result}", t.Result ?? "ok"));
 
-        Get<WallpaperService>().Applied += (_, r) => Dispatcher.TryEnqueue(() => OnApplied(r));
+        Get<WallpaperService>().Applied += (_, r) =>
+        {
+            Dispatcher.TryEnqueue(() => OnApplied(r));
+            _ = Get<UpdateService>().CheckAsync();
+        };
 
         var scheduler = Get<DailyScheduler>();
         scheduler.Attempted += (_, r) => Dispatcher.TryEnqueue(() => Get<HomeViewModel>().ShowResult(r));
@@ -222,7 +226,7 @@ public partial class App : Application
             if (onPhase is not null) wallpapers.PhaseChanged -= onPhase;
             popup?.Dismiss();
         }
-        if (result.Status == ApplyStatus.Failed && !IsWindowVisible)
+        if (result.Status is ApplyStatus.Failed or ApplyStatus.RateLimited && !IsWindowVisible)
             Toasts.ShowError(result.Error ?? "Unknown error.");
     }
 

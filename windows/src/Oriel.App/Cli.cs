@@ -74,6 +74,7 @@ static class Cli
                 Out("Oriel is paused.");
                 return 0;
             case ApplyStatus.Busy:
+            case ApplyStatus.RateLimited:
                 Out(result.Error!);
                 return 0;
             case ApplyStatus.SignInRequired:
