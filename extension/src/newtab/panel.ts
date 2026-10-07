@@ -202,7 +202,7 @@ function helpPage(): string {
       </div>
       <a class="btn btn-primary" href="${supportUrl}" target="_blank" rel="noopener">Open Telegram</a>
     </div>
-    <p class="foot">Oriel ${esc(chrome.runtime.getManifest().version)} · <a href="https://oriel.akbarjon.uz" target="_blank" rel="noopener">Website</a> · Photos from <a href="https://unsplash.com/?utm_source=oriel&utm_medium=referral" target="_blank" rel="noopener">Unsplash</a></p>`;
+    <p class="foot">Oriel ${esc(chrome.runtime.getManifest().version)} · <a href="https://oriel.akbarjon.uz" target="_blank" rel="noopener">Website</a> · <a href="https://oriel.akbarjon.uz/privacy" target="_blank" rel="noopener">Privacy</a> · Photos from <a href="https://unsplash.com/?utm_source=oriel&utm_medium=referral" target="_blank" rel="noopener">Unsplash</a></p>`;
 }
 
 function avatar(p: Profile, size: string): string {

@@ -23,6 +23,9 @@ export function SiteFooter({ wordmark = false }: { wordmark?: boolean }) {
           <Link href={routes.download} transitionTypes={[...navigation.forward]} className="grow transition-colors hover:text-ink">
             Download
           </Link>
+          <Link href={routes.privacy} transitionTypes={[...navigation.forward]} className="grow transition-colors hover:text-ink">
+            Privacy
+          </Link>
           <a href={site.supportUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 grow transition-colors hover:text-ink">
             <TelegramIcon width={14} height={14} />
             Support

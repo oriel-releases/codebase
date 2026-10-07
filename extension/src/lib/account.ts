@@ -2,14 +2,18 @@
 // who never linked an account doesn't load the SDK at all.
 import { initializeApp } from "firebase/app";
 import { GoogleAuthProvider, getAuth, onAuthStateChanged, signInWithCredential, signOut, type User } from "firebase/auth/web-extension";
-import { deleteDoc, doc, getDoc, getFirestore, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, initializeFirestore, onSnapshot, serverTimestamp, setDoc, setLogLevel, updateDoc } from "firebase/firestore";
 import { firebaseConfig, unsplashRef } from "./config";
 import type { Photo } from "./photo";
 import { remember } from "./settings";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+// The live listener drops whenever the network blips (sleep, Wi-Fi switch, VPN) and Firestore reconnects by itself, but it
+// logs each drop as a warning, which the browser lists as an extension error. Keep real errors, drop that noise, and fall back
+// to long polling on networks or proxies that break the streaming connection.
+setLogLevel("error");
+const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
 
 export interface Profile {
   uid: string;

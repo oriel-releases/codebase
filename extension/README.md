@@ -43,4 +43,4 @@ npm run typecheck
 
 ## Publishing
 
-Zip the *contents* of `dist/chrome` for the Chrome Web Store / Edge Add-ons, and of `dist/firefox` for addons.mozilla.org. The Firebase web config in `src/lib/config.ts` is public by design; access is enforced by Firebase Auth and `website/firestore.rules`.
+`npm run package` makes a store build (no localhost permission) and writes the folders `release/oriel-chrome-<version>` (Chrome Web Store and Edge Add-ons), `release/oriel-firefox-<version>` (addons.mozilla.org) and `release/oriel-source-<version>` (the source Mozilla asks for); zip the contents of each yourself. Listing text, permission justifications and the privacy answers are in [STORE.md](STORE.md); the policy lives at `/privacy` on the website. Bump `version` in `package.json` for every submission. The Firebase web config in `src/lib/config.ts` is public by design; access is enforced by Firebase Auth and `website/firestore.rules`.

@@ -8,10 +8,11 @@ function manifest(target: "chrome" | "firefox"): Plugin {
   return {
     name: "oriel-manifest",
     generateBundle() {
-      const sites = ["https://oriel.akbarjon.uz/login*", "http://localhost:3000/login*"];
+      // Store builds (ORIEL_STORE=1, see scripts/package.mjs) only touch the production site; dev builds also allow localhost.
+      const sites = ["https://oriel.akbarjon.uz/login*", ...(process.env.ORIEL_STORE ? [] : ["http://localhost:3000/login*"])];
       const json = {
         manifest_version: 3,
-        name: "Oriel: New Tab Wallpaper",
+        name: "Oriel",
         short_name: "Oriel",
         version: pkg.version,
         description: "A beautiful Unsplash photo on every new tab. Match your Oriel desktop wallpaper, or pick your own.",
@@ -21,7 +22,11 @@ function manifest(target: "chrome" | "firefox"): Plugin {
         permissions: ["storage", "search"],
         content_scripts: [{ matches: sites, js: ["content.js"], run_at: "document_start" }],
         ...(target === "firefox" && {
-          browser_specific_settings: { gecko: { id: "extension@oriel.akbarjon.uz", strict_min_version: "128.0", data_collection_permissions: { required: ["none"] } } },
+          // data_collection_permissions needs Firefox 140 (desktop) / 142 (Android).
+          browser_specific_settings: {
+            gecko: { id: "extension@oriel.akbarjon.uz", strict_min_version: "140.0", data_collection_permissions: { required: ["none"] } },
+            gecko_android: { strict_min_version: "142.0" },
+          },
         }),
       };
       this.emitFile({ type: "asset", fileName: "manifest.json", source: JSON.stringify(json, null, 2) });
