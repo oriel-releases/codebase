@@ -18,6 +18,8 @@ export interface PanelState {
 
 export interface PanelActions {
   change(patch: Partial<Settings>): void;
+  /** A slider is being dragged: show the effect on the photo right away, without saving or redrawing the dialog. */
+  preview(patch: Partial<Settings>): void;
   connect(): void;
   disconnect(): void;
   openApp(): void;
@@ -330,6 +332,26 @@ export function openPage(next: Page): void {
   page = next;
 }
 
+/**
+ * While a slider is held, only its row stays: the dialog, its menu and the dim backdrop fade away (style.css), so the
+ * photo can be judged as it really looks.
+ */
+const isRange = (t: EventTarget | null): t is HTMLInputElement => t instanceof HTMLInputElement && t.dataset.act === "range";
+let adjustingTimer: number | undefined;
+let adjustingBound = false;
+
+function startAdjusting(root: HTMLElement, e: Event): void {
+  if (!isRange(e.target)) return;
+  root.dataset.adjusting = e.target.dataset.v;
+  document.body.classList.add("adjusting");
+}
+
+function stopAdjusting(root: HTMLElement): void {
+  clearTimeout(adjustingTimer);
+  delete root.dataset.adjusting;
+  document.body.classList.remove("adjusting");
+}
+
 function bind(root: HTMLElement, state: PanelState, actions: PanelActions): void {
   root.onclick = (e) => {
     if ((e.target as HTMLElement).classList.contains("confirm-layer")) {
@@ -372,9 +394,25 @@ function bind(root: HTMLElement, state: PanelState, actions: PanelActions): void
   root.onchange = (e) => {
     const el = e.target as HTMLInputElement;
     if (el.dataset.act === "toggle") actions.change({ [el.dataset.v!]: el.checked } as Partial<Settings>);
+    // A slider was let go (or a key press finished): now the value is saved and the dialog redrawn.
+    if (el.dataset.act === "range") actions.change({ [el.dataset.v!]: Number(el.value) } as Partial<Settings>);
   };
+  root.onpointerdown = (e) => startAdjusting(root, e);
+  root.onkeydown = (e) => {
+    if (isRange(e.target) && e.key.startsWith("Arrow")) {
+      startAdjusting(root, e);
+      clearTimeout(adjustingTimer);
+      adjustingTimer = window.setTimeout(() => stopAdjusting(root), 900);
+    }
+  };
+  if (!adjustingBound) {
+    adjustingBound = true;
+    // The pointer may be released anywhere, even outside the window.
+    for (const type of ["pointerup", "pointercancel", "blur"]) window.addEventListener(type, () => stopAdjusting(root));
+  }
+
   root.oninput = (e) => {
     const el = e.target as HTMLInputElement;
-    if (el.dataset.act === "range") actions.change({ [el.dataset.v!]: Number(el.value) } as Partial<Settings>);
+    if (el.dataset.act === "range") actions.preview({ [el.dataset.v!]: Number(el.value) } as Partial<Settings>);
   };
 }

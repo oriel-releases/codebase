@@ -4,11 +4,11 @@ import { remember, loadSettings, saveSettings } from "../lib/settings";
 import { siteUrl } from "../lib/config";
 import { randomQuote } from "../data/quotes";
 import { applyTone, forget, measure } from "../lib/tone";
-import type { DesktopCurrent, Profile } from "../lib/account";
+import { accentFor } from "../lib/accent";
+import { greetingText, timeText } from "../lib/clock";
+import { parseSearch } from "../lib/search";
 import { openPage, renderPanel, resetQuestions, type PanelActions } from "./panel";
-
-// The Firebase SDK is only loaded when there's an account to talk to.
-type Account = typeof import("../lib/account");
+import { createAccountSync } from "./account-sync";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const bg = $("bg");
@@ -20,12 +20,7 @@ const infoBtn = $("info-btn");
 const info = $("info");
 
 let settings = loadSettings();
-let profile: Profile | null = remember<Profile>("profile");
-let desktop: DesktopCurrent | null = remember<DesktopCurrent>("current");
-let busy = false;
 let signingOut = false;
-let account: Account | null = null;
-let stopWatching: (() => void) | null = null;
 let shown: Photo | null = null;
 let paintToken = 0;
 /** The photo layer on screen right now (a new photo fades in over it, then it is removed). */
@@ -33,15 +28,34 @@ let layer: HTMLImageElement | null = null;
 /** From this much blur on, the photo is soft anyway, so the blurred placeholder is skipped. */
 const softEnough = 6;
 
+/** Merges and saves new settings. */
+function updateSettings(patch: Partial<typeof settings>): void {
+  settings = { ...settings, ...patch };
+  saveSettings(settings);
+}
+
+/** The Oriel account: who is linked and what the desktop wallpaper is. Its logic lives in account-sync.ts. */
+const sync = createAccountSync({
+  settings: () => settings,
+  update: updateSettings,
+  changed() {
+    renderLayout();
+    refreshPhoto();
+    drawPanel();
+  },
+  busyChanged: () => drawPanel(),
+  toast: (message) => toast(message),
+});
+
 /** Desktop mode needs an account; without one the extension always picks for itself. */
-const followsDesktop = () => settings.mode === "desktop" && !!profile;
+const followsDesktop = () => settings.mode === "desktop" && !!sync.profile;
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 // ---------------------------------------------------------------- photo
 
 function currentPhoto(): Photo {
-  if (followsDesktop() && desktop) return desktop.photo;
+  if (followsDesktop() && sync.desktop) return sync.desktop.photo;
   // One photo per slot: changing topics later doesn't swap the photo you are looking at; it applies from the next slot.
   const key = slotKey(settings.change, settings.bump);
   if (!key) return pick(settings.topics, settings.change, settings.bump);
@@ -52,9 +66,19 @@ function currentPhoto(): Photo {
   return photo;
 }
 
+/** The desktop app's accent color for the wallpaper (a vivid color from the photo) tints the page's controls. Own photos keep the default. */
+function applyAccent(photo: Photo): void {
+  const accent = accentFor(photo, followsDesktop(), sync.desktop?.photo.id);
+  const root = document.documentElement;
+  if (accent) root.style.setProperty("--accent", accent);
+  else root.style.removeProperty("--accent");
+  document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", accent ?? "#000000");
+}
+
 function showPhoto(photo: Photo): void {
   const same = shown?.id === photo.id && shown.url === photo.url;
   shown = photo;
+  applyAccent(photo);
   renderCredit();
   renderSync();
   if (same) return;
@@ -159,8 +183,8 @@ info.addEventListener("click", (e) => {
 /** Top right: your avatar once an account is connected. */
 function renderSync(): void {
   const avatar = $<HTMLImageElement>("avatar");
-  if (profile?.photo) {
-    avatar.src = profile.photo;
+  if (sync.profile?.photo) {
+    avatar.src = sync.profile.photo;
     avatar.hidden = false;
   } else {
     avatar.hidden = true;
@@ -175,14 +199,8 @@ function refreshPhoto(): void {
 
 function renderClock(): void {
   const now = new Date();
-  $("clock").textContent = settings.clock
-    ? now.toLocaleTimeString([], { hour: settings.hour12 ? "numeric" : "2-digit", minute: "2-digit", hour12: settings.hour12 }).replace(/\s?[AP]M$/i, "")
-    : "";
-
-  const first = (profile?.name || "").split(" ")[0];
-  const h = now.getHours();
-  const part = h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-  $("greeting").textContent = settings.greeting ? (first ? `${part}, ${first}.` : `${part}.`) : "";
+  $("clock").textContent = settings.clock ? timeText(now, settings.hour12) : "";
+  $("greeting").textContent = settings.greeting ? greetingText(now, sync.profile?.name ?? "") : "";
 }
 
 function scheduleClock(): void {
@@ -236,14 +254,13 @@ function renderLayout(): void {
 // Search: the browser's own default engine where the extension API allows it.
 $("search").addEventListener("submit", (e) => {
   e.preventDefault();
-  const input = $<HTMLInputElement>("q");
-  const text = input.value.trim();
-  if (!text) return;
-  const looksLikeAddress = !/\s/.test(text) && /^(https?:\/\/|[\w-]+(\.[\w-]+)+(\/|$))/i.test(text);
-  if (looksLikeAddress) {
-    location.href = /^https?:\/\//i.test(text) ? text : `https://${text}`;
+  const target = parseSearch($<HTMLInputElement>("q").value);
+  if (!target) return;
+  if (target.kind === "address") {
+    location.href = target.url;
     return;
   }
+  const text = target.text;
   const firefox = (globalThis as unknown as { browser?: { search?: { search(o: object): Promise<void> } } }).browser;
   if (chrome.search?.query) chrome.search.query({ text, disposition: "CURRENT_TAB" });
   else if (firefox?.search?.search) void firefox.search.search({ query: text, disposition: "CURRENT_TAB" });
@@ -293,31 +310,41 @@ function closePanel(): void {
   backdrop.classList.remove("open");
 }
 
+let toneFrame = 0;
+
 const actions: PanelActions = {
+  // Dragging a slider: only the photo's dim and blur change, at most once per frame. Saving, redrawing the dialog and
+  // re-measuring every text colour on each tick is what made the two sliders feel different from each other.
+  preview(patch) {
+    settings = { ...settings, ...patch };
+    scrim.style.backgroundColor = `rgb(0 0 0 / ${settings.dim / 100})`;
+    bg.querySelectorAll<HTMLElement>("img.photo").forEach(blurStyle);
+    if (!toneFrame) {
+      toneFrame = requestAnimationFrame(() => {
+        toneFrame = 0;
+        applyTone(settings.dim / 100);
+      });
+    }
+  },
   change(patch) {
     const modeChanged = patch.mode !== undefined && patch.mode !== settings.mode;
-    settings = { ...settings, ...patch };
-    saveSettings(settings);
+    updateSettings(patch);
     renderLayout();
     styleBackground();
     // Topics and frequency apply to the next photo; only switching source changes what is on screen now.
     if (modeChanged) {
       refreshPhoto();
-      void syncWatcher();
+      void sync.syncWatcher();
     }
     drawPanel();
   },
   connect() {
     window.open(`${siteUrl()}/login?for=extension`, "_blank");
-    busy = true;
-    drawPanel();
+    sync.setBusy(true);
     toast("Finish signing in on the Oriel tab");
     // If the sign-in tab is closed without finishing, make the button usable again.
     window.setTimeout(() => {
-      if (!profile && busy) {
-        busy = false;
-        drawPanel();
-      }
+      if (!sync.profile && sync.busy) sync.setBusy(false);
     }, 3 * 60_000);
   },
   openApp() {
@@ -328,7 +355,7 @@ const actions: PanelActions = {
     signingOut = true;
     drawPanel();
     try {
-      await (await loadAccount()).signOutAccount();
+      await sync.signOut();
     } catch {
       toast("Couldn't sign out. Please try again.");
     } finally {
@@ -339,7 +366,7 @@ const actions: PanelActions = {
 };
 
 function drawPanel(): void {
-  renderPanel(panel, { settings, profile, busy, signingOut, desktop, banner: shown ? imageUrl(shown, 560, 224, 45) : null }, actions);
+  renderPanel(panel, { settings, profile: sync.profile, busy: sync.busy, signingOut, desktop: sync.desktop, banner: shown ? imageUrl(shown, 560, 224, 45) : null }, actions);
 }
 
 $("open-panel").addEventListener("click", openPanel);
@@ -362,8 +389,7 @@ $("shuffle").addEventListener("click", (e) => {
   button.classList.remove("spin");
   void button.offsetWidth; // restart the animation
   button.classList.add("spin");
-  settings = { ...settings, bump: settings.bump + 1 };
-  saveSettings(settings);
+  updateSettings({ bump: settings.bump + 1 });
   const photo = currentPhoto();
   showPhoto(photo);
   // Tell the other open tabs, so they all switch to this photo (see the storage listener below).
@@ -383,7 +409,7 @@ window.addEventListener("storage", (e) => {
     drawPanel();
     if (settings.mode !== before) {
       refreshPhoto();
-      void syncWatcher();
+      void sync.syncWatcher();
     }
   }
 });
@@ -397,93 +423,10 @@ function toast(message: string): void {
   toastTimer = window.setTimeout(() => el.classList.remove("show"), 3500);
 }
 
-// ---------------------------------------------------------------- account
-
-async function loadAccount(): Promise<Account> {
-  return (account ??= await import("../lib/account"));
-}
-
-/** Follows the desktop's wallpaper only while the account is linked and the mode asks for it. */
-async function syncWatcher(): Promise<void> {
-  stopWatching?.();
-  stopWatching = null;
-  if (!profile || settings.mode !== "desktop") return;
-  const acct = await loadAccount();
-  stopWatching = acct.watchDesktopWallpaper(
-    profile.uid,
-    (current) => {
-      desktop = current;
-      remember("current", current);
-      drawPanel();
-      renderLayout();
-      refreshPhoto();
-    },
-    () => toast("Couldn't read your desktop wallpaper. Showing a photo from here for now."),
-  );
-}
-
-let started: Promise<void> | null = null;
-const startAccount = () => (started ??= watchAccount());
-
-async function watchAccount(): Promise<void> {
-  const acct = await loadAccount();
-  acct.watchUser((user) => {
-    const wasLinked = !!profile;
-    profile = user;
-    busy = false;
-    if (!user) {
-      desktop = null;
-      remember("current", null);
-      if (settings.mode === "desktop") settings = { ...settings, mode: "own" };
-      saveSettings(settings);
-    } else {
-      void acct.verifySession(user);
-      // First link: follow the desktop by default, which is why the person connected.
-      if (!wasLinked && !remember("linked-before")) {
-        settings = { ...settings, mode: "desktop" };
-        saveSettings(settings);
-        remember("linked-before", true);
-        toast(`Connected as ${user.name || user.email}`);
-      }
-    }
-    renderLayout();
-    refreshPhoto();
-    drawPanel();
-    void syncWatcher();
-  });
-}
-
-interface Handoff {
-  token: string;
-  at: number;
-}
-
-/** The website's sign-in page leaves a Google credential in extension storage (see content/bridge.ts). */
-async function consumeHandoff(): Promise<void> {
-  // Several new tabs can be open; only one may use the credential.
-  await navigator.locks.request("oriel-handoff", async () => {
-    const { handoff } = (await chrome.storage.local.get("handoff")) as { handoff?: Handoff };
-    if (!handoff) return;
-    await chrome.storage.local.remove("handoff");
-    if (Date.now() - handoff.at > 50 * 60_000) return; // Google credentials last an hour
-    busy = true;
-    drawPanel();
-    try {
-      await startAccount();
-      const acct = await loadAccount();
-      await acct.signInWithGoogleToken(handoff.token);
-      remember("linked-before", null); // a fresh connect follows the desktop again
-      // watchUser (above) reacts to the new user and finishes the job.
-    } catch {
-      busy = false;
-      drawPanel();
-      toast("Couldn't connect your account. Please try again.");
-    }
-  });
-}
+// ---------------------------------------------------------------- account (logic: account-sync.ts)
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes.handoff?.newValue) void consumeHandoff();
+  if (area === "local" && changes.handoff?.newValue) void sync.consumeHandoff();
 });
 
 // ---------------------------------------------------------------- start
@@ -495,5 +438,5 @@ scheduleClock();
 refreshPhoto();
 
 chrome.storage.local.get("handoff").then(({ handoff }) => {
-  if (profile || handoff) void startAccount().then(() => handoff && consumeHandoff());
+  if (sync.profile || handoff) void sync.start().then(() => handoff && sync.consumeHandoff());
 });
