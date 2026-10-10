@@ -33,6 +33,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <FontIcon
                         VerticalAlignment="Center"
@@ -46,10 +47,21 @@
                         AutomationProperties.Name="Search wallpapers"
                         FontSize="15"
                         KeyDown="Search_KeyDown"
+                        Loaded="SearchBox_Loaded"
                         PlaceholderText="Search wallpapers, like northern lights or tokyo night"
                         Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                     <Button
                         Grid.Column="2"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="Clear search"
+                        Command="{x:Bind ViewModel.ClearSearchCommand}"
+                        Style="{StaticResource IconButtonStyle}"
+                        ToolTipService.ToolTip="Clear"
+                        Visibility="{x:Bind ViewModel.HasText, Mode=OneWay}">
+                        <FontIcon FontSize="12" Glyph="&#xE711;" />
+                    </Button>
+                    <Button
+                        Grid.Column="3"
                         Height="40"
                         Padding="22,0"
                         VerticalAlignment="Center"
@@ -75,15 +87,37 @@
                     Message="{x:Bind ViewModel.InfoMessage, Mode=OneWay}"
                     Severity="{x:Bind ViewModel.InfoSeverity, Mode=OneWay}" />
 
-                <!--  ============ Daily mix: a row that opens its own page, like a Settings category ============  -->
+                <!--  ============ Start: ideas to search for (gone once you search) ============  -->
+                <StackPanel Margin="0,22,0,0" Visibility="{x:Bind ViewModel.ShowStart, Mode=OneWay}">
+                    <TextBlock
+                        Margin="2,0,0,10"
+                        Style="{StaticResource SectionHeaderStyle}"
+                        Text="Try searching for" />
+                    <ItemsRepeater ItemsSource="{x:Bind ViewModel.Suggestions}">
+                        <ItemsRepeater.Layout>
+                            <UniformGridLayout MinColumnSpacing="8" MinRowSpacing="8" />
+                        </ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Button
+                                    Click="Suggestion_Click"
+                                    Content="{x:Bind}"
+                                    Style="{StaticResource PillButtonStyle}" />
+                            </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
+                </StackPanel>
+
+                <!--  ============ Interests: a row that opens its own page, like a Settings category ============  -->
                 <Button
                     MinHeight="68"
-                    Margin="0,14,0,0"
+                    Margin="0,22,0,0"
+                    Visibility="{x:Bind ViewModel.ShowStart, Mode=OneWay}"
                     Padding="20,14,16,14"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
-                    AutomationProperties.Name="Daily mix"
-                    Click="DailyMix_Click"
+                    AutomationProperties.Name="Interests"
+                    Click="Interests_Click"
                     CornerRadius="{StaticResource OrielCardRadius}">
                     <Grid ColumnSpacing="16">
                         <Grid.ColumnDefinitions>
@@ -100,7 +134,7 @@
                             Grid.Column="1"
                             VerticalAlignment="Center"
                             Spacing="2">
-                            <TextBlock FontWeight="SemiBold" Text="Daily mix" />
+                            <TextBlock FontWeight="SemiBold" Text="Interests" />
                             <TextBlock
                                 FontSize="12"
                                 Foreground="{ThemeResource OrielMutedBrush}"
@@ -129,20 +163,41 @@
                             VerticalAlignment="Center"
                             Command="{x:Bind ViewModel.AddToMixCommand}"
                             Style="{StaticResource PillButtonStyle}"
-                            ToolTipService.ToolTip="Include this search in the daily wallpaper mix"
+                            ToolTipService.ToolTip="Add this search to your Interests, so the daily wallpaper can come from it"
                             Visibility="{x:Bind ViewModel.CanAddToMix, Mode=OneWay}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon FontSize="12" Glyph="&#xE710;" />
-                                <TextBlock Text="Add to my mix" />
+                                <TextBlock Text="Add to Interests" />
                             </StackPanel>
                         </Button>
                     </Grid>
 
-                    <TextBlock
-                        Margin="2,0,0,0"
-                        Style="{StaticResource MutedTextStyle}"
-                        Text="Nothing big enough found. Try other words."
-                        Visibility="{x:Bind ViewModel.HasNoResults, Mode=OneWay}" />
+                    <!--  Nothing found  -->
+                    <StackPanel
+                        Padding="24,40"
+                        HorizontalAlignment="Stretch"
+                        Background="{ThemeResource OrielSurfaceBrush}"
+                        CornerRadius="{StaticResource OrielLargeRadius}"
+                        Spacing="6"
+                        Visibility="{x:Bind ViewModel.HasNoResults, Mode=OneWay}">
+                        <FontIcon
+                            Margin="0,0,0,6"
+                            HorizontalAlignment="Center"
+                            FontSize="28"
+                            Foreground="{ThemeResource OrielMutedBrush}"
+                            Glyph="&#xE721;" />
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            FontWeight="SemiBold"
+                            Text="No photos found" />
+                        <TextBlock
+                            MaxWidth="360"
+                            HorizontalAlignment="Center"
+                            Style="{StaticResource MutedTextStyle}"
+                            Text="Try other or fewer words. Only photos big enough for your screen are shown."
+                            TextAlignment="Center"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
 
                     <ItemsRepeater ItemsSource="{x:Bind ViewModel.Results}">
                         <ItemsRepeater.Layout>
@@ -212,7 +267,7 @@
                                                     Foreground="#141414"
                                                     IsActive="{x:Bind IsBusy, Mode=OneWay}"
                                                     Visibility="{x:Bind IsBusy, Mode=OneWay}" />
-                                                <TextBlock Text="Set as wallpaper" />
+                                                <TextBlock Text="{x:Bind ButtonText, Mode=OneWay}" />
                                             </StackPanel>
                                         </Button>
                                     </Grid>

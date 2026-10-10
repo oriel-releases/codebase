@@ -45,6 +45,25 @@ public sealed class OrielSettings
     /// <summary>Also use each new wallpaper as the lock screen picture, on desktops that allow it.</summary>
     public bool ChangeLockScreen { get; set; } = true;
 
+    /// <summary>Prefer darker photos in the evening (and in dark mode), brighter ones in the morning.</summary>
+    public bool MatchTimeOfDay { get; set; } = true;
+
+    /// <summary>With more than one monitor, give each its own photo instead of the same one everywhere.</summary>
+    public bool PhotoPerMonitor { get; set; }
+
+    /// <summary>Following a friend: their account and first name. While set, the schedule is off and the friend's wallpaper is used.</summary>
+    public string? FollowUid { get; set; }
+    public string? FollowName { get; set; }
+
+    /// <summary>This device's code for friends to follow (null while not sharing).</summary>
+    public string? MyFollowCode { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsFollowing => !string.IsNullOrEmpty(FollowUid);
+
+    /// <summary>The first-run tour was finished or skipped.</summary>
+    public bool OnboardingDone { get; set; }
+
     /// <summary>Global shortcut for "next wallpaper", like "Ctrl+Alt+W". Empty means none.</summary>
     public string Hotkey { get; set; } = "Ctrl+Alt+W";
 
@@ -72,4 +91,9 @@ public sealed class OrielState
     public DateTimeOffset? NextRetryAt { get; set; }
     /// <summary>When "Change now" last succeeded, for its per-hour limit. Only the last hour matters.</summary>
     public List<DateTimeOffset> ManualChanges { get; set; } = [];
+
+    /// <summary>The friend's photo already applied, so it isn't set again.</summary>
+    public string? FollowedPhotoId { get; set; }
+    /// <summary>Why following doesn't work right now (the friend stopped sharing), for the UI.</summary>
+    public string? FollowProblem { get; set; }
 }

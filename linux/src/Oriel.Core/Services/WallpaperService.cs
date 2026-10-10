@@ -5,6 +5,7 @@ using Oriel.Core.Scheduling;
 using Oriel.Core.Settings;
 using Oriel.Core.Storage;
 using Oriel.Core.Wallpaper;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
 namespace Oriel.Core.Services;
@@ -32,7 +33,8 @@ public sealed class WallpaperService(
     ILogger<WallpaperService> log,
     ILockScreenSetter? lockScreen = null,
     IAuthState? auth = null,
-    ISyncPublisher? sync = null)
+    ISyncPublisher? sync = null,
+    ISystemTheme? theme = null)
 {
     const int MaxQueriesPerTarget = 3;
 
@@ -74,6 +76,8 @@ public sealed class WallpaperService(
         var state = settingsStore.LoadState();
 
         if (!force && settings.Paused) return new(ApplyStatus.Paused, []);
+        // Following a friend: their wallpaper is used instead of the schedule (see FollowService).
+        if (!force && settings.IsFollowing) return new(ApplyStatus.Paused, []);
         if (!force && ScheduleRules.IsFresh(settings, state, clock.Now)) return new(ApplyStatus.AlreadyAppliedToday, []);
 
         // Cross-process guard: the tray app and a the systemd timer run can fire at the same moment.
@@ -117,6 +121,7 @@ public sealed class WallpaperService(
 
             var result = new ApplyResult(ApplyStatus.Applied, entries);
             Applied?.Invoke(this, result);
+            SchedulePrefetch();
             return result;
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
@@ -146,10 +151,18 @@ public sealed class WallpaperService(
             throw new ProviderException(ProviderErrorKind.RateLimited,
                 "Searching is paused for a while so your daily wallpaper still gets its photos. Try again in the next hour.");
 
-        var size = PlanTargets(setter.GetMonitors(), settingsStore.Load())[0].Size;
+        var size = PlanTargets(setter.GetMonitors(), settingsStore.Load(), perMonitor: false)[0].Size;
         var found = await provider.SearchAsync(query, page, ct);
         var fits = found.Photos.Where(c => c.IsLandscape && c.Width >= size.Width && c.Height >= size.Height).ToList();
         return found with { Photos = fits };
+    }
+
+    /// <summary>A photo someone shared with a link, looked up by its Unsplash ID.</summary>
+    public Task<PhotoCandidate> GetSharedPhotoAsync(string id, CancellationToken ct = default)
+    {
+        if (!provider.IsConfigured)
+            throw new ProviderException(ProviderErrorKind.MissingKey, "This build of Oriel has no Unsplash access key.");
+        return provider.GetPhotoAsync(id, ct);
     }
 
     /// <summary>Sets one specific photo (chosen by the user) as the wallpaper.</summary>
@@ -163,7 +176,7 @@ public sealed class WallpaperService(
 
         try
         {
-            var size = PlanTargets(setter.GetMonitors(), settings)[0].Size;
+            var size = PlanTargets(setter.GetMonitors(), settings, perMonitor: false)[0].Size;
             var bytes = await provider.DownloadAsync(photo, size, ct);
             if (!LooksLikeJpeg(bytes))
                 throw new WallpaperException("Downloaded file isn't a valid image; keeping your current wallpaper.");
@@ -244,9 +257,17 @@ public sealed class WallpaperService(
         var usedTopics = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var pickedIds = new HashSet<string>();
 
+        var mood = MoodNow(settings);
         foreach (var target in targets)
         {
-            var (photo, topic) = await FindCandidateAsync(target.Size, enabled, usedTopics, pickedIds, settings, ct);
+            // The photo prepared ahead of time, when there is one that still fits: no search, no download.
+            if (targets.Count == 1 && TakePrefetch(target.Size, enabled, settings, mood) is { } ready)
+            {
+                picked.Add((target, ready.Photo, ready.Topic, KeepPrefetched(ready, settings)));
+                log.LogInformation("Using the photo prepared ahead of time: {Id}", ready.Photo.Id);
+                continue;
+            }
+            var (photo, topic) = await FindCandidateAsync(target.Size, enabled, usedTopics, pickedIds, settings, mood, ct);
             usedTopics.Add(topic);
             pickedIds.Add(photo.Id);
 
@@ -288,7 +309,7 @@ public sealed class WallpaperService(
     }
 
     async Task<(PhotoCandidate, string)> FindCandidateAsync(PixelSize size, IReadOnlyList<string> enabled,
-        HashSet<string> usedTopics, HashSet<string> pickedIds, OrielSettings settings, CancellationToken ct)
+        HashSet<string> usedTopics, HashSet<string> pickedIds, OrielSettings settings, Mood mood, CancellationToken ct)
     {
         var tried = new HashSet<string>(usedTopics, StringComparer.OrdinalIgnoreCase);
         ProviderException? lastNoResults = null;
@@ -309,7 +330,8 @@ public sealed class WallpaperService(
                 continue;
             }
 
-            foreach (var c in candidates)
+            // Photos that suit the moment (dark in the evening, bright in the morning) come first.
+            foreach (var c in PhotoMood.Order(candidates, mood))
             {
                 if (pickedIds.Contains(c.Id) || history.WasUsed(c.Provider, c.Id))
                 {
@@ -393,9 +415,131 @@ public sealed class WallpaperService(
         }
     }
 
+    // ---------------------------------------------------------------- the next wallpaper, ahead of time
+
+    /// <summary>
+    /// The app turns this on: after each change the next photo is found and downloaded in the background, so the next
+    /// change (scheduled or "Change now") is instant and works offline. Off for one-shot runs, which exit right away.
+    /// </summary>
+    public bool PrefetchEnabled { get; set; }
+
+    readonly SemaphoreSlim _prefetchGate = new(1, 1);
+    static readonly TimeSpan PrefetchMaxAge = TimeSpan.FromDays(3);
+
+    sealed record Prefetched(PhotoCandidate Photo, string Topic, int Width, int Height, string File, DateTimeOffset At);
+
+    string PrefetchMeta => Path.Combine(paths.PrefetchDir, "next.json");
+
+    /// <summary>Prepares the next wallpaper if there isn't one yet: finds it and downloads it, without touching the desktop.</summary>
+    public async Task PrefetchAsync(CancellationToken ct = default)
+    {
+        if (!PrefetchEnabled || auth is { IsSignedIn: false } || !await _prefetchGate.WaitAsync(0, ct)) return;
+        try
+        {
+            if (File.Exists(PrefetchMeta)) return;
+            var settings = settingsStore.Load();
+            if (settings.FavoritesOnly || settings.IsFollowing || !provider.IsConfigured) return;
+            // Only with requests to spare: never at the cost of the scheduled change or a search.
+            if (provider.RemainingRequests is < SearchReserve * 2) return;
+            var targets = PlanTargets(setter.GetMonitors(), settings);
+            if (targets.Count != 1) return;
+            var size = targets[0].Size;
+            var mood = settings.MatchTimeOfDay ? PhotoMood.For(NextChangeAt(settings).LocalDateTime, theme?.IsDark ?? false) : Mood.Any;
+            var (photo, topic) = await FindCandidateAsync(size, settings.EnabledQueries(),
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase), [], settings, mood, ct);
+            var bytes = await provider.DownloadAsync(photo, size, ct);
+            if (!LooksLikeJpeg(bytes)) return;
+            Directory.CreateDirectory(paths.PrefetchDir);
+            var file = Path.Combine(paths.PrefetchDir, "next.jpg");
+            await File.WriteAllBytesAsync(file + ".part", bytes, ct);
+            File.Move(file + ".part", file, overwrite: true);
+            await File.WriteAllTextAsync(PrefetchMeta,
+                JsonSerializer.Serialize(new Prefetched(photo, topic, size.Width, size.Height, file, clock.Now)), ct);
+            log.LogInformation("Prepared the next wallpaper ahead of time: {Id}", photo.Id);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogInformation("Couldn't prepare the next wallpaper: {Reason}", ex.Message);
+        }
+        finally
+        {
+            _prefetchGate.Release();
+        }
+    }
+
+    void SchedulePrefetch()
+    {
+        if (!PrefetchEnabled) return;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30)); // the change itself comes first
+            await PrefetchAsync();
+        });
+    }
+
+    /// <summary>
+    /// The prepared photo, if it still fits: same screen size, a topic that is still on, the filters and the moment.
+    /// Used once either way; a photo that no longer fits is thrown away.
+    /// </summary>
+    Prefetched? TakePrefetch(PixelSize size, IReadOnlyList<string> enabled, OrielSettings settings, Mood mood)
+    {
+        if (!_prefetchGate.Wait(0)) return null; // being prepared right now
+        try
+        {
+            if (!File.Exists(PrefetchMeta)) return null;
+            Prefetched? ready = null;
+            try { ready = JsonSerializer.Deserialize<Prefetched>(File.ReadAllText(PrefetchMeta)); }
+            catch (JsonException) { }
+            File.Delete(PrefetchMeta);
+            var fits = ready is not null && File.Exists(ready.File)
+                && ready.Width == size.Width && ready.Height == size.Height
+                && clock.Now - ready.At < PrefetchMaxAge
+                && (enabled.Count == 0 ? ready.Topic == RandomTopicPicker.Fallback : enabled.Contains(ready.Topic, StringComparer.OrdinalIgnoreCase))
+                && CandidateFilter.Reject(ready.Photo, size, settings) is null
+                && !history.WasUsed(ready.Photo.Provider, ready.Photo.Id)
+                && PhotoMood.Fits(ready.Photo, mood);
+            if (fits) return ready;
+            if (ready is not null && File.Exists(ready.File)) File.Delete(ready.File);
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        finally
+        {
+            _prefetchGate.Release();
+        }
+    }
+
+    /// <summary>Moves the prepared file into the wallpaper folder, named like any other wallpaper.</summary>
+    string KeepPrefetched(Prefetched ready, OrielSettings settings)
+    {
+        var folder = paths.WallpaperFolder(settings);
+        Directory.CreateDirectory(folder);
+        var file = Path.Combine(folder, $"{clock.Now:yyyy-MM-dd}_{ready.Photo.Provider}_{Sanitize(ready.Photo.Id)}.jpg");
+        File.Move(ready.File, file, overwrite: true);
+        return file;
+    }
+
+    /// <summary>Roughly when the next scheduled change happens, to pick a photo that suits that moment.</summary>
+    DateTimeOffset NextChangeAt(OrielSettings settings)
+    {
+        var now = clock.Now;
+        if (settings.Interval is { } interval) return now + interval;
+        var local = now.LocalDateTime;
+        var at = local.Date + settings.GetDailyTime().ToTimeSpan();
+        if (at <= local) at = at.AddDays(1);
+        return new DateTimeOffset(at);
+    }
+
+    Mood MoodNow(OrielSettings settings) =>
+        settings.MatchTimeOfDay ? PhotoMood.For(clock.Now.LocalDateTime, theme?.IsDark ?? false) : Mood.Any;
+
     internal sealed record Target(int Index, string? MonitorPath, PixelSize Size);
 
-    internal static IReadOnlyList<Target> PlanTargets(IReadOnlyList<MonitorInfo> monitors, OrielSettings settings)
+    /// <param name="perMonitor">False for one photo chosen by the user: then it is sized for the biggest screen.</param>
+    internal static IReadOnlyList<Target> PlanTargets(IReadOnlyList<MonitorInfo> monitors, OrielSettings settings, bool perMonitor = true)
     {
         if (monitors.Count == 0)
             return [new Target(0, null, new PixelSize(1920, 1080))];
@@ -408,6 +552,10 @@ public sealed class WallpaperService(
             var bottom = monitors.Max(m => m.Top + m.Height);
             return [new Target(0, null, new PixelSize(right - left, bottom - top))];
         }
+
+        // A photo of its own on each monitor, each sized for that screen.
+        if (perMonitor && settings.PhotoPerMonitor && monitors.Count > 1)
+            return monitors.Select((m, i) => new Target(i, m.DevicePath, new PixelSize(m.Width, m.Height))).ToList();
 
         // Same image everywhere: size for the biggest screen so nothing gets upscaled.
         var biggest = monitors.MaxBy(m => (long)m.Width * m.Height)!;

@@ -59,6 +59,9 @@ public sealed class App : Application
             services.AddSingleton<CollectionsViewModel>();
             services.AddSingleton<HistoryViewModel>();
             services.AddTransient<SettingsViewModel>();
+            services.AddTransient<FriendsViewModel>();
+            services.AddSingleton<OnboardingViewModel>();
+            services.AddSingleton<SharedPhotoViewModel>();
             services.AddTransient<MainViewModel>();
         });
         _log = Get<ILoggerFactory>().CreateLogger("App");
@@ -95,6 +98,13 @@ public sealed class App : Application
         var scheduler = Get<DailyScheduler>();
         scheduler.Attempted += (_, r) => Dispatcher.UIThread.Post(() => Get<HomeViewModel>().ShowResult(r));
         scheduler.Start();
+
+        // The next wallpaper is downloaded ahead of time, so the next change is instant and works offline.
+        var wallpapers = Get<WallpaperService>();
+        wallpapers.PrefetchEnabled = true;
+        _ = Task.Run(() => wallpapers.PrefetchAsync());
+        // Following a friend: their new wallpaper (or that they stopped sharing) shows on Home right away.
+        Get<FollowService>().Changed += (_, _) => Dispatcher.UIThread.Post(() => _ = Get<HomeViewModel>().RefreshAsync());
 
         // Keep the autostart entry and the fallback timer in step with the settings, and pointed at this copy.
         var schedule = Get<ScheduleSync>();
@@ -147,9 +157,17 @@ public sealed class App : Application
         var list = args.ToList();
         if (!DeepLink.IsLink(list)) return false;
         if (DeepLink.IsOpen(list)) return true; // just show the window
+        if (DeepLink.TryGetSharedPhoto(list, out var photoId, out var sender))
+        {
+            _ = Get<SharedPhotoViewModel>().OpenAsync(photoId, sender);
+            return true;
+        }
         _log?.LogInformation("Sign-in link received");
         var signIn = Get<SignInViewModel>();
         if (DeepLink.TryGetGoogleToken(list, out var token)) _ = signIn.CompleteAsync(token);
+        // Someone opened a share link, installed Oriel and signed in: the photo they wanted comes along.
+        if (DeepLink.TryGetPendingShare(list, out var sharedId, out var sharedFrom))
+            _ = Get<SharedPhotoViewModel>().OpenAsync(sharedId, sharedFrom);
         else signIn.Invalid();
         return true;
     }
@@ -193,18 +211,15 @@ public sealed class App : Application
             onPhase = (_, phase) => Dispatcher.UIThread.Post(() => popup.SetPhase(phase));
             wallpapers.PhaseChanged += onPhase;
         }
-        ApplyResult result;
         try
         {
-            result = await home.ChangeAsync();
+            await home.ChangeAsync();
         }
         finally
         {
             if (onPhase is not null) wallpapers.PhaseChanged -= onPhase;
             popup?.Dismiss();
         }
-        if (result.Status is ApplyStatus.Failed or ApplyStatus.RateLimited && !IsWindowVisible)
-            Notifier.ShowError(result.Error ?? "Unknown error.");
     }
 
     public void ShowWindow()

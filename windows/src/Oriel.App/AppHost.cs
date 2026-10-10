@@ -14,6 +14,8 @@ public static class AppHost
         services.AddLogging(b => b.SetMinimumLevel(LogLevel.Information).AddOrielFile(paths));
         services.AddOrielCore(paths);
         services.AddSingleton<Oriel.Core.Wallpaper.ILockScreenSetter, Services.LockScreenSetter>();
+        services.AddSingleton<Oriel.Core.Wallpaper.IAccentSampler, Services.AccentSampler>();
+        services.AddSingleton<Oriel.Core.Wallpaper.IAccentSetter, Services.AccentSetter>();
         configure?.Invoke(services);
         return services.BuildServiceProvider();
     }

@@ -42,6 +42,10 @@ public partial class App : Application
 
     bool IsWindowVisible => _window is { Visible: true };
 
+    /// <summary>The main window's handle, or 0 when it isn't open (the share sheet needs it).</summary>
+    public static nint MainWindowHandle =>
+        Current is App { _window: { } window } ? WinRT.Interop.WindowNative.GetWindowHandle(window) : 0;
+
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         Dispatcher = DispatcherQueue.GetForCurrentThread();
@@ -58,6 +62,9 @@ public partial class App : Application
             services.AddSingleton<CollectionsViewModel>();
             services.AddSingleton<HistoryViewModel>();
             services.AddTransient<SettingsViewModel>();
+            services.AddTransient<FriendsViewModel>();
+            services.AddSingleton<OnboardingViewModel>();
+            services.AddSingleton<SharedPhotoViewModel>();
         });
         _log = Get<ILoggerFactory>().CreateLogger("App");
 
@@ -86,6 +93,13 @@ public partial class App : Application
         var scheduler = Get<DailyScheduler>();
         scheduler.Attempted += (_, r) => Dispatcher.TryEnqueue(() => Get<HomeViewModel>().ShowResult(r));
         scheduler.Start();
+
+        // The next wallpaper is downloaded ahead of time, so the next change is instant and works offline.
+        var wallpapers = Get<WallpaperService>();
+        wallpapers.PrefetchEnabled = true;
+        _ = Task.Run(() => wallpapers.PrefetchAsync());
+        // Following a friend: their new wallpaper (or that they stopped sharing) shows on Home right away.
+        Get<FollowService>().Changed += (_, _) => Dispatcher.TryEnqueue(() => _ = Get<HomeViewModel>().RefreshAsync());
 
         // Keep the Run key and the fallback task in step with the settings, and pointed at this exe.
         var schedule = Get<ScheduleSync>();
@@ -126,9 +140,18 @@ public partial class App : Application
         var list = args.ToList();
         if (!DeepLink.IsLink(list)) return false;
         if (DeepLink.IsOpen(list)) return true; // just show the window
+        if (DeepLink.TryGetSharedPhoto(list, out var photoId, out var sender))
+        {
+            _log?.LogInformation("Shared photo link received: {Photo}", photoId);
+            _ = Get<SharedPhotoViewModel>().OpenAsync(photoId, sender);
+            return true;
+        }
         _log?.LogInformation("Sign-in link received");
         var signIn = Get<SignInViewModel>();
         if (DeepLink.TryGetGoogleToken(list, out var token)) _ = signIn.CompleteAsync(token);
+        // Someone opened a share link, installed Oriel and signed in: the photo they wanted comes along.
+        if (DeepLink.TryGetPendingShare(list, out var sharedId, out var sharedFrom))
+            _ = Get<SharedPhotoViewModel>().OpenAsync(sharedId, sharedFrom);
         else signIn.Invalid();
         return true;
     }
@@ -221,18 +244,15 @@ public partial class App : Application
             onPhase = (_, phase) => Dispatcher.TryEnqueue(() => popup.SetPhase(phase));
             wallpapers.PhaseChanged += onPhase;
         }
-        ApplyResult result;
         try
         {
-            result = await home.ChangeAsync();
+            await home.ChangeAsync();
         }
         finally
         {
             if (onPhase is not null) wallpapers.PhaseChanged -= onPhase;
             popup?.Dismiss();
         }
-        if (result.Status is ApplyStatus.Failed or ApplyStatus.RateLimited && !IsWindowVisible)
-            Toasts.ShowError(result.Error ?? "Unknown error.");
     }
 
     public void ShowWindow()

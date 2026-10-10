@@ -22,9 +22,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     readonly AuthService _auth;
     bool _loading;
 
+    readonly Oriel.Core.Wallpaper.IWallpaperSetter _setter;
+
     public SettingsViewModel(ISettingsStore settings, AppPaths paths, WallpaperFolderMover folderMover,
-        UpdateService updates, HotkeyService hotkeys, AuthService auth)
+        UpdateService updates, HotkeyService hotkeys, AuthService auth, Oriel.Core.Wallpaper.IWallpaperSetter setter)
     {
+        _setter = setter;
         _settings = settings;
         _paths = paths;
         _folderMover = folderMover;
@@ -40,6 +43,14 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     public string[] IntervalOptions { get; } = ["Once a day", "Every hour", "Every 3 hours", "Every 6 hours", "Every 12 hours"];
     static readonly int[] IntervalMinutes = [0, 60, 180, 360, 720];
     public string[] FitModes { get; } = ["Fill", "Fit", "Stretch", "Tile", "Center", "Span"];
+
+    // Photos
+    [ObservableProperty] public partial bool MatchTimeOfDay { get; set; }
+    [ObservableProperty] public partial bool PhotoPerMonitor { get; set; }
+    /// <summary>Only on Sway, the one desktop that takes a different wallpaper per monitor, and with more than one monitor.</summary>
+    public bool HasMonitors => DesktopEnvironment.Current == Desktop.Sway && _setter.GetMonitors().Count > 1;
+
+
     public string Version => AppInfo.Version;
 
     // Account
@@ -145,6 +156,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         StartAtLogin = s.StartAtLogin;
         PicturesFolder = _paths.WallpaperFolder(s);
         ApplyToIndex = s.ChangeLockScreen ? 1 : 0;
+        MatchTimeOfDay = s.MatchTimeOfDay;
+        PhotoPerMonitor = s.PhotoPerMonitor;
         _loading = false;
     }
 
@@ -252,6 +265,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     }
 
     partial void OnApplyToIndexChanged(int value) { if (value >= 0) Save(s => s.ChangeLockScreen = value == 1); }
+    partial void OnMatchTimeOfDayChanged(bool value) => Save(s => s.MatchTimeOfDay = value);
+    partial void OnPhotoPerMonitorChanged(bool value) => Save(s => s.PhotoPerMonitor = value);
 
     /// <summary>The singleton update service must not keep a closed page alive.</summary>
     public void Dispose()

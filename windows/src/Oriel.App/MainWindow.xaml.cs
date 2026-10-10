@@ -42,24 +42,39 @@ public sealed partial class MainWindow : Window
         var auth = App.Get<AuthService>();
         void OnAuthChanged(object? s, EventArgs e) => App.Dispatcher.TryEnqueue(UpdateSignInGate);
         auth.Changed += OnAuthChanged;
-        Closed += (_, _) => auth.Changed -= OnAuthChanged;
+        Onboarding.ViewModel.Finished += OnOnboardingFinished;
+        Shared.ViewModel.Changed += OnSharedChanged;
+        Closed += (_, _) =>
+        {
+            auth.Changed -= OnAuthChanged;
+            Onboarding.ViewModel.Finished -= OnOnboardingFinished;
+            Shared.ViewModel.Changed -= OnSharedChanged;
+        };
         UpdateSignInGate();
     }
 
-    /// <summary>Signed out: only the sign-in screen is reachable. Signing in lands on Home.</summary>
+    void OnSharedChanged(object? sender, EventArgs e) => App.Dispatcher.TryEnqueue(UpdateSignInGate);
+
+    void OnOnboardingFinished(object? sender, EventArgs e) => App.Dispatcher.TryEnqueue(UpdateSignInGate);
+
+    /// <summary>Signed out: only the sign-in screen is reachable. The first time in, the tour comes before the app.</summary>
     void UpdateSignInGate()
     {
         var signedIn = App.Get<AuthService>().IsSignedIn;
+        var touring = signedIn && Onboarding.ViewModel.ShouldShow();
         SignIn.Visibility = signedIn ? Visibility.Collapsed : Visibility.Visible;
-        Nav.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
-        if (signedIn) _ = App.Get<HomeViewModel>().RefreshAsync();
+        Onboarding.Visibility = touring ? Visibility.Visible : Visibility.Collapsed;
+        Nav.Visibility = signedIn && !touring ? Visibility.Visible : Visibility.Collapsed;
+        // A shared photo waits behind sign-in and the tour, then shows over the app.
+        Shared.Visibility = signedIn && !touring && Shared.ViewModel.IsOpen ? Visibility.Visible : Visibility.Collapsed;
+        if (signedIn && !touring) _ = App.Get<HomeViewModel>().RefreshAsync();
     }
 
     void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs e) =>
         // Fires while InitializeComponent applies IsSelected, before the frame exists.
         Show(e.IsSettingsSelected, e.SelectedItemContainer?.Tag as string);
 
-    /// <summary>Clicking the current item again leaves a sub page (e.g. Daily mix) and returns to its main page.</summary>
+    /// <summary>Clicking the current item again leaves a sub page (e.g. Interests) and returns to its main page.</summary>
     void Nav_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs e)
     {
         if (e.InvokedItemContainer is NavigationViewItem item) PlayIcon(item);
@@ -125,6 +140,7 @@ public sealed partial class MainWindow : Window
             {
                 "collections" => typeof(CollectionsPage),
                 "history" or "favorites" => typeof(HistoryPage),
+                "friends" => typeof(FriendsPage),
                 _ => typeof(HomePage),
             };
         // History and Favorites are one page. Switching between them reloads that page instead of navigating:

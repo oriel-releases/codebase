@@ -21,7 +21,7 @@ public sealed record SessionInfo(string Platform, string DeviceName, string AppV
 
 /// <summary>The wallpaper a desktop app applied last, shared through <c>users/{uid}/sync/current</c> so the browser extension can show the same photo.</summary>
 public sealed record CurrentWallpaper(string PhotoId, string ImageUrl, string PageUrl, string Photographer, string PhotographerUrl,
-    string? Description, string? Topic, string Source);
+    string? Description, string? Topic, string Source, string? Color = null);
 
 /// <summary>
 /// Firebase Auth and Firestore over their REST APIs (there's no Firebase SDK for .NET desktop). The key is the
@@ -30,7 +30,8 @@ public sealed record CurrentWallpaper(string PhotoId, string ImageUrl, string Pa
 public sealed class FirebaseClient(HttpClient http)
 {
     const string ApiKey = "AIzaSyCtUNKnXo3UcKHsG_gtupyf1Tfpo-BzKc8";
-    const string DocumentsUrl = "https://firestore.googleapis.com/v1/projects/oriel-gcp/databases/(default)/documents";
+    const string DocumentsPath = "projects/oriel-gcp/databases/(default)/documents";
+    const string DocumentsUrl = "https://firestore.googleapis.com/v1/" + DocumentsPath;
 
     /// <summary>Exchanges the Google ID token from the website for this app's own Firebase session.</summary>
     public async Task<FirebaseProfile> SignInWithGoogleAsync(string googleIdToken, CancellationToken ct = default)
@@ -118,6 +119,8 @@ public sealed class FirebaseClient(HttpClient http)
         };
         if (!string.IsNullOrWhiteSpace(wallpaper.Description)) fields["description"] = Str(wallpaper.Description);
         if (!string.IsNullOrWhiteSpace(wallpaper.Topic)) fields["topic"] = Str(wallpaper.Topic);
+        // The photo's accent color ("#RRGGBB"): other devices (the Android app later) use it as their accent.
+        if (!string.IsNullOrWhiteSpace(wallpaper.Color)) fields["color"] = Str(wallpaper.Color);
         return WriteDocumentAsync(CurrentUrl(tokens.Uid), tokens, fields, ct);
     }
 
@@ -130,6 +133,111 @@ public sealed class FirebaseClient(HttpClient http)
         await EnsureOkAsync(response, ct);
         return true;
     }
+
+    // ---------------------------------------------------------------- anonymous daily counts
+
+    /// <summary>
+    /// Adds 1 to each of <paramref name="fields"/> in <c>stats/{day}</c>, created on first use. Counts only: no user IDs,
+    /// one small document per day (firestore.rules allows exactly this).
+    /// </summary>
+    public async Task IncrementStatsAsync(FirebaseTokens tokens, DateOnly day, IReadOnlyCollection<string> fields, CancellationToken ct = default)
+    {
+        var body = new
+        {
+            writes = new[]
+            {
+                new
+                {
+                    update = new { name = $"{DocumentsPath}/stats/{day.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}", fields = new Dictionary<string, object>() },
+                    updateMask = new { fieldPaths = Array.Empty<string>() },
+                    updateTransforms = fields.Select(f => new { fieldPath = f, increment = new { integerValue = "1" } }).ToArray(),
+                },
+            },
+        };
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{DocumentsUrl}:commit") { Content = JsonContent.Create(body) };
+        request.Headers.Authorization = new("Bearer", tokens.IdToken);
+        using var response = await SendAsync(() => http.SendAsync(request, ct));
+        await EnsureOkAsync(response, ct);
+    }
+
+    // ---------------------------------------------------------------- following a friend
+
+    /// <summary>Who a follow code belongs to, or null when there is no such code.</summary>
+    public async Task<(string Uid, string Name)?> GetFollowCodeAsync(FirebaseTokens tokens, string code, CancellationToken ct = default)
+    {
+        var fields = await GetDocumentAsync($"{DocumentsUrl}/codes/{code}", tokens, ct);
+        if (fields is not { } f) return null;
+        return (StringField(f, "uid") ?? "", StringField(f, "name") ?? "");
+    }
+
+    /// <summary>Claims a new follow code for this account. Fails if the code is taken (a new one is tried).</summary>
+    public Task CreateFollowCodeAsync(FirebaseTokens tokens, string code, string name, CancellationToken ct = default) =>
+        WriteDocumentAsync($"{DocumentsUrl}/codes/{code}?currentDocument.exists=false", tokens, new Dictionary<string, object>
+        {
+            ["uid"] = Str(tokens.Uid),
+            ["name"] = Str(name),
+            ["createdAt"] = Time(DateTimeOffset.UtcNow),
+        }, ct);
+
+    public Task DeleteFollowCodeAsync(FirebaseTokens tokens, string code, CancellationToken ct = default) =>
+        DeleteDocumentAsync($"{DocumentsUrl}/codes/{code}", tokens, ct);
+
+    /// <summary>Registers this account as a follower of <paramref name="friendUid"/>, proven by their code.</summary>
+    public Task AddFollowerAsync(FirebaseTokens tokens, string friendUid, string code, string name, CancellationToken ct = default) =>
+        WriteDocumentAsync($"{DocumentsUrl}/users/{friendUid}/followers/{tokens.Uid}", tokens, new Dictionary<string, object>
+        {
+            ["code"] = Str(code),
+            ["name"] = Str(name),
+            ["createdAt"] = Time(DateTimeOffset.UtcNow),
+        }, ct);
+
+    public Task RemoveFollowerAsync(FirebaseTokens tokens, string ownerUid, string followerUid, CancellationToken ct = default) =>
+        DeleteDocumentAsync($"{DocumentsUrl}/users/{ownerUid}/followers/{followerUid}", tokens, ct);
+
+    /// <summary>The accounts following this one.</summary>
+    public async Task<IReadOnlyList<string>> ListFollowersAsync(FirebaseTokens tokens, CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"{DocumentsUrl}/users/{tokens.Uid}/followers?pageSize=300&mask.fieldPaths=code");
+        request.Headers.Authorization = new("Bearer", tokens.IdToken);
+        using var response = await SendAsync(() => http.SendAsync(request, ct));
+        await EnsureOkAsync(response, ct);
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+        if (!doc.RootElement.TryGetProperty("documents", out var docs)) return [];
+        return docs.EnumerateArray().Select(d => d.GetProperty("name").GetString()!.Split('/')[^1]).ToList();
+    }
+
+    /// <summary>
+    /// The photo a friend has on their desktop now (their <c>sync/current</c>), or null if they have none yet.
+    /// Throws <see cref="FirebaseFailure.Rejected"/> once they stop sharing (the rules no longer let us read it).
+    /// </summary>
+    public async Task<string?> GetCurrentPhotoIdAsync(FirebaseTokens tokens, string ownerUid, CancellationToken ct = default)
+    {
+        var fields = await GetDocumentAsync(CurrentUrl(ownerUid) + "?mask.fieldPaths=photoId", tokens, ct);
+        return fields is { } f ? StringField(f, "photoId") : null;
+    }
+
+    /// <summary>A document's fields, or null when it doesn't exist.</summary>
+    async Task<JsonElement?> GetDocumentAsync(string url, FirebaseTokens tokens, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Authorization = new("Bearer", tokens.IdToken);
+        using var response = await SendAsync(() => http.SendAsync(request, ct));
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        await EnsureOkAsync(response, ct);
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+        return doc.RootElement.TryGetProperty("fields", out var fields) ? fields.Clone() : JsonDocument.Parse("{}").RootElement.Clone();
+    }
+
+    async Task DeleteDocumentAsync(string url, FirebaseTokens tokens, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Delete, url);
+        request.Headers.Authorization = new("Bearer", tokens.IdToken);
+        using var response = await SendAsync(() => http.SendAsync(request, ct));
+        if (response.StatusCode != HttpStatusCode.NotFound) await EnsureOkAsync(response, ct);
+    }
+
+    static string? StringField(JsonElement fields, string name) =>
+        fields.TryGetProperty(name, out var f) && f.TryGetProperty("stringValue", out var v) ? v.GetString() : null;
 
     static string CurrentUrl(string uid) => $"{DocumentsUrl}/users/{uid}/sync/current";
 

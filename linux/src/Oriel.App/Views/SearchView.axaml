@@ -11,7 +11,7 @@
 
                 <!--  One rounded bar at the top, button inside  -->
                 <Border Height="52" Padding="18,0,6,0" Background="{DynamicResource OrielSurfaceBrush}" CornerRadius="26">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
                         <PathIcon Data="{StaticResource IconSearch}" Width="16" Height="16" Foreground="{DynamicResource OrielMutedBrush}" />
                         <TextBox Grid.Column="1" Classes="bare" VerticalAlignment="Center" VerticalContentAlignment="Center"
                                  PlaceholderText="Search wallpapers, like northern lights or tokyo night"
@@ -20,7 +20,11 @@
                                 <KeyBinding Gesture="Enter" Command="{Binding SearchCommand}" />
                             </TextBox.KeyBindings>
                         </TextBox>
-                        <Button Grid.Column="2" Classes="primary" Height="40" Padding="22,0" CornerRadius="20" VerticalAlignment="Center"
+                        <Button Grid.Column="2" Classes="icon" VerticalAlignment="Center" Command="{Binding ClearSearchCommand}"
+                                IsVisible="{Binding HasText}" ToolTip.Tip="Clear">
+                            <PathIcon Data="{StaticResource IconClose}" Width="11" Height="11" />
+                        </Button>
+                        <Button Grid.Column="3" Classes="primary" Height="40" Padding="22,0" CornerRadius="20" VerticalAlignment="Center"
                                 Command="{Binding SearchCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Arc Classes="spinner" Classes.busy="{Binding IsSearching}" Stroke="{DynamicResource OrielPaperBrush}" />
@@ -32,13 +36,32 @@
 
                 <views:InfoBanner Margin="0,12,0,0" DataContext="{Binding Info}" />
 
-                <!--  Daily mix: a row that opens its own page, like a Settings category  -->
-                <Button MinHeight="68" Margin="0,14,0,0" Padding="20,14,16,14" HorizontalAlignment="Stretch"
+                <!--  Start: ideas to search for (gone once you search)  -->
+                <StackPanel Margin="0,22,0,0" IsVisible="{Binding ShowStart}">
+                    <TextBlock Classes="section" Margin="2,0,0,10" Text="Try searching for" />
+                    <ItemsControl ItemsSource="{Binding Suggestions}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Button Margin="0,0,8,8" Content="{Binding}"
+                                        Command="{Binding $parent[ItemsControl].((vm:CollectionsViewModel)DataContext).SearchForCommand}"
+                                        CommandParameter="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!--  Interests: a row that opens its own page, like a Settings category  -->
+                <Button MinHeight="68" Margin="0,22,0,0" Padding="20,14,16,14" HorizontalAlignment="Stretch" IsVisible="{Binding ShowStart}"
                         HorizontalContentAlignment="Stretch" CornerRadius="16" Command="{Binding OpenMixCommand}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
                         <PathIcon Data="{StaticResource IconRefresh}" Width="18" Height="18" Foreground="{DynamicResource OrielMutedBrush}" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                            <TextBlock FontWeight="SemiBold" Text="Daily mix" />
+                            <TextBlock FontWeight="SemiBold" Text="Interests" />
                             <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding MixSummary}" />
                         </StackPanel>
                         <PathIcon Grid.Column="2" Data="{StaticResource IconChevron}" Width="12" Height="12" Foreground="{DynamicResource OrielMutedBrush}" />
@@ -50,15 +73,24 @@
                     <Grid Margin="0,8,0,12">
                         <TextBlock Classes="section" Margin="2,0,0,0" VerticalAlignment="Center" Text="{Binding ResultsTitle}" />
                         <Button HorizontalAlignment="Right" VerticalAlignment="Center" Command="{Binding AddToMixCommand}"
-                                IsVisible="{Binding CanAddToMix}" ToolTip.Tip="Include this search in the daily wallpaper mix">
+                                IsVisible="{Binding CanAddToMix}" ToolTip.Tip="Add this search to your Interests, so the daily wallpaper can come from it">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" />
-                                <TextBlock Text="Add to my mix" />
+                                <TextBlock Text="Add to Interests" />
                             </StackPanel>
                         </Button>
                     </Grid>
 
-                    <TextBlock Classes="muted" Margin="2,0,0,0" Text="Nothing big enough found. Try other words." IsVisible="{Binding HasNoResults}" />
+                    <!--  Nothing found  -->
+                    <Border Padding="24,40" Background="{DynamicResource OrielSurfaceBrush}" CornerRadius="20" IsVisible="{Binding HasNoResults}">
+                        <StackPanel Spacing="6" HorizontalAlignment="Center">
+                            <PathIcon Data="{StaticResource IconSearch}" Width="28" Height="28" Margin="0,0,0,6"
+                                      Foreground="{DynamicResource OrielMutedBrush}" />
+                            <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="No photos found" />
+                            <TextBlock Classes="muted" MaxWidth="360" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                                       Text="Try other or fewer words. Only photos big enough for your screen are shown." />
+                        </StackPanel>
+                    </Border>
 
                     <ItemsRepeater ItemsSource="{Binding Results}">
                         <ItemsRepeater.Layout>
@@ -76,18 +108,18 @@
                 </StackPanel>
             </StackPanel>
 
-            <!--  ============ Daily mix ============  -->
+            <!--  ============ Interests ============  -->
             <StackPanel MaxWidth="960" Margin="40,32,40,40" IsVisible="{Binding IsMixOpen}">
                 <Grid Margin="0,0,0,20" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                     <Button Classes="icon" VerticalAlignment="Center" Command="{Binding CloseMixCommand}" ToolTip.Tip="Back">
                         <PathIcon Data="{StaticResource IconBack}" Width="14" Height="14" />
                     </Button>
-                    <TextBlock Grid.Column="1" Classes="title" Margin="0" VerticalAlignment="Center" Text="Daily mix" />
+                    <TextBlock Grid.Column="1" Classes="title" Margin="0" VerticalAlignment="Center" Text="Interests" />
                     <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal" Spacing="6">
                         <Button Content="Select all" Command="{Binding SelectAllCommand}" CommandParameter="{x:True}"
-                                ToolTip.Tip="Turn on all built-in topics" />
+                                ToolTip.Tip="Turn on all built-in interests" />
                         <Button Content="Clear" Command="{Binding SelectAllCommand}" CommandParameter="{x:False}"
-                                ToolTip.Tip="Turn off all built-in topics" />
+                                ToolTip.Tip="Turn off all built-in interests" />
                     </StackPanel>
                 </Grid>
 

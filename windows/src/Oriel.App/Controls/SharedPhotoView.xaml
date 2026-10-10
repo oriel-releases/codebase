@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Oriel.UI.Controls.SharedPhotoView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:local="using:Oriel.UI"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--  A dimmed layer over the app with one card in the middle.  -->
+    <Grid Background="#99000000">
+        <Border
+            MaxWidth="520"
+            Margin="24"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Background="{ThemeResource OrielPaperBrush}"
+            BorderBrush="{ThemeResource OrielLineBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource OrielLargeRadius}">
+            <StackPanel>
+                <!--  Loading  -->
+                <StackPanel
+                    Padding="40,56"
+                    HorizontalAlignment="Center"
+                    Spacing="14"
+                    Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay}">
+                    <ProgressRing Width="32" Height="32" IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" />
+                    <TextBlock Style="{StaticResource MutedTextStyle}" Text="Getting the photo…" />
+                </StackPanel>
+
+                <!--  The photo  -->
+                <StackPanel Visibility="{x:Bind ViewModel.ShowPhoto, Mode=OneWay}">
+                    <Grid Height="260" Background="{ThemeResource OrielSurfaceBrush}">
+                        <Image Source="{x:Bind ViewModel.Preview, Mode=OneWay}" Stretch="UniformToFill" />
+                    </Grid>
+                    <StackPanel Padding="28,22,28,26" Spacing="18">
+                        <StackPanel Spacing="6">
+                            <TextBlock
+                                Style="{StaticResource PageTitleStyle}"
+                                Text="{x:Bind ViewModel.Heading, Mode=OneWay}"
+                                TextWrapping="Wrap"
+                                Visibility="{x:Bind ViewModel.ShowActions, Mode=OneWay}" />
+                            <TextBlock
+                                Style="{StaticResource PageTitleStyle}"
+                                Text="It's your wallpaper now"
+                                Visibility="{x:Bind local:Star.Shown(ViewModel.IsDone), Mode=OneWay}" />
+                            <TextBlock Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap">
+                                <Run Text="Photo by" />
+                                <Run FontWeight="SemiBold" Text="{x:Bind ViewModel.PhotographerName, Mode=OneWay}" />
+                                <Run Text="on Unsplash" />
+                            </TextBlock>
+                        </StackPanel>
+
+                        <InfoBar
+                            IsClosable="False"
+                            IsOpen="{x:Bind ViewModel.HasSetError, Mode=OneWay}"
+                            Message="{x:Bind ViewModel.SetError, Mode=OneWay}"
+                            Severity="Warning" />
+
+                        <StackPanel
+                            HorizontalAlignment="Right"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <Button
+                                Command="{x:Bind ViewModel.DismissCommand}"
+                                Content="Not now"
+                                Style="{StaticResource PillButtonStyle}"
+                                Visibility="{x:Bind ViewModel.ShowActions, Mode=OneWay}" />
+                            <Button
+                                Height="38"
+                                MinWidth="150"
+                                Command="{x:Bind ViewModel.SetCommand}"
+                                IsEnabled="{x:Bind ViewModel.CanSet, Mode=OneWay}"
+                                Style="{StaticResource PrimaryPillButtonStyle}"
+                                Visibility="{x:Bind ViewModel.ShowActions, Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <ProgressRing
+                                        Width="14"
+                                        Height="14"
+                                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                        IsActive="{x:Bind ViewModel.IsSetting, Mode=OneWay}"
+                                        Visibility="{x:Bind ViewModel.IsSetting, Mode=OneWay}" />
+                                    <TextBlock Text="Set as wallpaper" />
+                                </StackPanel>
+                            </Button>
+                            <Button
+                                Height="38"
+                                MinWidth="120"
+                                Command="{x:Bind ViewModel.DismissCommand}"
+                                Content="Done"
+                                Style="{StaticResource PrimaryPillButtonStyle}"
+                                Visibility="{x:Bind local:Star.Shown(ViewModel.IsDone), Mode=OneWay}" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+
+                <!--  Couldn't get the photo  -->
+                <StackPanel
+                    Padding="32,36"
+                    Spacing="16"
+                    Visibility="{x:Bind ViewModel.LoadFailed, Mode=OneWay}">
+                    <TextBlock Style="{StaticResource PageTitleStyle}" Text="Couldn't open that photo" />
+                    <TextBlock
+                        Style="{StaticResource MutedTextStyle}"
+                        Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                        TextWrapping="Wrap" />
+                    <Button
+                        HorizontalAlignment="Right"
+                        Command="{x:Bind ViewModel.DismissCommand}"
+                        Content="Close"
+                        Style="{StaticResource PillButtonStyle}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

@@ -5,11 +5,11 @@ using Microsoft.UI.Xaml.Controls;
 namespace Oriel.UI.Pages;
 
 /// <summary>Sub page of Search: which topics the daily wallpaper is picked from.</summary>
-public sealed partial class DailyMixPage : Page
+public sealed partial class InterestsPage : Page
 {
     public CollectionsViewModel ViewModel { get; } = App.Get<CollectionsViewModel>();
 
-    public DailyMixPage() => InitializeComponent();
+    public InterestsPage() => InitializeComponent();
 
     void Back_Click(object sender, RoutedEventArgs e)
     {

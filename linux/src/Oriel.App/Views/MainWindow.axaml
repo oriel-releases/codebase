@@ -10,7 +10,7 @@
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource OrielPaperBrush}">
     <Grid>
-        <Grid ColumnDefinitions="220,*" IsVisible="{Binding IsSignedIn}">
+        <Grid ColumnDefinitions="220,*" IsVisible="{Binding ShowApp}">
             <!--  Side menu  -->
             <DockPanel Margin="12,16,12,12">
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="12,4,0,20">
@@ -50,6 +50,12 @@
                             <TextBlock Text="Favorites" />
                         </StackPanel>
                     </Button>
+                    <Button Classes="nav" Classes.selected="{Binding IsFriends}" Command="{Binding NavigateCommand}" CommandParameter="friends">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="{StaticResource IconPeople}" Width="16" Height="16" />
+                            <TextBlock Text="Friends" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </DockPanel>
 
@@ -60,9 +66,20 @@
                     <DataTemplate DataType="vm:CollectionsViewModel"><views:SearchView /></DataTemplate>
                     <DataTemplate DataType="vm:HistoryViewModel"><views:HistoryView /></DataTemplate>
                     <DataTemplate DataType="vm:SettingsViewModel"><views:SettingsView /></DataTemplate>
+                    <DataTemplate DataType="vm:FriendsViewModel"><views:FriendsView /></DataTemplate>
                 </ContentControl.DataTemplates>
             </ContentControl>
         </Grid>
+
+        <!--  A photo a friend shared with a link: one button sets it as the wallpaper.  -->
+        <Panel IsVisible="{Binding ShowShared}">
+            <views:SharedPhotoView DataContext="{Binding Shared}" />
+        </Panel>
+
+        <!--  The first-run tour: shown once after the first sign-in.  -->
+        <Panel IsVisible="{Binding ShowOnboarding}">
+            <views:OnboardingView DataContext="{Binding Onboarding}" />
+        </Panel>
 
         <!--  Covers the app until the account is signed in.  -->
         <Panel IsVisible="{Binding IsSignedOut}">

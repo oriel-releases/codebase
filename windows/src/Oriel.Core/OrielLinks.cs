@@ -8,4 +8,10 @@ public static class OrielLinks
 
     /// <summary>The website's account page: profile, current wallpaper and where you're signed in (it asks you to sign in first).</summary>
     public const string Account = "https://oriel.akbarjon.uz/me";
+
+    /// <summary>The website's share page. Its link carries the photo; one click there opens Oriel and sets it.</summary>
+    public const string Share = "https://oriel.akbarjon.uz/share";
+
+    /// <summary>The Wallpaper of the day list the website publishes for the apps (see TodayService).</summary>
+    public const string TodayList = "https://oriel.akbarjon.uz/today.json";
 }

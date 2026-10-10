@@ -1,6 +1,7 @@
 using Oriel.Core.Auth;
 using Oriel.Core.Models;
 using Oriel.Core.Storage;
+using Oriel.Core.Wallpaper;
 using Microsoft.Extensions.Logging;
 
 namespace Oriel.Core.Services;
@@ -16,7 +17,8 @@ public interface ISyncPublisher
 /// photo (ID and links) is shared, never the image file: each device builds its own crop. Best effort: being offline
 /// or signed out never affects changing the wallpaper.
 /// </summary>
-public sealed class SyncPublisher(AuthService auth, FirebaseClient firebase, IHistoryStore history, ILogger<SyncPublisher> log) : ISyncPublisher
+public sealed class SyncPublisher(AuthService auth, FirebaseClient firebase, IHistoryStore history, ILogger<SyncPublisher> log,
+    IAccentSampler? accent = null) : ISyncPublisher
 {
     const string Source = "windows";
     static readonly TimeSpan Timeout = TimeSpan.FromSeconds(8);
@@ -49,13 +51,27 @@ public sealed class SyncPublisher(AuthService auth, FirebaseClient firebase, IHi
             var tokens = await auth.GetTokensAsync(timeout.Token);
             if (tokens is null) return;
             if (onlyIfMissing && await firebase.HasCurrentWallpaperAsync(tokens, timeout.Token)) return;
-            await firebase.SetCurrentWallpaperAsync(tokens, document, timeout.Token);
+            await firebase.SetCurrentWallpaperAsync(tokens, document with { Color = await SampleColorAsync(entry) }, timeout.Token);
             log.LogInformation("Shared the wallpaper {Photo} with your other devices", entry.PhotoId);
         }
         catch (Exception ex)
         {
             // Offline, rejected by the rules, or anything unexpected: the wallpaper has already changed, so only note it.
             log.LogWarning("Couldn't share the wallpaper {Photo}: {Reason}", entry.PhotoId, ex.Message);
+        }
+    }
+
+    async Task<string?> SampleColorAsync(HistoryEntry entry)
+    {
+        if (accent is null) return null;
+        try
+        {
+            return await accent.SampleAsync(entry.FilePath);
+        }
+        catch (Exception ex)
+        {
+            log.LogDebug(ex, "Couldn't read the accent color of {Photo}", entry.PhotoId);
+            return null;
         }
     }
 

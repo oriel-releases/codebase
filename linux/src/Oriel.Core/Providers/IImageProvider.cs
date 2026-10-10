@@ -25,6 +25,10 @@ public interface IImageProvider
     /// <summary>Photos matching the words, most relevant first. Pages start at 1.</summary>
     Task<SearchPage> SearchAsync(string query, int page, CancellationToken ct);
 
+    /// <summary>One photo by its provider ID (a photo someone shared with a link).</summary>
+    Task<PhotoCandidate> GetPhotoAsync(string id, CancellationToken ct) =>
+        throw new NotSupportedException("This provider can't look up a single photo.");
+
     /// <summary>Downloads the photo sized for <paramref name="size"/> as JPEG bytes.</summary>
     Task<byte[]> DownloadAsync(PhotoCandidate photo, PixelSize size, CancellationToken ct);
 

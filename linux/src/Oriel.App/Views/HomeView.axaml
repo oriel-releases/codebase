@@ -18,15 +18,6 @@
                     </StackPanel>
                     <Image controls:ImageReveal.Enabled="True" Source="{Binding Preview}" Stretch="UniformToFill" />
 
-                    <!--  One button on the photo: locked keeps this wallpaper (no automatic changes), unlocked lets it change.  -->
-                    <ToggleButton Classes="icon onphoto-icon" Margin="14" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                  IsChecked="{Binding IsPaused}"
-                                  ToolTip.Tip="Lock to keep this wallpaper. Unlock to let it change.">
-                        <Panel>
-                            <PathIcon Data="{StaticResource IconUnlock}" Width="15" Height="15" IsVisible="{Binding !IsPaused}" />
-                            <PathIcon Data="{StaticResource IconLock}" Width="15" Height="15" IsVisible="{Binding IsPaused}" />
-                        </Panel>
-                    </ToggleButton>
                 </Grid>
             </Border>
 
@@ -42,6 +33,30 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
+                    <!--  Linux has no system share sheet: a small menu with the usual places instead.  -->
+                    <Button Classes="icon" IsEnabled="{Binding HasShareLink}"
+                            ToolTip.Tip="Share this wallpaper. Whoever opens the link can set it in one click.">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="TopEdgeAlignedRight">
+                                <MenuItem Header="Copy link" Click="CopyLink_Click" />
+                                <MenuItem Header="Telegram" Click="ShareTelegram_Click" />
+                                <MenuItem Header="WhatsApp" Click="ShareWhatsApp_Click" />
+                                <MenuItem Header="Email" Click="ShareEmail_Click" />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                        <Panel>
+                            <PathIcon Data="{StaticResource IconShare}" Width="15" Height="15" IsVisible="{Binding !IsLinkCopied}" />
+                            <PathIcon Data="{StaticResource IconCheck}" Width="15" Height="15" IsVisible="{Binding IsLinkCopied}" />
+                        </Panel>
+                    </Button>
+                    <!--  Locked keeps this wallpaper (no automatic changes), unlocked lets it change.  -->
+                    <ToggleButton Classes="icon" IsChecked="{Binding IsPaused}"
+                                  ToolTip.Tip="Lock to keep this wallpaper. Unlock to let it change.">
+                        <Panel>
+                            <PathIcon Data="{StaticResource IconUnlock}" Width="15" Height="15" IsVisible="{Binding !IsPaused}" />
+                            <PathIcon Data="{StaticResource IconLock}" Width="15" Height="15" IsVisible="{Binding IsPaused}" />
+                        </Panel>
+                    </ToggleButton>
                     <ToggleButton Classes="icon" IsChecked="{Binding IsFavorite}" IsEnabled="{Binding HasCurrent}"
                                   ToolTip.Tip="Favorite: keep this one forever">
                         <Panel>
@@ -60,6 +75,26 @@
                     </Button>
                 </StackPanel>
             </Grid>
+
+            <!--  Wallpaper of the day: the same photo as oriel.akbarjon.uz/today, one click away.  -->
+            <Border Margin="0,8,0,0" Padding="10,10,16,10" CornerRadius="16" Background="{DynamicResource OrielSurfaceBrush}"
+                    IsVisible="{Binding HasToday}">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                    <Border Width="128" Height="80" CornerRadius="12" ClipToBounds="True" Background="{DynamicResource OrielLineBrush}">
+                        <Image controls:ImageReveal.Enabled="True" Source="{Binding TodayThumb}" Stretch="UniformToFill" />
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock FontWeight="SemiBold" Text="Wallpaper of the day" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Classes="muted small" VerticalAlignment="Center" Text="Photo by" />
+                            <Button Classes="link" FontSize="12" Content="{Binding TodayBy}"
+                                    Command="{Binding OpenUrlCommand}" CommandParameter="{Binding TodayAuthorUri}" />
+                            <TextBlock Classes="muted small" VerticalAlignment="Center" Text="on Unsplash" />
+                        </StackPanel>
+                    </StackPanel>
+                    <Button Grid.Column="2" VerticalAlignment="Center" Content="{Binding TodayButtonText}" Command="{Binding SetTodayCommand}" />
+                </Grid>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

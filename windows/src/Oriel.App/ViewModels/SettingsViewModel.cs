@@ -21,10 +21,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     readonly UpdateService _updates;
     readonly HotkeyService _hotkeys;
     readonly AuthService _auth;
+    readonly WallpaperService _wallpapers;
     bool _loading;
 
     public SettingsViewModel(ISettingsStore settings, IWallpaperSetter setter, AppPaths paths,
-        WallpaperFolderMover folderMover, UpdateService updates, HotkeyService hotkeys, AuthService auth)
+        WallpaperFolderMover folderMover, UpdateService updates, HotkeyService hotkeys, AuthService auth,
+        WallpaperService wallpapers)
     {
         _settings = settings;
         _setter = setter;
@@ -33,6 +35,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _updates = updates;
         _hotkeys = hotkeys;
         _auth = auth;
+        _wallpapers = wallpapers;
         Load();
         RefreshUpdate();
     }
@@ -77,6 +80,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     // Display
     [ObservableProperty] public partial int FitIndex { get; set; }
+    [ObservableProperty] public partial bool MatchTimeOfDay { get; set; }
+    [ObservableProperty] public partial bool PhotoPerMonitor { get; set; }
+    /// <summary>Only worth offering with more than one monitor.</summary>
+    public bool HasMonitors => _setter.GetMonitors().Count > 1;
+
+
 
     // Quality
     [ObservableProperty] public partial bool SkipLowLikes { get; set; }
@@ -101,6 +110,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>0 = desktop only, 1 = desktop and lock screen.</summary>
     [ObservableProperty] public partial int ApplyToIndex { get; set; }
     public string[] ApplyToOptions { get; } = ["Desktop only", "Desktop and lock screen"];
+
+    [ObservableProperty] public partial bool MatchAccentColor { get; set; }
 
     // Keyboard shortcut for "next wallpaper"
     [ObservableProperty] public partial string Shortcut { get; set; } = "";
@@ -141,6 +152,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         StartWithWindows = s.StartWithWindows;
         PicturesFolder = _paths.WallpaperFolder(s);
         ApplyToIndex = s.ChangeLockScreen ? 1 : 0;
+        MatchAccentColor = s.MatchAccentColor;
+        MatchTimeOfDay = s.MatchTimeOfDay;
+        PhotoPerMonitor = s.PhotoPerMonitor;
         _loading = false;
     }
 
@@ -252,4 +266,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         StartWithWindows = true;
         _revertingStartup = false;
     }
-    partial void OnApplyToIndexChanged(int value) { if (value >= 0) Save(s => s.ChangeLockScreen = value == 1); }}
+    partial void OnApplyToIndexChanged(int value) { if (value >= 0) Save(s => s.ChangeLockScreen = value == 1); }
+    partial void OnMatchTimeOfDayChanged(bool value) => Save(s => s.MatchTimeOfDay = value);
+    partial void OnPhotoPerMonitorChanged(bool value) => Save(s => s.PhotoPerMonitor = value);
+    partial void OnMatchAccentColorChanged(bool value)
+    {
+        if (_loading) return;
+        Save(s => s.MatchAccentColor = value);
+        // Turning it on takes effect now, not only at the next wallpaper change.
+        if (value) _ = Task.Run(_wallpapers.ApplyAccentToCurrentAsync);
+    }
+}
