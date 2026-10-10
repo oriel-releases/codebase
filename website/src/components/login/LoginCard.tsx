@@ -11,12 +11,13 @@ import { SupportHint } from "@/components/ui/SupportCard";
 import { firebaseAuth } from "@/lib/firebase";
 import { looksSignedIn, subscribeSignedIn } from "@/lib/sessions";
 import { navigation } from "@/lib/transitions";
+import { forgetShare } from "@/lib/pending-share";
 import { appLink, handToExtension, isFresh, signInWithGoogle, type SignedIn } from "@/lib/sign-in";
 
 type State =
   | { step: "idle"; error?: string }
   | { step: "working" }
-  | { step: "done"; result: SignedIn; opened: boolean }
+  | { step: "done"; result: SignedIn; link: string; opened: boolean }
   | { step: "extension"; email: string }
   | { step: "extension-failed" };
 
@@ -39,7 +40,7 @@ function LoginSlot({ kind, children }: { kind: string; children?: ReactNode }) {
 }
 
 const buttonClass =
-  "inline-flex items-center justify-center gap-3 rounded-full bg-ink px-6 py-3 text-sm font-medium text-paper transition-opacity hover:opacity-85 disabled:opacity-60";
+  "inline-flex items-center justify-center gap-3 rounded-full bg-ink px-6 py-3 text-sm font-medium text-paper transition-opacity  disabled:opacity-60";
 
 /** Google sign-in, then a prompt to open Oriel so the app picks up the account. */
 export function LoginCard() {
@@ -95,9 +96,12 @@ export function LoginCard() {
         setState(handed ? { step: "extension", email: result.email } : { step: "extension-failed" });
         return;
       }
-      // Open the app right away. If the browser blocks it, the "Open Oriel" button is the fallback.
-      window.location.href = appLink(result);
-      setState({ step: "done", result, opened: true });
+      // Open the app right away. If the browser blocks it, the "Open Oriel" button is the fallback. The link is made
+      // once: a shared wallpaper waiting in this browser goes along with it and is then forgotten.
+      const link = appLink(result);
+      forgetShare();
+      window.location.href = link;
+      setState({ step: "done", result, link, opened: true });
     } catch (e) {
       const code = (e as { code?: string }).code;
       const dismissed = code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request";
@@ -139,7 +143,7 @@ export function LoginCard() {
           </>
         ) : (
           <>
-            <AnchorButton href={appLink(result)} onClick={() => setState({ ...state, opened: true })} className="mt-6 w-full">
+            <AnchorButton href={state.link} onClick={() => setState({ ...state, opened: true })} className="mt-6 w-full">
               Open Oriel
               <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M5 12h14M13 6l6 6-6 6" />
@@ -229,7 +233,7 @@ export function KnownAccount({
         type="button"
         onClick={onContinue}
         disabled={working}
-        className="group flex w-full items-center gap-3.5 rounded-full border border-line bg-surface p-2.5 pr-5 text-left transition-colors hover:bg-line/60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:opacity-70"
+        className="group flex w-full items-center gap-3.5 rounded-full border border-line bg-surface p-2.5 pr-5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:opacity-70"
       >
         {account.photo ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -244,7 +248,7 @@ export function KnownAccount({
         {working ? (
           <span aria-hidden className="size-5 shrink-0 animate-spin rounded-full border-2 border-ink/15 border-t-accent motion-reduce:animate-none" />
         ) : (
-          <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-muted transition-transform group-hover:translate-x-0.5">
+          <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-muted transition-transform ">
             <path d="M5 12h14M13 6l6 6-6 6" />
           </svg>
         )}

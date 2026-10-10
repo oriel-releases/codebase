@@ -14,7 +14,7 @@ export function AccordionItem({ title, children }: Props) {
   const panelId = useId();
 
   return (
-    <div data-spotlight className="group rounded-[2rem] bg-surface transition-colors duration-200 hover:bg-line/50">
+    <div className="group rounded-[2rem] bg-surface transition-colors duration-200 ">
       <h3>
         <button
           type="button"
@@ -25,7 +25,7 @@ export function AccordionItem({ title, children }: Props) {
         >
           {title}
           <span
-            className={`flex size-8 shrink-0 items-center justify-center rounded-full bg-paper text-muted transition-[transform,color] duration-300 group-hover:text-ink ${open ? "rotate-45" : ""}`}
+            className={`flex size-8 shrink-0 items-center justify-center rounded-full bg-paper text-muted transition-[transform,color] duration-300 ${open ? "rotate-45" : ""}`}
           >
             <PlusIcon width={16} height={16} />
           </span>

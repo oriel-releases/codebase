@@ -3,7 +3,7 @@ import { routes, site } from "@/config/site";
 import { extensionFaq, extensionFeatures, extensionPage, extensionSteps } from "@/content/extension";
 import { pageMetadata } from "@/lib/seo/metadata";
 import { breadcrumbSchema, extensionSchema, faqSchema } from "@/lib/seo/structured-data";
-import { ExtensionStores } from "@/components/download/ExtensionStores";
+import { ExtensionPicker } from "@/components/download/ExtensionPicker";
 import { Faq } from "@/components/home/Faq";
 import { Features } from "@/components/home/Features";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -48,7 +48,7 @@ export default function ExtensionPage() {
               <h1 className="mt-6 max-w-2xl text-4xl font-semibold tracking-tight text-balance sm:text-6xl">{extensionPage.title}</h1>
               <p className="mt-6 max-w-xl text-base text-pretty text-muted sm:text-lg">{extensionPage.body}</p>
               <div className="mt-10 w-full sm:mt-12">
-                <ExtensionStores />
+                <ExtensionPicker />
               </div>
               <p className="mt-6 text-sm text-muted">
                 Want it to match your desktop?{" "}
@@ -65,8 +65,8 @@ export default function ExtensionPage() {
               <SectionHeading id="steps">Set up in a minute</SectionHeading>
               <ol className="mt-12 grid gap-4 md:grid-cols-3">
                 {extensionSteps.map((s, i) => (
-                  <li key={s.title} data-spotlight className="group rounded-[2rem] border border-line p-7 transition-[translate,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1 hover:border-ink/25 hover:shadow-xl hover:shadow-ink/5 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:p-8">
-                    <span className="flex size-9 items-center justify-center rounded-full bg-accent text-sm font-medium text-paper transition-transform duration-300 group-hover:scale-110">
+                  <li key={s.title} className="group rounded-[2rem] border border-line p-7 transition-[translate,box-shadow,border-color] duration-300 ease-out motion-reduce:transition-none  sm:p-8">
+                    <span className="flex size-9 items-center justify-center rounded-full bg-accent text-sm font-medium text-paper transition-transform duration-300 ">
                       {i + 1}
                     </span>
                     <h3 className="mt-6 font-medium">{s.title}</h3>

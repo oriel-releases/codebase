@@ -11,6 +11,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: absoluteUrl(routes.home), lastModified, changeFrequency: "monthly", priority: 1 },
     { url: absoluteUrl(routes.download), lastModified, changeFrequency: "monthly", priority: 0.9 },
     { url: absoluteUrl(routes.extension), lastModified, changeFrequency: "monthly", priority: 0.8 },
+    // A new photo every day.
+    { url: absoluteUrl(routes.today), changeFrequency: "daily", priority: 0.7 },
     { url: absoluteUrl(routes.privacy), lastModified: new Date(privacyPage.updatedOn), changeFrequency: "yearly", priority: 0.2 },
   ];
 }
