@@ -65,6 +65,11 @@
                         <FontIcon Glyph="&#xE734;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="Friends" Tag="friends">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE716;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
 
             <Frame
@@ -75,5 +80,11 @@
 
         <!--  Covers the app until the account is signed in.  -->
         <controls:SignInView x:Name="SignIn" Grid.Row="1" Visibility="Collapsed" />
+
+        <!--  The first-run tour: shown once after the first sign-in.  -->
+        <controls:OnboardingView x:Name="Onboarding" Grid.Row="1" Visibility="Collapsed" />
+
+        <!--  A photo a friend shared with a link: one button sets it as the wallpaper.  -->
+        <controls:SharedPhotoView x:Name="Shared" Grid.Row="1" Visibility="Collapsed" />
     </Grid>
 </Window>

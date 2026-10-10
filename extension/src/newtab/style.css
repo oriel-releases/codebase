@@ -28,7 +28,7 @@ img, a { -webkit-user-drag: none; }
 #search input::placeholder { color: currentColor; opacity: 0.6; }
 #search[data-tone="dark"] { background: rgb(255 255 255 / 0.45); border-color: rgb(255 255 255 / 0.6); }
 #search[data-tone="dark"]:focus-within { background: rgb(255 255 255 / 0.6); --tw-ring-color: rgb(0 0 0 / 0.25); }
-#search:focus-within { --tw-ring-color: currentColor; }
+#search:focus-within { --tw-ring-color: var(--accent, currentColor); }
 
 /* Frosted glass: only for controls that need it (search, toasts). */
 .glass {
@@ -105,6 +105,20 @@ body.modal-open #bg { filter: blur(14px); scale: 1.02; }
 }
 .backdrop.open { opacity: 1; pointer-events: auto; }
 
+/* Holding the Dim or Blur slider: the photo shows as it really is, and only that slider's row stays (see panel.ts). */
+body.adjusting .backdrop { opacity: 0; }
+body.adjusting.modal-open #bg { filter: none; scale: 1; }
+#panel[data-adjusting] { background: transparent; border-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+#panel[data-adjusting] :is(.side, .close-x, .page-title, .group-title),
+#panel[data-adjusting="dim"] .card:not(:has(input[data-v="dim"])),
+#panel[data-adjusting="blur"] .card:not(:has(input[data-v="blur"])) { opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+/* The scroll bar is made invisible, not removed: taking it away would widen the content and make the slider jump under the pointer. */
+#panel[data-adjusting] .content { scrollbar-color: transparent transparent; }
+#panel[data-adjusting] .content::-webkit-scrollbar-thumb, #panel[data-adjusting] .content::-webkit-scrollbar-track { background: transparent; }
+#panel[data-adjusting] .card:has(input[data-v="dim"]), #panel[data-adjusting] .card:has(input[data-v="blur"]) {
+  background: rgb(24 24 28 / 0.7); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+}
+
 .modal {
   position: fixed; inset: 0; z-index: 50; margin: auto;
   width: min(52rem, calc(100vw - 2rem)); height: min(35rem, calc(100vh - 2rem));
@@ -131,7 +145,7 @@ body.modal-open #bg { filter: blur(14px); scale: 1.02; }
 .nav-item img { border-radius: 9999px; object-fit: cover; }
 .nav-bottom { margin-top: auto; }
 /* The vertical marker: one element that glides to whichever item is current (positioned by placeBar in panel.ts). */
-.bar { position: absolute; left: 0.4rem; top: 0; width: 3px; height: 1rem; border-radius: 9999px; background: #fff; opacity: 0; translate: 0 0; transition: translate 0.45s cubic-bezier(0.3, 1.2, 0.4, 1), height 0.45s cubic-bezier(0.3, 1.2, 0.4, 1), opacity 0.2s; pointer-events: none; }
+.bar { position: absolute; left: 0.4rem; top: 0; width: 3px; height: 1rem; border-radius: 9999px; background: var(--accent, #fff); opacity: 0; translate: 0 0; transition: translate 0.45s cubic-bezier(0.3, 1.2, 0.4, 1), height 0.45s cubic-bezier(0.3, 1.2, 0.4, 1), opacity 0.2s; pointer-events: none; }
 .content.enter { animation: fade-only 0.25s ease both; }
 @keyframes fade-only { from { opacity: 0; } to { opacity: 1; } }
 .card { transition: background-color 0.25s; }
@@ -168,7 +182,7 @@ body.modal-open #bg { filter: blur(14px); scale: 1.02; }
 .switch input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
 .switch span { position: absolute; inset: 0; border-radius: 9999px; background: rgb(255 255 255 / 0.2); transition: background-color 0.2s; pointer-events: none; }
 .switch span::after { content: ""; position: absolute; top: 0.2rem; left: 0.2rem; width: 1.1rem; height: 1.1rem; border-radius: 9999px; background: white; transition: transform 0.2s; box-shadow: 0 1px 4px rgb(0 0 0 / 0.3); }
-.switch input:checked + span { background: #5b8cff; }
+.switch input:checked + span { background: var(--accent, #5b8cff); }
 .switch input:checked + span::after { transform: translateX(1.1rem); }
 .switch input:focus-visible + span { outline: 2px solid white; outline-offset: 2px; }
 
@@ -185,7 +199,7 @@ input[type="range"]::-moz-range-thumb { width: 1.1rem; height: 1.1rem; border: 0
 .btn-ghost:hover { background: rgb(255 255 255 / 0.2); }
 
 .text-input { width: 100%; border-radius: 0.7rem; background: rgb(255 255 255 / 0.08); border: 1px solid rgb(255 255 255 / 0.12); padding: 0.45rem 0.7rem; font-size: 0.85rem; outline: none; }
-.text-input:focus { border-color: rgb(255 255 255 / 0.5); }
+.text-input:focus { border-color: var(--accent, rgb(255 255 255 / 0.5)); }
 .text-input::placeholder { color: rgb(255 255 255 / 0.4); }
 
 /* Small screens: the menu becomes a row on top. */

@@ -34,6 +34,8 @@ export const routes = {
   home: "/",
   download: "/download",
   extension: "/extension",
+  share: "/share",
+  today: "/today",
   privacy: "/privacy",
   login: "/login",
   me: "/me",

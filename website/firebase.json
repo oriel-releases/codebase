@@ -1,5 +1,7 @@
 {
-  "firestore": { "rules": "firestore.rules" },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "hosting": {
     "public": "out",
     "cleanUrls": true,
@@ -10,15 +12,72 @@
       "**/node_modules/**"
     ],
     "headers": [
-      { "source": "/opengraph-image", "headers": [{ "key": "Content-Type", "value": "image/png" }] },
-      { "source": "/_next/static/**", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
+      {
+        "source": "/opengraph-image",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "image/png"
+          }
+        ]
+      },
+      {
+        "source": "/today/opengraph-image",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "image/png"
+          }
+        ]
+      },
+      {
+        "source": "/share/opengraph-image",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "image/png"
+          }
+        ]
+      },
+      {
+        "source": "/_next/static/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      }
     ],
     "rewrites": [
-      { "source": "/download", "destination": "/download.html" },
-      { "source": "/login", "destination": "/login.html" },
-      { "source": "/me", "destination": "/me.html" },
-      { "source": "/privacy", "destination": "/privacy.html" },
-      { "source": "/extension", "destination": "/extension.html" }
+      {
+        "source": "/download",
+        "destination": "/download.html"
+      },
+      {
+        "source": "/login",
+        "destination": "/login.html"
+      },
+      {
+        "source": "/me",
+        "destination": "/me.html"
+      },
+      {
+        "source": "/privacy",
+        "destination": "/privacy.html"
+      },
+      {
+        "source": "/extension",
+        "destination": "/extension.html"
+      },
+      {
+        "source": "/share",
+        "destination": "/share.html"
+      },
+      {
+        "source": "/today",
+        "destination": "/today.html"
+      }
     ]
   }
 }

@@ -30,6 +30,21 @@
 - When the sync work below is built, keep `sync/current` as the "current photo" document (the plan's `users/{uid}/current` is not a valid
   document path; it lives at `users/{uid}/sync/current`).
 
+## Built since (Firestore, all in `website/firestore.rules`; deploy rules after changing them)
+
+- **Follow a friend:** `codes/{code}` = {uid, name, createdAt} (8 chars, no 0/O/1/I; get only, never listed). Following writes
+  `users/{friendUid}/followers/{myUid}` = {code, name, createdAt}, which lets the follower read the friend's `sync/current`
+  (and nothing else). While following, the app's schedule is off and `FollowService` polls that one doc every ~10 min.
+- **Anonymous daily counts:** `stats/{YYYY-MM-DD}` (UTC), numbers only, written by the Windows/Linux apps (`StatsReporter`):
+  `windows_new`, `linux_new`, `windows_active`, `linux_active`, `retained7`, `retained30`, `sharesSent`, `sharesOpened`,
+  `sharesSet`. Rules allow only +1 on today's doc. Read them in the Firebase console. Last online = `sessions/{id}.lastSeenAt`.
+  Keep it this small: no per-click events, no user IDs.
+- **Share links:** `/share?id=&i=&by=&u=&from=` (first name only). A share opened without the app is kept in localStorage and
+  rides along the sign-in link (`oriel://auth?...&share=ID&from=Name`), so it becomes the new user's first wallpaper.
+- **Wallpaper of the day:** `/today`, photos from `website/src/data/today.json` (`npm run today` rebuilds it from the
+  extension's pool).
+- `sync/current.color` is the photo's accent color (#RRGGBB), set by the apps; the extension tints its UI with it.
+
 Status of the Android + sync plan below: **decided, not built yet** (except the `sync/current` document above). Windows app is in `windows/`, Linux in `linux/`, website in `website/`.
 Hard constraint: everything must stay **free** (Firebase Spark plan, no Blaze, no card) and light on phone battery.
 

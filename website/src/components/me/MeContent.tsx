@@ -1,5 +1,6 @@
 "use client";
 
+import { RevealImage } from "@/components/ui/RevealImage";
 import Image from "next/image";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { GlobeIcon, LinuxIcon, MonitorIcon, PuzzleIcon, WindowsIcon } from "@/components/ui/icons";
@@ -82,7 +83,7 @@ export function MeContent({ profile, wallpaper, sessions, currentId, asking, bus
   return (
     <div className="flex flex-col gap-5 sm:gap-6">
       {/* Profile */}
-      <section data-spotlight aria-label="Profile" className={`${card} overflow-hidden`}>
+      <section aria-label="Profile" className={`${card} overflow-hidden`}>
         {/* Banner: the current wallpaper, blurred into a colour wash (or Oriel's accent while there is none). */}
         <div className="relative h-28 overflow-hidden sm:h-36">
           {wallpaper && (
@@ -105,7 +106,7 @@ export function MeContent({ profile, wallpaper, sessions, currentId, asking, bus
             <button
               type="button"
               onClick={() => onAsk("signout")}
-              className={`${pill} mb-1 bg-ink/5 px-4 py-2 text-ink hover:bg-ink/10`}
+              className={`${pill} mb-1 bg-ink/5 px-4 py-2 text-ink `}
             >
               <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
@@ -133,13 +134,13 @@ export function MeContent({ profile, wallpaper, sessions, currentId, asking, bus
       <WallpaperCard wallpaper={wallpaper} />
 
       {/* Sessions */}
-      <section data-spotlight aria-labelledby="sessions-title" className={`${card} p-5 sm:p-6`}>
+      <section aria-labelledby="sessions-title" className={`${card} p-5 sm:p-6`}>
         <div className="flex flex-wrap items-center justify-between gap-3 px-1">
           <h2 id="sessions-title" className="text-lg font-semibold tracking-tight">
             Where you&apos;re signed in
           </h2>
           {others.length > 0 && (
-            <button type="button" onClick={() => onAsk("others")} className={`${pill} bg-ink/5 text-ink hover:bg-ink/10`}>
+            <button type="button" onClick={() => onAsk("others")} className={`${pill} bg-ink/5 text-ink `}>
               End all other sessions
             </button>
           )}
@@ -203,10 +204,10 @@ function WallpaperCard({ wallpaper }: { wallpaper: Wallpaper | null | undefined 
   const glass = "rounded-full bg-black/35 px-3.5 py-1.5 text-[13px] font-medium text-white backdrop-blur-md ring-1 ring-white/15";
   return (
     <section aria-label="Current wallpaper" className={`group relative isolate overflow-hidden rounded-[2rem] bg-surface text-white ${wallpaperShape}`}>
-      <FadeImage
+      <RevealImage
         src={sizedPhoto(wallpaper.imageUrl)}
         alt={wallpaper.description || "Your current wallpaper"}
-        className="absolute inset-0 -z-10 size-full object-cover transition-[opacity,transform] duration-700 ease-out group-hover:scale-[1.03]"
+        className="absolute inset-0 -z-10 size-full object-cover transition-[scale] duration-700 ease-out "
       />
       <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-black/75 via-black/10 to-black/20" />
 
@@ -284,7 +285,7 @@ function SessionButton({ session: x, isThisDevice, onOpen }: { session: SessionR
         type="button"
         onClick={() => onOpen(x.id)}
         aria-label={`${x.deviceName || kind}: details`}
-        className="group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         <span className="relative grid size-9 shrink-0 place-items-center rounded-full bg-ink/5">
           <PlatformIcon platform={x.platform} size={17} />
@@ -301,7 +302,7 @@ function SessionButton({ session: x, isThisDevice, onOpen }: { session: SessionR
             {x.lastSeenAt ? ` · ${isActive(x.lastSeenAt) ? "Active now" : `Active ${timeAgo(x.lastSeenAt)}`}` : ""}
           </span>
         </span>
-        <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-muted transition-transform group-hover:translate-x-0.5">
+        <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-muted transition-transform ">
           <path d="m9 18 6-6-6-6" />
         </svg>
       </button>
@@ -374,10 +375,10 @@ function SessionDialog({
           </dl>
 
           <div className="mt-6 grid grid-cols-2 gap-3">
-            <button type="button" onClick={onClose} className={`${pill} bg-surface px-5 py-3 text-sm text-ink hover:bg-line`}>
+            <button type="button" onClick={onClose} className={`${pill} bg-surface px-5 py-3 text-sm text-ink `}>
               Close
             </button>
-            <button type="button" onClick={() => onEnd(x.id)} className={`${pill} bg-red-600/10 px-5 py-3 text-sm text-red-600 hover:bg-red-600/20 dark:bg-red-400/10 dark:text-red-400 dark:hover:bg-red-400/20`}>
+            <button type="button" onClick={() => onEnd(x.id)} className={`${pill} bg-red-600/10 px-5 py-3 text-sm text-red-600 dark:bg-red-400/10 dark:text-red-400`}>
               {isThisDevice ? "Sign out" : "End session"}
             </button>
           </div>
@@ -426,10 +427,10 @@ function ConfirmDialog({ open, warning, busy, onCancel }: { open: boolean; warni
           </h2>
           <p className="mt-2 text-sm text-pretty text-muted">{warning.message}</p>
           <div className="mt-7 grid grid-cols-2 gap-3">
-            <button type="button" onClick={onCancel} disabled={busy} className={`${pill} bg-surface px-5 py-3 text-sm text-ink hover:bg-line disabled:opacity-60`}>
+            <button type="button" onClick={onCancel} disabled={busy} className={`${pill} bg-surface px-5 py-3 text-sm text-ink disabled:opacity-60`}>
               Cancel
             </button>
-            <button type="button" onClick={warning.onConfirm} disabled={busy} className={`${pill} bg-red-600 px-5 py-3 text-sm text-white hover:bg-red-700 disabled:opacity-60`}>
+            <button type="button" onClick={warning.onConfirm} disabled={busy} className={`${pill} bg-red-600 px-5 py-3 text-sm text-white disabled:opacity-60`}>
               {busy ? "Working…" : warning.confirmLabel}
             </button>
           </div>
@@ -475,7 +476,7 @@ export function Spinner({ leaving = false }: { leaving?: boolean }) {
         role="status"
         aria-live="polite"
         className={`sticky top-[38svh] flex justify-center transition-[opacity,scale] duration-300 ease-out motion-reduce:transition-none ${
-          leaving ? "scale-90 opacity-0" : "scale-100 opacity-100"
+ leaving ? "scale-90 opacity-0" : "scale-100 opacity-100"
         }`}
       >
         <span className="sr-only">Loading your account</span>

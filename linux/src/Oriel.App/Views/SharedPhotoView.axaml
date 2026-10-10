@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Oriel.UI.ViewModels"
+             x:Class="Oriel.UI.Views.SharedPhotoView"
+             x:DataType="vm:SharedPhotoViewModel">
+    <!--  A dimmed layer over the app with one card in the middle.  -->
+    <Panel Background="#99000000">
+        <Border MaxWidth="520" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" ClipToBounds="True"
+                Background="{DynamicResource OrielPaperBrush}" BorderBrush="{DynamicResource OrielLineBrush}" BorderThickness="1" CornerRadius="20">
+            <StackPanel>
+                <!--  Loading  -->
+                <StackPanel Margin="40,56" HorizontalAlignment="Center" Spacing="14" IsVisible="{Binding IsLoading}">
+                    <Arc Classes="spinner busy" Width="32" Height="32" Stroke="{DynamicResource OrielInkBrush}" />
+                    <TextBlock Classes="muted" HorizontalAlignment="Center" Text="Getting the photo…" />
+                </StackPanel>
+
+                <!--  The photo  -->
+                <StackPanel IsVisible="{Binding ShowPhoto}">
+                    <Border Height="260" Background="{DynamicResource OrielSurfaceBrush}" ClipToBounds="True">
+                        <Image Source="{Binding Preview}" Stretch="UniformToFill" />
+                    </Border>
+                    <StackPanel Margin="28,22,28,26" Spacing="18">
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="title" Margin="0" TextWrapping="Wrap" Text="{Binding Heading}" IsVisible="{Binding ShowActions}" />
+                            <TextBlock Classes="title" Margin="0" Text="It's your wallpaper now" IsVisible="{Binding IsDone}" />
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock Classes="muted" Text="Photo by" />
+                                <TextBlock FontWeight="SemiBold" Text="{Binding PhotographerName}" />
+                                <TextBlock Classes="muted" Text="on Unsplash" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <Border CornerRadius="12" Padding="16,10" Background="#33D32F2F" IsVisible="{Binding HasSetError}">
+                            <TextBlock Text="{Binding SetError}" TextWrapping="Wrap" />
+                        </Border>
+
+                        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+                            <Button Content="Not now" Command="{Binding DismissCommand}" IsVisible="{Binding ShowActions}" />
+                            <Button Classes="primary" MinWidth="150" HorizontalContentAlignment="Center" Command="{Binding SetCommand}"
+                                    IsEnabled="{Binding CanSet}" IsVisible="{Binding ShowActions}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Arc Classes="spinner" Classes.busy="{Binding IsSetting}" Stroke="{DynamicResource OrielPaperBrush}" />
+                                    <TextBlock VerticalAlignment="Center" Text="Set as wallpaper" />
+                                </StackPanel>
+                            </Button>
+                            <Button Classes="primary" MinWidth="120" HorizontalContentAlignment="Center" Content="Done"
+                                    Command="{Binding DismissCommand}" IsVisible="{Binding IsDone}" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+
+                <!--  Couldn't get the photo  -->
+                <StackPanel Margin="32,36" Spacing="16" IsVisible="{Binding LoadFailed}">
+                    <TextBlock Classes="title" Margin="0" Text="Couldn't open that photo" />
+                    <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
+                    <Button HorizontalAlignment="Right" Content="Close" Command="{Binding DismissCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Panel>
+</UserControl>

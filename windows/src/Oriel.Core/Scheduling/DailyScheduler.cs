@@ -25,7 +25,7 @@ public static class ScheduleRules
     /// </summary>
     public static bool IsDue(OrielSettings settings, OrielState state, DateTimeOffset now, bool isStartupCheck)
     {
-        if (settings.Paused) return false;
+        if (settings.Paused || settings.IsFollowing) return false;
         if (IsFresh(settings, state, now)) return false;
         if (state.NextRetryAt is { } retry && now < retry) return false;
         if (settings.Interval is not null) return true;
@@ -36,7 +36,8 @@ public static class ScheduleRules
     /// <summary>How long the scheduler can sleep before the next check (1s..MaxWait).</summary>
     public static TimeSpan NextCheckIn(OrielSettings settings, OrielState state, DateTimeOffset now)
     {
-        if (settings.Paused) return MaxWait;
+        // Following a friend is a poll of one small document every few minutes.
+        if (settings.Paused || settings.IsFollowing) return MaxWait;
         if (settings.Interval is { } interval)
         {
             var due = state.LastAppliedAt is { } at ? at + interval - Slack : now;
@@ -61,7 +62,7 @@ public static class ScheduleRules
 /// copes with sleep/resume and clock changes) and wakes early when settings change. Idle in between.
 /// </summary>
 public sealed class DailyScheduler(WallpaperService wallpapers, RetentionService retention, ISettingsStore store,
-    IClock clock, ILogger<DailyScheduler> log, IAuthState? auth = null) : IDisposable
+    IClock clock, ILogger<DailyScheduler> log, IAuthState? auth = null, FollowService? follow = null, StatsReporter? stats = null) : IDisposable
 {
     CancellationTokenSource? _cts;
     TaskCompletionSource _wake = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -117,6 +118,12 @@ public sealed class DailyScheduler(WallpaperService wallpapers, RetentionService
         }
 
         if (auth is { IsSignedIn: false }) return;
+        if (stats is not null) await stats.MarkActiveAsync();
+        if (store.Load().IsFollowing)
+        {
+            if (follow is not null) await follow.CheckAsync(ct);
+            return;
+        }
         if (!ScheduleRules.IsDue(store.Load(), store.LoadState(), clock.Now, isStartup)) return;
 
         log.LogInformation("Scheduled change is due (startup={Startup})", isStartup);

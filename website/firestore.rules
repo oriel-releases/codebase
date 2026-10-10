@@ -28,7 +28,9 @@ service cloud.firestore {
       // What each device shows or does, shared between the account's devices.
       // sync/current: the wallpaper a desktop app applied last; the browser extension follows it.
       match /sync/{doc} {
-        allow read: if request.auth.uid == uid;
+        // A follower (see followers below) may read just the current wallpaper.
+        allow read: if request.auth.uid == uid
+          || (doc == 'current' && exists(/databases/$(database)/documents/users/$(uid)/followers/$(request.auth.uid)));
         allow create, update: if request.auth.uid == uid
           && doc == 'current'
           && request.resource.data.keys().hasAll(['photoId', 'imageUrl', 'source', 'updatedAt'])
@@ -39,6 +41,65 @@ service cloud.firestore {
           && request.resource.data.imageUrl.matches('https://images\\.unsplash\\.com/.*')
           && request.resource.data.source in ['windows', 'linux']
           && request.resource.data.updatedAt is timestamp;
+      }
+    }
+
+    // Following a friend. The owner shares a code (codes/{code} names them); whoever knows it can add themselves as a
+    // follower, which lets them read the owner's sync/current (above). The owner sees and removes followers; a follower
+    // can leave. Codes can be looked up one at a time, never listed.
+    match /users/{uid}/followers/{follower} {
+      allow get, delete: if request.auth.uid == uid || request.auth.uid == follower;
+      allow list: if request.auth.uid == uid;
+      allow create, update: if request.auth.uid == follower
+        && follower != uid
+        && request.resource.data.keys().hasOnly(['code', 'name', 'createdAt'])
+        && request.resource.data.code is string
+        && request.resource.data.name is string && request.resource.data.name.size() <= 30
+        && get(/databases/$(database)/documents/codes/$(request.resource.data.code)).data.uid == uid;
+    }
+
+    match /codes/{code} {
+      allow get: if request.auth != null;
+      allow create: if request.auth != null
+        && code.matches('^[A-HJ-NP-Z2-9]{8}$')
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.name is string && request.resource.data.name.size() <= 30;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+
+    // Anonymous daily counts from the apps: one document per UTC day, numbers only, no user IDs. A signed-in app may
+    // only add 1 to known counters, on today's document (give or take a day for clocks). Nobody can read them here;
+    // they are read in the Firebase console.
+    match /stats/{day} {
+      allow create: if request.auth != null && isToday(day)
+        && request.resource.data.keys().hasOnly(statKeys())
+        && request.resource.data.keys().size() <= 5
+        && startsAtOne('windows_new') && startsAtOne('linux_new') && startsAtOne('windows_active') && startsAtOne('linux_active')
+        && startsAtOne('retained7') && startsAtOne('retained30')
+        && startsAtOne('sharesSent') && startsAtOne('sharesOpened') && startsAtOne('sharesSet');
+      allow update: if request.auth != null && isToday(day)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(statKeys())
+        && request.resource.data.diff(resource.data).affectedKeys().size() <= 5
+        && plusOne('windows_new') && plusOne('linux_new') && plusOne('windows_active') && plusOne('linux_active')
+        && plusOne('retained7') && plusOne('retained30')
+        && plusOne('sharesSent') && plusOne('sharesOpened') && plusOne('sharesSet');
+
+      function statKeys() {
+        return ['windows_new', 'linux_new', 'windows_active', 'linux_active', 'retained7', 'retained30',
+                'sharesSent', 'sharesOpened', 'sharesSet'];
+      }
+      function isToday(day) {
+        return day.matches('^20[0-9]{2}-[01][0-9]-[0-3][0-9]$')
+          && math.abs(request.time.toMillis()
+               - timestamp.date(int(day[0:4]), int(day[5:7]), int(day[8:10])).toMillis()) <= 2 * 86400000;
+      }
+      function startsAtOne(k) {
+        return !(k in request.resource.data) || request.resource.data[k] == 1;
+      }
+      function plusOne(k) {
+        return !(k in request.resource.data.diff(resource.data).affectedKeys())
+          || request.resource.data[k] == resource.data.get(k, 0) + 1;
       }
     }
 

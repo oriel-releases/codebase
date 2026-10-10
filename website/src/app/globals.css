@@ -199,71 +199,6 @@ dialog.confirm[open]::backdrop {
   }
 }
 
-/* ---- Hover effects (mouse and trackpad only) ----
-   spotlight: a soft accent glow follows the pointer across a card.
-   tilt:      the card leans a few degrees toward the pointer and lifts.
-   shine:     a band of light sweeps across a button.
-   grow:      a link's underline draws in from the left. */
-@media (hover: hover) and (pointer: fine) {
-  [data-spotlight] {
-    position: relative;
-    isolation: isolate;
-  }
-  [data-spotlight]::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.35s ease;
-    background: radial-gradient(
-      420px circle at var(--mx, 50%) var(--my, 50%),
-      color-mix(in oklab, var(--accent) 24%, transparent),
-      transparent 65%
-    );
-  }
-  [data-spotlight]:hover::before {
-    opacity: 1;
-  }
-
-  [data-tilt] {
-    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
-    will-change: transform;
-  }
-  [data-tilt]:hover {
-    transform: perspective(900px) rotateX(var(--ry, 0deg)) rotateY(var(--rx, 0deg)) translateY(-6px);
-    transition-duration: 0.12s;
-  }
-
-  .shine {
-    position: relative;
-    overflow: hidden;
-  }
-  .shine::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(100deg, transparent 25%, color-mix(in oklab, currentColor 22%, transparent) 50%, transparent 75%);
-    transform: translateX(-130%);
-  }
-  .shine:hover::after {
-    transform: translateX(130%);
-    transition: transform 0.8s ease;
-  }
-
-  .grow {
-    background: linear-gradient(currentColor, currentColor) left bottom / 0% 1px no-repeat;
-    transition: background-size 0.3s ease, color 0.2s ease;
-    padding-bottom: 2px;
-  }
-  .grow:hover {
-    background-size: 100% 1px;
-  }
-}
-
 /* The status mark on the sign-in result screens: it pops in, and a success check draws itself. */
 .status-pop {
   animation: status-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
@@ -306,5 +241,51 @@ dialog.confirm[open]::backdrop {
 @media (prefers-reduced-motion: reduce) {
   .login-fade {
     animation: none;
+  }
+}
+
+/* A photo settling in: from a slight zoom and a soft blur to its real size and sharpness. Used by RevealImage. */
+@keyframes reveal {
+  from {
+    opacity: 0;
+    scale: 1.15;
+    filter: blur(18px);
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+    filter: blur(0);
+  }
+}
+.reveal {
+  animation: reveal 1.3s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    animation: none;
+  }
+}
+
+/* A footer link's underline draws in from the left (mouse and trackpad only). */
+@media (hover: hover) and (pointer: fine) {
+  .grow {
+    background: linear-gradient(currentColor, currentColor) left bottom / 0% 1px no-repeat;
+    transition: background-size 0.3s ease, color 0.2s ease;
+    padding-bottom: 2px;
+  }
+  .grow:hover {
+    background-size: 100% 1px;
+  }
+}
+
+/* Content that was swapped in (the install steps after switching system) rises in softly. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
   }
 }

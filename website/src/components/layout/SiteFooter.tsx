@@ -23,6 +23,9 @@ export function SiteFooter({ wordmark = false }: { wordmark?: boolean }) {
           <Link href={routes.download} transitionTypes={[...navigation.forward]} className="grow transition-colors hover:text-ink">
             Download
           </Link>
+          <Link href={routes.today} transitionTypes={[...navigation.forward]} className="grow transition-colors hover:text-ink">
+            Today
+          </Link>
           <Link href={routes.privacy} transitionTypes={[...navigation.forward]} className="grow transition-colors hover:text-ink">
             Privacy
           </Link>

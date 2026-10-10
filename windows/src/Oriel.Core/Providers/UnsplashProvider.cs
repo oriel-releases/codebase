@@ -57,6 +57,21 @@ public sealed class UnsplashProvider(HttpClient http, IApiKeyStore keys, ILogger
         }
     }
 
+    public async Task<PhotoCandidate> GetPhotoAsync(string id, CancellationToken ct)
+    {
+        using var resp = await SendApiAsync($"{ApiBase}photos/{Uri.EscapeDataString(id)}", ct);
+        await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+        try
+        {
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            return Parse(doc.RootElement);
+        }
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
+        {
+            throw new ProviderException(ProviderErrorKind.BadResponse, "Unsplash returned data Oriel couldn't read.", ex);
+        }
+    }
+
     public async Task<byte[]> DownloadAsync(PhotoCandidate photo, PixelSize size, CancellationToken ct)
     {
         var url = BuildDownloadUrl(photo.RawUrl, size);
@@ -131,7 +146,7 @@ public sealed class UnsplashProvider(HttpClient http, IApiKeyStore keys, ILogger
             HttpStatusCode.Forbidden when _remaining is 0 => RateLimited(),
             (HttpStatusCode)429 => RateLimited(),
             HttpStatusCode.Forbidden => new ProviderException(ProviderErrorKind.Unauthorized, "Unsplash refused the request (403)."),
-            HttpStatusCode.NotFound => new ProviderException(ProviderErrorKind.NoResults, "No photos found for that topic."),
+            HttpStatusCode.NotFound => new ProviderException(ProviderErrorKind.NoResults, "That photo isn't available (any more)."),
             _ => new ProviderException(ProviderErrorKind.BadResponse, $"Unsplash returned HTTP {(int)status}."),
         };
     }

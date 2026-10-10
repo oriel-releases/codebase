@@ -38,7 +38,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IImageProvider>(sp => sp.GetRequiredService<UnsplashProvider>());
         services.AddSingleton<SyncPublisher>();
         services.AddSingleton<ISyncPublisher>(sp => sp.GetRequiredService<SyncPublisher>());
+        services.AddSingleton<ISystemTheme, WindowsSystemTheme>();
         services.AddSingleton<WallpaperService>();
+        services.AddSingleton<FollowService>();
+        services.AddSingleton<TodayService>();
+        services.AddSingleton<StatsReporter>();
+        services.AddSingleton<IStats>(sp => sp.GetRequiredService<StatsReporter>());
         services.AddSingleton<RetentionService>();
         services.AddSingleton<WallpaperFolderMover>();
         services.AddSingleton<IStartupRegistration, StartupRegistration>();

@@ -64,6 +64,14 @@
                 <ComboBox MinWidth="190" ItemsSource="{Binding ApplyToOptions}" SelectedIndex="{Binding ApplyToIndex}" />
             </controls:SettingRow>
 
+            <controls:SettingRow Header="Match the time of day" Description="Darker photos in the evening and in dark mode, brighter ones in the morning.">
+                <ToggleSwitch OnContent="" OffContent="" IsChecked="{Binding MatchTimeOfDay}" />
+            </controls:SettingRow>
+            <controls:SettingRow Header="A photo for each monitor" Description="Give each monitor its own photo instead of the same one everywhere."
+                                 IsVisible="{Binding HasMonitors}">
+                <ToggleSwitch OnContent="" OffContent="" IsChecked="{Binding PhotoPerMonitor}" />
+            </controls:SettingRow>
+
             <!--  ============ Quality ============  -->
             <TextBlock Classes="section" Text="Quality" />
             <controls:SettingRow Header="Skip photos with few likes" Description="Prefer photos other people liked on Unsplash.">

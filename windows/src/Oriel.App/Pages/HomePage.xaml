@@ -10,6 +10,9 @@
         <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="{ThemeResource OrielSurface}" />
         <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="{ThemeResource OrielLine}" />
         <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="{ThemeResource OrielLine}" />
+        <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="{ThemeResource OrielInk}" />
+        <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="{ThemeResource OrielInk}" />
+        <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPressed" Color="{ThemeResource OrielInk}" />
         <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="Transparent" />
         <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="Transparent" />
         <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPressed" Color="Transparent" />
@@ -53,24 +56,6 @@
                     AutomationProperties.Name="Current wallpaper"
                     Source="{x:Bind ViewModel.Preview, Mode=OneWay}"
                     Stretch="UniformToFill" />
-
-                <!--  One button on the photo: locked keeps this wallpaper (no automatic changes), unlocked lets it change.  -->
-                <ToggleButton
-                    Margin="14"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Top"
-                    AutomationProperties.Name="Keep this wallpaper"
-                    IsChecked="{x:Bind ViewModel.IsPaused, Mode=TwoWay}"
-                    Style="{StaticResource IconToggleButtonStyle}"
-                    ToolTipService.ToolTip="Lock to keep this wallpaper. Unlock to let it change.">
-                    <ToggleButton.Resources>
-                        <ResourceDictionary Source="ms-appx:///Styles/OnPhoto.xaml" />
-                    </ToggleButton.Resources>
-                    <Grid>
-                        <FontIcon FontSize="15" Glyph="&#xE785;" Visibility="{x:Bind local:Star.Hidden(ViewModel.IsPaused), Mode=OneWay}" />
-                        <FontIcon FontSize="15" Glyph="&#xE72E;" Visibility="{x:Bind local:Star.Shown(ViewModel.IsPaused), Mode=OneWay}" />
-                    </Grid>
-                </ToggleButton>
             </Grid>
 
             <!--  Credit (required by Unsplash guidelines) and actions  -->
@@ -106,6 +91,28 @@
                     VerticalAlignment="Center"
                     Orientation="Horizontal"
                     Spacing="8">
+                    <Button
+                        AutomationProperties.Name="Share this wallpaper"
+                        Click="Share_Click"
+                        IsEnabled="{x:Bind ViewModel.HasShareLink, Mode=OneWay}"
+                        Style="{StaticResource IconButtonStyle}"
+                        ToolTipService.ToolTip="Share this wallpaper. Whoever opens the link can set it in one click.">
+                        <Grid>
+                            <FontIcon FontSize="15" Glyph="&#xE72D;" Visibility="{x:Bind local:Star.Hidden(ViewModel.IsLinkCopied), Mode=OneWay}" />
+                            <FontIcon FontSize="15" Glyph="&#xE73E;" Visibility="{x:Bind local:Star.Shown(ViewModel.IsLinkCopied), Mode=OneWay}" />
+                        </Grid>
+                    </Button>
+                    <!--  Locked keeps this wallpaper (no automatic changes), unlocked lets it change.  -->
+                    <ToggleButton
+                        AutomationProperties.Name="Keep this wallpaper"
+                        IsChecked="{x:Bind ViewModel.IsPaused, Mode=TwoWay}"
+                        Style="{StaticResource IconToggleButtonStyle}"
+                        ToolTipService.ToolTip="Lock to keep this wallpaper. Unlock to let it change.">
+                        <Grid>
+                            <FontIcon FontSize="15" Glyph="&#xE785;" Visibility="{x:Bind local:Star.Hidden(ViewModel.IsPaused), Mode=OneWay}" />
+                            <FontIcon FontSize="15" Glyph="&#xE72E;" Visibility="{x:Bind local:Star.Shown(ViewModel.IsPaused), Mode=OneWay}" />
+                        </Grid>
+                    </ToggleButton>
                     <ToggleButton
                         AutomationProperties.Name="Favorite"
                         IsChecked="{x:Bind ViewModel.IsFavorite, Mode=TwoWay}"
@@ -142,6 +149,61 @@
                         </StackPanel>
                     </Button>
                 </StackPanel>
+            </Grid>
+
+            <!--  Wallpaper of the day: the same photo as oriel.akbarjon.uz/today, one click away.  -->
+            <Grid
+                Margin="0,8,0,0"
+                Padding="10,10,16,10"
+                Background="{ThemeResource OrielSurfaceBrush}"
+                ColumnSpacing="16"
+                CornerRadius="{StaticResource OrielCardRadius}"
+                Visibility="{x:Bind ViewModel.HasToday, Mode=OneWay}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border
+                    Width="128"
+                    Height="80"
+                    Background="{ThemeResource OrielLineBrush}"
+                    CornerRadius="12">
+                    <Image
+                        local:ImageReveal.Enabled="True"
+                        AutomationProperties.Name="Wallpaper of the day"
+                        Source="{x:Bind ViewModel.TodayThumb, Mode=OneWay}"
+                        Stretch="UniformToFill" />
+                </Border>
+                <StackPanel
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Spacing="2">
+                    <TextBlock FontWeight="SemiBold" Text="Wallpaper of the day" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Style="{StaticResource MutedTextStyle}"
+                            Text="Photo by" />
+                        <HyperlinkButton
+                            Padding="4,1"
+                            Content="{x:Bind ViewModel.TodayBy, Mode=OneWay}"
+                            FontSize="12"
+                            NavigateUri="{x:Bind ViewModel.TodayAuthorUri, Mode=OneWay}" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Style="{StaticResource MutedTextStyle}"
+                            Text="on Unsplash" />
+                    </StackPanel>
+                </StackPanel>
+                <Button
+                    Grid.Column="2"
+                    VerticalAlignment="Center"
+                    Command="{x:Bind ViewModel.SetTodayCommand}"
+                    Content="{x:Bind ViewModel.TodayButtonText, Mode=OneWay}"
+                    Style="{StaticResource PillButtonStyle}" />
             </Grid>
         </StackPanel>
         </Grid>

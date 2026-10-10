@@ -31,14 +31,4 @@ static class Toasts
             // Toasts are optional; never block the app over them.
         }
     }
-
-    public static void ShowError(string message)
-    {
-        var builder = new AppNotificationBuilder()
-            .AddArgument(ActionKey, OpenAction)
-            .AddText("Couldn't change your wallpaper")
-            .AddText(message + " Your current wallpaper was kept.");
-        AppNotificationManager.Default.Show(builder.BuildNotification());
-    }
-
 }

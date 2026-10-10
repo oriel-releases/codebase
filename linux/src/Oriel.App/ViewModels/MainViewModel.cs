@@ -12,31 +12,47 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     readonly IServiceProvider _services;
     readonly AuthService _auth;
 
-    public MainViewModel(IServiceProvider services, AuthService auth, SignInViewModel signIn)
+    public MainViewModel(IServiceProvider services, AuthService auth, SignInViewModel signIn, OnboardingViewModel onboarding, SharedPhotoViewModel shared)
     {
         _services = services;
         _auth = auth;
         SignIn = signIn;
+        Onboarding = onboarding;
+        Onboarding.Finished += OnOnboardingFinished;
+        Shared = shared;
+        Shared.Changed += OnSharedChanged;
         _auth.Changed += OnAuthChanged;
         UpdateSignInGate();
         Navigate("home");
     }
 
     public SignInViewModel SignIn { get; }
+    public OnboardingViewModel Onboarding { get; }
+    public SharedPhotoViewModel Shared { get; }
 
     [ObservableProperty] public partial object? CurrentPage { get; set; }
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsSignedOut))]
+    [NotifyPropertyChangedFor(nameof(IsSignedOut), nameof(ShowApp))]
     public partial bool IsSignedIn { get; set; }
     public bool IsSignedOut => !IsSignedIn;
 
+    /// <summary>The first-run tour covers the app until it is finished or skipped.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsHome), nameof(IsSearch), nameof(IsHistory), nameof(IsFavorites), nameof(IsSettings))]
+    [NotifyPropertyChangedFor(nameof(ShowApp))]
+    public partial bool ShowOnboarding { get; set; }
+    public bool ShowApp => IsSignedIn && !ShowOnboarding;
+
+    /// <summary>A photo a friend shared with a link waits behind sign-in and the tour, then shows over the app.</summary>
+    [ObservableProperty] public partial bool ShowShared { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsHome), nameof(IsSearch), nameof(IsHistory), nameof(IsFavorites), nameof(IsFriends), nameof(IsSettings))]
     public partial string Section { get; set; } = "home";
     public bool IsHome => Section == "home";
     public bool IsSearch => Section == "search";
     public bool IsHistory => Section == "history";
     public bool IsFavorites => Section == "favorites";
+    public bool IsFriends => Section == "friends";
     public bool IsSettings => Section == "settings";
 
     void OnAuthChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(UpdateSignInGate);
@@ -46,10 +62,21 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         var wasSignedIn = IsSignedIn;
         IsSignedIn = _auth.IsSignedIn;
+        ShowOnboarding = IsSignedIn && Onboarding.ShouldShow();
+        ShowShared = ShowApp && Shared.IsOpen;
         if (IsSignedIn && !wasSignedIn) Navigate("home");
     }
 
-    /// <summary>Clicking the current item again leaves a sub page (Daily mix) and returns to its main page.</summary>
+    void OnSharedChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(UpdateSignInGate);
+
+    void OnOnboardingFinished(object? sender, EventArgs e) => Dispatcher.UIThread.Post(() =>
+    {
+        ShowOnboarding = false;
+        ShowShared = Shared.IsOpen;
+        Navigate("home");
+    });
+
+    /// <summary>Clicking the current item again leaves a sub page (Interests) and returns to its main page.</summary>
     [RelayCommand]
     public void Navigate(string section)
     {
@@ -67,9 +94,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             "history" => LoadHistory(favorites: false),
             "favorites" => LoadHistory(favorites: true),
             "settings" => _services.GetRequiredService<SettingsViewModel>(), // new each time: it listens for updates
+            "friends" => _services.GetRequiredService<FriendsViewModel>(), // new each time: it listens for follow changes
             _ => _services.GetRequiredService<HomeViewModel>(),
         };
-        if (previous is SettingsViewModel settings) settings.Dispose();
+        if (previous is IDisposable listening && previous is SettingsViewModel or FriendsViewModel) listening.Dispose();
     }
 
     HistoryViewModel LoadHistory(bool favorites)
@@ -82,6 +110,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _auth.Changed -= OnAuthChanged;
-        if (CurrentPage is SettingsViewModel settings) settings.Dispose();
+        Onboarding.Finished -= OnOnboardingFinished;
+        Shared.Changed -= OnSharedChanged;
+        if (CurrentPage is SettingsViewModel or FriendsViewModel) (CurrentPage as IDisposable)?.Dispose();
     }
 }

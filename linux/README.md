@@ -11,7 +11,7 @@ Everything the Windows app has, adapted to how Linux works:
 | Feature | On Linux |
 | --- | --- |
 | Daily change at a time you pick, slideshow (every 1/3/6/12 h), change at login, **Change now** | In-app scheduler that sleeps until the next change, plus a **systemd user timer** (`oriel-apply.timer`, `Persistent=true`) that runs `oriel --apply-today` when the app isn't open and catches up after sleep or a powered-off PC |
-| Topics ("Daily mix"), your own searches, Search page, set any result as wallpaper | Same |
+| Interests, your own searches, Search page, set any result as wallpaper | Same |
 | Never repeats a photo, quality filters (landscape, screen size, minimum likes) | Same (SQLite history) |
 | History, Favorites, re-apply, delete, open in folder, 30-day cleanup | Same. Thumbnails are loaded only while visible; "open in folder" selects the file in your file manager |
 | Tray icon (Next wallpaper / Open / Pause / Quit) | StatusNotifierItem (KDE, XFCE, Cinnamon, GNOME with the AppIndicator extension) |

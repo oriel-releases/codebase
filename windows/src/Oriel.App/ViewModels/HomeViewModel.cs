@@ -22,9 +22,18 @@ public sealed partial class HomeViewModel : ObservableObject
     string? _currentFile;
     bool _loading;
 
+    readonly Oriel.Core.Auth.AuthService _auth;
+    readonly IStats _stats;
+    readonly TodayService _today;
+    TodayPhoto? _todayPhoto;
+    DateOnly? _todayLoadedFor;
+
     public HomeViewModel(WallpaperService wallpapers, IHistoryStore history, ISettingsStore settings,
-        AppPaths paths)
+        AppPaths paths, Oriel.Core.Auth.AuthService auth, IStats stats, TodayService today)
     {
+        _stats = stats;
+        _today = today;
+        _auth = auth;
         _wallpapers = wallpapers;
         _history = history;
         _settings = settings;
@@ -41,6 +50,24 @@ public sealed partial class HomeViewModel : ObservableObject
     [ObservableProperty] public partial Uri? PhotographerUri { get; set; }
     [ObservableProperty] public partial Uri? PhotoPageUri { get; set; }
     [ObservableProperty] public partial string Caption { get; set; } = "";
+
+    /// <summary>A link that opens Oriel on a friend's computer and sets this photo as their wallpaper. Null when it can't be shared.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasShareLink))]
+    public partial string? ShareLink { get; set; }
+    public bool HasShareLink => ShareLink is not null;
+    [ObservableProperty] public partial bool IsLinkCopied { get; set; }
+
+    /// <summary>The share link went out (share sheet, copied, or a messenger): one more for the daily count.</summary>
+    public void CountShare() => _stats.Count(StatFields.SharesSent);
+
+    /// <summary>The view copied the link: show a check mark for a moment.</summary>
+    public async Task MarkLinkCopiedAsync()
+    {
+        IsLinkCopied = true;
+        await Task.Delay(2000);
+        IsLinkCopied = false;
+    }
     [ObservableProperty] public partial bool IsFavorite { get; set; }
     [ObservableProperty] public partial bool IsPaused { get; set; }
     [ObservableProperty] public partial string NextChangeText { get; set; } = "";
@@ -96,6 +123,7 @@ public sealed partial class HomeViewModel : ObservableObject
             IsPaused = s.Paused;
             UpdateLimit(state);
             NextChangeText = DescribeNextChange(s, state);
+            if (_todayPhoto is not null) UpdateTodayCurrent();
 
             var latest = _history.List().FirstOrDefault();
             HasCurrent = latest is not null;
@@ -105,6 +133,7 @@ public sealed partial class HomeViewModel : ObservableObject
                 PhotographerName = latest.PhotographerName;
                 PhotographerUri = new Uri(latest.PhotographerUrl);
                 PhotoPageUri = new Uri(latest.PhotoPageUrl);
+                ShareLink = Oriel.Core.Models.ShareLink.Build(latest, _auth.Current?.DisplayName);
                 Caption = $"{Cap(latest.Description ?? latest.Topic ?? "")}  ·  {latest.AppliedAt.LocalDateTime:ddd, d MMM HH:mm}";
                 if (_previewWanted && (latest.Id != _currentId || latest.FilePath != _currentFile))
                 {
@@ -129,7 +158,74 @@ public sealed partial class HomeViewModel : ObservableObject
     public Task ActivateAsync()
     {
         _previewWanted = true;
+        _ = LoadTodayAsync();
         return RefreshAsync();
+    }
+
+    // ---------------------------------------------------------------- Wallpaper of the day
+
+    [ObservableProperty] public partial bool HasToday { get; set; }
+    [ObservableProperty] public partial ImageSource? TodayThumb { get; set; }
+    [ObservableProperty] public partial string TodayBy { get; set; } = "";
+    [ObservableProperty] public partial Uri? TodayAuthorUri { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TodayButtonText), nameof(CanSetToday))]
+    [NotifyCanExecuteChangedFor(nameof(SetTodayCommand))]
+    public partial bool IsTodaySetting { get; set; }
+    /// <summary>Today's photo is already the wallpaper.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TodayButtonText), nameof(CanSetToday))]
+    [NotifyCanExecuteChangedFor(nameof(SetTodayCommand))]
+    public partial bool IsTodayCurrent { get; set; }
+    public bool CanSetToday => !IsTodaySetting && !IsTodayCurrent;
+    public string TodayButtonText => IsTodaySetting ? "Setting…" : IsTodayCurrent ? "On your desktop ✓" : "Set as wallpaper";
+
+    /// <summary>Today's photo from the website, once a day (the thumbnail is small: 240 px wide).</summary>
+    async Task LoadTodayAsync()
+    {
+        var date = DateOnly.FromDateTime(DateTime.Now);
+        if (_todayLoadedFor == date) return;
+        _todayLoadedFor = date;
+        var photo = await Task.Run(() => _today.GetAsync());
+        if (photo is null)
+        {
+            _todayLoadedFor = null;
+            return;
+        }
+        _todayPhoto = photo;
+        TodayBy = photo.By;
+        TodayAuthorUri = photo.AuthorUri;
+        TodayThumb = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(photo.ThumbnailUrl(480))) { DecodePixelWidth = 240 };
+        HasToday = true;
+        UpdateTodayCurrent();
+    }
+
+    void UpdateTodayCurrent() =>
+        IsTodayCurrent = _todayPhoto is { } p && _history.List().FirstOrDefault()?.PhotoId == p.Id;
+
+    [RelayCommand(CanExecute = nameof(CanSetToday))]
+    async Task SetToday()
+    {
+        if (_todayPhoto is not { } today) return;
+        IsTodaySetting = true;
+        try
+        {
+            var result = await Task.Run(async () =>
+            {
+                var photo = await _wallpapers.GetSharedPhotoAsync(today.Id);
+                return await _wallpapers.ApplyPhotoAsync(photo, "wallpaper of the day");
+            });
+            ShowResult(result);
+        }
+        catch (Oriel.Core.Providers.ProviderException ex)
+        {
+            ShowResult(new ApplyResult(ApplyStatus.Failed, [], ex.Message, ex.Kind));
+        }
+        finally
+        {
+            IsTodaySetting = false;
+            UpdateTodayCurrent();
+        }
     }
 
     /// <summary>Window closed: let the preview bitmap be collected.</summary>
@@ -212,6 +308,7 @@ public sealed partial class HomeViewModel : ObservableObject
 
     static string DescribeNextChange(OrielSettings s, OrielState state)
     {
+        if (s.IsFollowing) return state.FollowProblem ?? $"Showing {s.FollowName}'s wallpaper, as it changes.";
         if (s.Paused) return "Paused. Your wallpaper stays as it is.";
         var time = s.GetDailyTime();
         var now = DateTime.Now;

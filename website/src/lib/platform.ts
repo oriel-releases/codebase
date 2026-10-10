@@ -14,3 +14,18 @@ export function detectPlatform(userAgent: string): Platform {
 export function canRunOriel(platform: Platform): boolean {
   return platform === "windows" || platform === "linux" || platform === "unknown";
 }
+
+export type Browser = "chrome" | "edge" | "firefox" | "unknown";
+
+/**
+ * Best-effort browser detection from a user agent string. Chromium browsers that use the Chrome Web Store (Brave, Opera,
+ * Vivaldi) count as "chrome": Brave even reports itself as Chrome. Safari and anything else is "unknown".
+ */
+export function detectBrowser(userAgent: string): Browser {
+  const ua = userAgent.toLowerCase();
+  // Edge first: its user agent contains "Chrome/" too ("... Chrome/141 Safari/537.36 Edg/141").
+  if (/ edg(e|a|ios)?\//.test(ua)) return "edge";
+  if (/firefox\/|fxios\//.test(ua)) return "firefox";
+  if (/chrome\/|chromium\/|crios\//.test(ua)) return "chrome";
+  return "unknown";
+}

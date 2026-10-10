@@ -13,6 +13,7 @@ public static class AppHost
         var services = new ServiceCollection();
         services.AddLogging(b => b.SetMinimumLevel(LogLevel.Information).AddOrielFile(paths));
         services.AddOrielCore(paths);
+        services.AddSingleton<Oriel.Core.Wallpaper.IAccentSampler, Services.AccentSampler>();
         configure?.Invoke(services);
         return services.BuildServiceProvider();
     }

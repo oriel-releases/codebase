@@ -28,6 +28,8 @@ public sealed partial class TopicViewModel(CollectionsViewModel owner, string qu
         ["night sky"] = "🌃", ["snow"] = "❄️",
     };
 
+    public static string EmojiFor(string query) => Emojis.GetValueOrDefault(query, "✨");
+
     [ObservableProperty] public partial bool IsEnabled { get; set; } = enabled;
 
     partial void OnIsEnabledChanged(bool value) => owner.Save();
@@ -53,8 +55,16 @@ public sealed partial class PhotoResultViewModel(CollectionsViewModel owner, Pho
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsIdle))]
+    [NotifyPropertyChangedFor(nameof(ButtonText))]
     public partial bool IsBusy { get; set; }
     public bool IsIdle => !IsBusy;
+
+    /// <summary>This photo was just set as the wallpaper.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ButtonText))]
+    public partial bool IsApplied { get; set; }
+
+    public string ButtonText => IsBusy ? "Setting…" : IsApplied ? "Wallpaper set ✓" : "Set as wallpaper";
 
     [RelayCommand]
     Task Set() => owner.SetAsync(this);
@@ -64,6 +74,8 @@ public sealed partial class CollectionsViewModel : ObservableObject
 {
     const int MinResultsPerSearch = 6;
     const int MaxPagesPerSearch = 3;
+    static readonly string[] SuggestionList =
+        ["northern lights", "tokyo night", "foggy forest", "desert dunes", "city skyline", "snowy mountains", "calm ocean", "milky way"];
     /// <summary>Least time between two requests to the photo service, so mashing Enter or Show more can't burn the hourly limit.</summary>
     static readonly TimeSpan MinRequestGap = TimeSpan.FromSeconds(1.5);
 
@@ -72,6 +84,7 @@ public sealed partial class CollectionsViewModel : ObservableObject
     bool _loading;
     string _query = "";
     int _page;
+    int _version;
     DateTime _lastRequestAt = DateTime.MinValue;
 
     public CollectionsViewModel(ISettingsStore settings, WallpaperService wallpapers)
@@ -84,13 +97,21 @@ public sealed partial class CollectionsViewModel : ObservableObject
     public ObservableCollection<TopicViewModel> BuiltInTopics { get; } = [];
     public ObservableCollection<TopicViewModel> CustomTopics { get; } = [];
     public ObservableCollection<PhotoResultViewModel> Results { get; } = [];
+    /// <summary>Ideas shown before the first search, so the empty page isn't a blank wall.</summary>
+    public IReadOnlyList<string> Suggestions => SuggestionList;
 
     // Search
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SearchCommand))]
+    [NotifyPropertyChangedFor(nameof(HasText))]
     public partial string SearchText { get; set; } = "";
+    public bool HasText => !string.IsNullOrEmpty(SearchText);
     [ObservableProperty] public partial string ResultsTitle { get; set; } = "";
-    [ObservableProperty] public partial bool HasSearched { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowStart))]
+    public partial bool HasSearched { get; set; }
+    /// <summary>Before the first search: suggestions and the Interests row. After it, the photos come first.</summary>
+    public bool ShowStart => !HasSearched;
     [ObservableProperty] public partial bool HasNoResults { get; set; }
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(LoadMoreCommand))]
@@ -108,7 +129,7 @@ public sealed partial class CollectionsViewModel : ObservableObject
     [ObservableProperty] public partial InfoBarSeverity InfoSeverity { get; set; }
 
     [ObservableProperty] public partial bool NothingEnabled { get; set; }
-    /// <summary>"5 of 14 topics on. Each day Oriel picks one at random."</summary>
+    /// <summary>"5 of 14 interests on. Each day Oriel picks one at random."</summary>
     [ObservableProperty] public partial string MixSummary { get; set; } = "";
     [ObservableProperty] public partial bool HasCustomTopics { get; set; }
 
@@ -149,7 +170,7 @@ public sealed partial class CollectionsViewModel : ObservableObject
         NothingEnabled = !BuiltInTopics.Concat(CustomTopics).Any(t => t.IsEnabled);
         HasCustomTopics = CustomTopics.Count > 0;
         var all = BuiltInTopics.Concat(CustomTopics).ToList();
-        MixSummary = $"{all.Count(t => t.IsEnabled)} of {all.Count} topics on. Each day Oriel picks one at random.";
+        MixSummary = $"{all.Count(t => t.IsEnabled)} of {all.Count} interests on. Each day Oriel picks one at random.";
         CanAddToMix = HasSearched && !BuiltInTopics.Concat(CustomTopics)
             .Any(t => t.Query.Equals(_query, StringComparison.OrdinalIgnoreCase));
     }
@@ -174,6 +195,29 @@ public sealed partial class CollectionsViewModel : ObservableObject
         await LoadPagesAsync();
     }
 
+    [RelayCommand]
+    async Task SearchFor(string? query)
+    {
+        if (string.IsNullOrWhiteSpace(query) || IsSearching) return;
+        SearchText = query;
+        await Search();
+    }
+
+    /// <summary>The ✕ in the search bar: empties the field and goes back to the start page.</summary>
+    [RelayCommand]
+    void ClearSearch()
+    {
+        _version++;
+        _query = "";
+        SearchText = "";
+        Results.Clear();
+        HasSearched = false;
+        HasNoResults = false;
+        CanLoadMore = false;
+        IsInfoOpen = false;
+        UpdateSummary();
+    }
+
     bool CanLoadMoreResults() => !IsSearching && CanLoadMore;
 
     [RelayCommand(CanExecute = nameof(CanLoadMoreResults))]
@@ -182,6 +226,7 @@ public sealed partial class CollectionsViewModel : ObservableObject
     /// <summary>Loads the next page, and one or two more if too few photos were big enough for the screen.</summary>
     async Task LoadPagesAsync()
     {
+        var version = _version;
         IsSearching = true;
         try
         {
@@ -192,6 +237,7 @@ public sealed partial class CollectionsViewModel : ObservableObject
                 if (wait > TimeSpan.Zero) await Task.Delay(wait);
                 _lastRequestAt = DateTime.UtcNow;
                 var found = await _wallpapers.SearchAsync(_query, ++_page);
+                if (version != _version) return;   // cleared while this was loading
                 foreach (var photo in found.Photos) Results.Add(new PhotoResultViewModel(this, photo));
                 added += found.Photos.Count;
                 CanLoadMore = _page < found.TotalPages;
@@ -221,6 +267,11 @@ public sealed partial class CollectionsViewModel : ObservableObject
             var result = await Task.Run(() => _wallpapers.ApplyPhotoAsync(item.Photo, _query));
             if (result.Status != ApplyStatus.Applied)
                 ShowInfo(InfoBarSeverity.Warning, "Couldn't set the wallpaper", result.Error ?? "Try again.");
+            else
+            {
+                foreach (var r in Results) r.IsApplied = false;
+                item.IsApplied = true;
+            }
         }
         finally
         {

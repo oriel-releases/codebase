@@ -1,3 +1,4 @@
+import { pendingShareQuery } from "@/lib/pending-share";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { firebaseAuth, firestore } from "@/lib/firebase";
@@ -49,9 +50,12 @@ export async function signInWithGoogle({ hint, chooser }: SignInOptions = {}): P
   return { email: user.email, googleIdToken, signedInAt: Date.now() };
 }
 
-/** The link that opens the Oriel app (registered by the Windows app) and signs it in. */
+/**
+ * The link that opens the Oriel app (registered by the Windows and Linux apps) and signs it in. A wallpaper someone
+ * shared before Oriel was installed comes along (see pending-share.ts).
+ */
 export function appLink(result: SignedIn): string {
-  return `oriel://auth?token=${encodeURIComponent(result.googleIdToken)}`;
+  return `oriel://auth?token=${encodeURIComponent(result.googleIdToken)}${pendingShareQuery()}`;
 }
 
 /**

@@ -1,0 +1,445 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Oriel.UI.Controls.OnboardingView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:vm="using:Oriel.UI.ViewModels">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid
+            MaxWidth="580"
+            MinHeight="520"
+            Margin="28"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            RowSpacing="28">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!--  Progress: only on the question steps  -->
+            <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.ShowProgress, Mode=OneWay}">
+                <ProgressBar
+                    Height="4"
+                    CornerRadius="2"
+                    Maximum="3"
+                    Minimum="0"
+                    Value="{x:Bind ViewModel.StepNumber, Mode=OneWay}" />
+                <TextBlock
+                    FontSize="12"
+                    Style="{StaticResource MutedTextStyle}"
+                    Text="{x:Bind ViewModel.StepText, Mode=OneWay}" />
+            </StackPanel>
+
+            <!--  ============ Steps ============  -->
+            <Grid Grid.Row="1" VerticalAlignment="Center">
+
+                <!--  0: Welcome  -->
+                <StackPanel Spacing="22" Visibility="{x:Bind ViewModel.IsWelcome, Mode=OneWay}">
+                    <Image
+                        Width="64"
+                        Height="64"
+                        HorizontalAlignment="Left"
+                        Source="{ThemeResource OrielLogoImage}" />
+                    <StackPanel Spacing="8">
+                        <TextBlock Style="{StaticResource PageTitleStyle}" Text="Welcome to Oriel" />
+                        <TextBlock
+                            Style="{StaticResource MutedTextStyle}"
+                            Text="A fresh, beautiful wallpaper from Unsplash, picked for you. Setting up takes under a minute."
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Spacing="14">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border
+                                Width="44"
+                                Height="44"
+                                Background="{ThemeResource OrielSurfaceBrush}"
+                                CornerRadius="14">
+                                <FontIcon FontSize="18" Glyph="&#xE787;" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock FontWeight="SemiBold" Text="A new photo, on your schedule" />
+                                <TextBlock
+                                    FontSize="13"
+                                    Style="{StaticResource MutedTextStyle}"
+                                    Text="Every day, or every few hours. Or press Change now whenever you like."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border
+                                Width="44"
+                                Height="44"
+                                Background="{ThemeResource OrielSurfaceBrush}"
+                                CornerRadius="14">
+                                <FontIcon FontSize="18" Glyph="&#xEB51;" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock FontWeight="SemiBold" Text="Only what you love" />
+                                <TextBlock
+                                    FontSize="13"
+                                    Style="{StaticResource MutedTextStyle}"
+                                    Text="You choose the interests. Star favorites to keep them forever."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border
+                                Width="44"
+                                Height="44"
+                                Background="{ThemeResource OrielSurfaceBrush}"
+                                CornerRadius="14">
+                                <FontIcon FontSize="18" Glyph="&#xE708;" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock FontWeight="SemiBold" Text="Quiet and light" />
+                                <TextBlock
+                                    FontSize="13"
+                                    Style="{StaticResource MutedTextStyle}"
+                                    Text="Oriel waits in the tray and only wakes up to change your wallpaper."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+
+                <!--  1: Interests  -->
+                <StackPanel Spacing="18" Visibility="{x:Bind ViewModel.IsInterests, Mode=OneWay}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Style="{StaticResource PageTitleStyle}" Text="What do you like?" />
+                        <TextBlock
+                            Style="{StaticResource MutedTextStyle}"
+                            Text="Pick a few. Each time, Oriel chooses one at random and finds a great photo for it. You can add your own searches later."
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.Interests}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:InterestChip">
+                                <ToggleButton
+                                    AutomationProperties.Name="{x:Bind Label}"
+                                    Content="{x:Bind ChipText}"
+                                    IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
+                                    Style="{StaticResource ChipStyle}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            FontSize="13"
+                            Style="{StaticResource MutedTextStyle}"
+                            Text="{x:Bind ViewModel.InterestsHint, Mode=OneWay}" />
+                        <HyperlinkButton Command="{x:Bind ViewModel.SelectAllInterestsCommand}" Content="Select all">
+                            <HyperlinkButton.CommandParameter>
+                                <x:Boolean>True</x:Boolean>
+                            </HyperlinkButton.CommandParameter>
+                        </HyperlinkButton>
+                        <HyperlinkButton Command="{x:Bind ViewModel.SelectAllInterestsCommand}" Content="Clear">
+                            <HyperlinkButton.CommandParameter>
+                                <x:Boolean>False</x:Boolean>
+                            </HyperlinkButton.CommandParameter>
+                        </HyperlinkButton>
+                    </StackPanel>
+                </StackPanel>
+
+                <!--  2: How often  -->
+                <StackPanel Spacing="18" Visibility="{x:Bind ViewModel.IsSchedule, Mode=OneWay}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Style="{StaticResource PageTitleStyle}" Text="How often should it change?" />
+                        <TextBlock
+                            Style="{StaticResource MutedTextStyle}"
+                            Text="Most people like one new photo a day. You can change this any time in Settings."
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.Schedules}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ScheduleChoice">
+                                <ToggleButton
+                                    AutomationProperties.Name="{x:Bind Label}"
+                                    Content="{x:Bind Label}"
+                                    IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
+                                    Style="{StaticResource ChipStyle}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <StackPanel
+                        Orientation="Horizontal"
+                        Spacing="12"
+                        Visibility="{x:Bind ViewModel.IsDaily, Mode=OneWay}">
+                        <TextBlock VerticalAlignment="Center" Text="Change it at" />
+                        <!--  Wired in code-behind: a TwoWay binding on TimePicker pushes 00:00 back on load.  -->
+                        <TimePicker
+                            x:Name="DailyTimePicker"
+                            MinWidth="0"
+                            AutomationProperties.Name="Daily change time"
+                            CornerRadius="{StaticResource OrielPillRadius}"
+                            MinuteIncrement="5" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!--  3: Preferences  -->
+                <StackPanel Spacing="14" Visibility="{x:Bind ViewModel.IsPreferences, Mode=OneWay}">
+                    <StackPanel Spacing="8" Margin="0,0,0,6">
+                        <TextBlock Style="{StaticResource PageTitleStyle}" Text="Make it yours" />
+                        <TextBlock
+                            Style="{StaticResource MutedTextStyle}"
+                            Text="A few choices about how Oriel behaves. All of them can be changed later in Settings."
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <Grid
+                        Padding="18,14"
+                        Background="{ThemeResource OrielSurfaceBrush}"
+                        ColumnSpacing="16"
+                        CornerRadius="{StaticResource OrielCardRadius}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Border
+                            Width="44"
+                            Height="44"
+                            Background="{ThemeResource OrielLineBrush}"
+                            CornerRadius="14">
+                            <FontIcon FontSize="18" Glyph="&#xE790;" />
+                        </Border>
+                        <StackPanel
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Spacing="2">
+                            <TextBlock FontWeight="SemiBold" Text="Match the Windows accent color" />
+                            <TextBlock
+                                FontSize="12"
+                                Style="{StaticResource MutedTextStyle}"
+                                Text="Start, taskbar and buttons take a color from each new photo."
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                        <ToggleSwitch
+                            Grid.Column="2"
+                            MinWidth="0"
+                            AutomationProperties.Name="Match the Windows accent color"
+                            IsOn="{x:Bind ViewModel.MatchAccentColor, Mode=TwoWay}"
+                            OffContent=""
+                            OnContent="" />
+                    </Grid>
+
+                    <Grid
+                        Padding="18,14"
+                        Background="{ThemeResource OrielSurfaceBrush}"
+                        ColumnSpacing="16"
+                        CornerRadius="{StaticResource OrielCardRadius}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Border
+                            Width="44"
+                            Height="44"
+                            Background="{ThemeResource OrielLineBrush}"
+                            CornerRadius="14">
+                            <FontIcon FontSize="18" Glyph="&#xE72E;" />
+                        </Border>
+                        <StackPanel
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Spacing="2">
+                            <TextBlock FontWeight="SemiBold" Text="Use it on the lock screen too" />
+                            <TextBlock
+                                FontSize="12"
+                                Style="{StaticResource MutedTextStyle}"
+                                Text="The same photo greets you before you sign in."
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                        <ToggleSwitch
+                            Grid.Column="2"
+                            MinWidth="0"
+                            AutomationProperties.Name="Use it on the lock screen too"
+                            IsOn="{x:Bind ViewModel.ChangeLockScreen, Mode=TwoWay}"
+                            OffContent=""
+                            OnContent="" />
+                    </Grid>
+
+                    <Grid
+                        Padding="18,14"
+                        Background="{ThemeResource OrielSurfaceBrush}"
+                        ColumnSpacing="16"
+                        CornerRadius="{StaticResource OrielCardRadius}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Border
+                            Width="44"
+                            Height="44"
+                            Background="{ThemeResource OrielLineBrush}"
+                            CornerRadius="14">
+                            <FontIcon FontSize="18" Glyph="&#xE7E8;" />
+                        </Border>
+                        <StackPanel
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Spacing="2">
+                            <TextBlock FontWeight="SemiBold" Text="Start with Windows" />
+                            <TextBlock
+                                FontSize="12"
+                                Style="{StaticResource MutedTextStyle}"
+                                Text="Oriel waits quietly in the tray so your schedule keeps running."
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                        <ToggleSwitch
+                            Grid.Column="2"
+                            MinWidth="0"
+                            AutomationProperties.Name="Start with Windows"
+                            IsOn="{x:Bind ViewModel.RunInBackground, Mode=TwoWay}"
+                            OffContent=""
+                            OnContent="" />
+                    </Grid>
+                </StackPanel>
+
+                <!--  4: Done  -->
+                <StackPanel Spacing="22" Visibility="{x:Bind ViewModel.IsDone, Mode=OneWay}">
+                    <Border
+                        Width="64"
+                        Height="64"
+                        HorizontalAlignment="Left"
+                        Background="{ThemeResource OrielSurfaceBrush}"
+                        CornerRadius="32">
+                        <FontIcon FontSize="26" Glyph="&#xE73E;" />
+                    </Border>
+                    <StackPanel Spacing="8">
+                        <TextBlock Style="{StaticResource PageTitleStyle}" Text="You're all set" />
+                        <TextBlock
+                            Style="{StaticResource MutedTextStyle}"
+                            Text="Here is what Oriel will do. Let's find your first wallpaper."
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel
+                        Padding="18,14"
+                        Background="{ThemeResource OrielSurfaceBrush}"
+                        CornerRadius="{StaticResource OrielCardRadius}"
+                        Spacing="10">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MutedTextStyle}" Text="Interests" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Text="{x:Bind ViewModel.SummaryInterests, Mode=OneWay}"
+                                TextWrapping="Wrap" />
+                        </Grid>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MutedTextStyle}" Text="New photo" />
+                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.SummarySchedule, Mode=OneWay}" />
+                        </Grid>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource MutedTextStyle}" Text="Applied to" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Text="{x:Bind ViewModel.SummaryLook, Mode=OneWay}"
+                                TextWrapping="Wrap" />
+                        </Grid>
+                    </StackPanel>
+                    <TextBlock
+                        FontSize="13"
+                        Style="{StaticResource MutedTextStyle}"
+                        Text="{x:Bind ViewModel.Tip}"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+
+            <!--  ============ Footer ============  -->
+            <Grid Grid.Row="2" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button
+                        Command="{x:Bind ViewModel.BackCommand}"
+                        Content="Back"
+                        Style="{StaticResource PillButtonStyle}"
+                        Visibility="{x:Bind ViewModel.ShowBack, Mode=OneWay}" />
+                    <HyperlinkButton
+                        Command="{x:Bind ViewModel.SkipCommand}"
+                        Content="Skip setup"
+                        Visibility="{x:Bind ViewModel.ShowSkip, Mode=OneWay}" />
+                </StackPanel>
+
+                <StackPanel
+                    Grid.Column="2"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <Button
+                        Height="38"
+                        MinWidth="120"
+                        Command="{x:Bind ViewModel.NextCommand}"
+                        Content="{x:Bind ViewModel.NextText, Mode=OneWay}"
+                        Style="{StaticResource PrimaryPillButtonStyle}"
+                        Visibility="{x:Bind ViewModel.ShowNext, Mode=OneWay}" />
+                    <Button
+                        Command="{x:Bind ViewModel.FinishCommand}"
+                        Content="Just take me in"
+                        Style="{StaticResource PillButtonStyle}"
+                        Visibility="{x:Bind ViewModel.IsDone, Mode=OneWay}">
+                        <Button.CommandParameter>
+                            <x:Boolean>False</x:Boolean>
+                        </Button.CommandParameter>
+                    </Button>
+                    <Button
+                        Height="38"
+                        Command="{x:Bind ViewModel.FinishCommand}"
+                        Style="{StaticResource PrimaryPillButtonStyle}"
+                        Visibility="{x:Bind ViewModel.IsDone, Mode=OneWay}">
+                        <Button.CommandParameter>
+                            <x:Boolean>True</x:Boolean>
+                        </Button.CommandParameter>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="14" Glyph="&#xE72C;" />
+                            <TextBlock Text="{x:Bind ViewModel.FirstWallpaperText, Mode=OneWay}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

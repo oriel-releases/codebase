@@ -17,7 +17,7 @@
                 <Button Grid.Column="1" Classes="onphoto-pill" FontSize="13" Command="{Binding SetCommand}" IsEnabled="{Binding IsIdle}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Arc Classes="spinner" Classes.busy="{Binding IsBusy}" Width="12" Height="12" Stroke="#141414" />
-                        <TextBlock Text="Set as wallpaper" />
+                        <TextBlock Text="{Binding ButtonText}" />
                     </StackPanel>
                 </Button>
               </Grid>

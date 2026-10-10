@@ -1,0 +1,197 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Oriel.UI.ViewModels"
+             x:Class="Oriel.UI.Views.OnboardingView"
+             x:DataType="vm:OnboardingViewModel">
+    <ScrollViewer>
+        <Grid MaxWidth="580" MinHeight="520" Margin="28" HorizontalAlignment="Center" VerticalAlignment="Center"
+              RowDefinitions="Auto,*,Auto" RowSpacing="28">
+
+            <!--  Progress: only on the question steps  -->
+            <StackPanel Spacing="8" IsVisible="{Binding ShowProgress}">
+                <ProgressBar Height="4" CornerRadius="2" Minimum="0" Maximum="3" Value="{Binding StepNumber}" ShowProgressText="False" />
+                <TextBlock Classes="muted small" Text="{Binding StepText}" />
+            </StackPanel>
+
+            <!--  ============ Steps ============  -->
+            <Panel Grid.Row="1" VerticalAlignment="Center">
+
+                <!--  0: Welcome  -->
+                <StackPanel Spacing="22" IsVisible="{Binding IsWelcome}">
+                    <Image Width="64" Height="64" HorizontalAlignment="Left" Source="{DynamicResource OrielLogo}" />
+                    <StackPanel Spacing="8">
+                        <TextBlock Classes="title" Margin="0" Text="Welcome to Oriel" />
+                        <TextBlock Classes="muted" TextWrapping="Wrap"
+                                   Text="A fresh, beautiful wallpaper from Unsplash, picked for you. Setting up takes under a minute." />
+                    </StackPanel>
+                    <StackPanel Spacing="14">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                            <Border Width="44" Height="44" CornerRadius="14" Background="{DynamicResource OrielSurfaceBrush}">
+                                <PathIcon Data="{StaticResource IconRefresh}" Width="18" Height="18" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock FontWeight="SemiBold" Text="A new photo, on your schedule" />
+                                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                                           Text="Every day, or every few hours. Or press Change now whenever you like." />
+                            </StackPanel>
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                            <Border Width="44" Height="44" CornerRadius="14" Background="{DynamicResource OrielSurfaceBrush}">
+                                <PathIcon Data="{StaticResource IconStar}" Width="18" Height="18" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock FontWeight="SemiBold" Text="Only what you love" />
+                                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                                           Text="You choose the interests. Star favorites to keep them forever." />
+                            </StackPanel>
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                            <Border Width="44" Height="44" CornerRadius="14" Background="{DynamicResource OrielSurfaceBrush}">
+                                <PathIcon Data="{StaticResource IconClock}" Width="18" Height="18" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock FontWeight="SemiBold" Text="Quiet and light" />
+                                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                                           Text="Oriel waits in the tray and only wakes up to change your wallpaper." />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+
+                <!--  1: Interests  -->
+                <StackPanel Spacing="18" IsVisible="{Binding IsInterests}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Classes="title" Margin="0" Text="What do you like?" />
+                        <TextBlock Classes="muted" TextWrapping="Wrap"
+                                   Text="Pick a few. Each time, Oriel chooses one at random and finds a great photo for it. You can add your own searches later." />
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding Interests}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:InterestChip">
+                                <ToggleButton Classes="chip" Margin="0,0,8,8" Content="{Binding ChipText}" IsChecked="{Binding IsSelected}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <TextBlock Classes="muted small" VerticalAlignment="Center" Text="{Binding InterestsHint}" />
+                        <Button Classes="link" Content="Select all" Command="{Binding SelectAllInterestsCommand}" CommandParameter="{x:True}" />
+                        <Button Classes="link" Content="Clear" Command="{Binding SelectAllInterestsCommand}" CommandParameter="{x:False}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!--  2: How often  -->
+                <StackPanel Spacing="18" IsVisible="{Binding IsSchedule}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Classes="title" Margin="0" Text="How often should it change?" />
+                        <TextBlock Classes="muted" TextWrapping="Wrap"
+                                   Text="Most people like one new photo a day. You can change this any time in Settings." />
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding Schedules}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ScheduleChoice">
+                                <ToggleButton Classes="chip" Margin="0,0,8,8" Content="{Binding Label}" IsChecked="{Binding IsSelected}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding IsDaily}">
+                        <TextBlock VerticalAlignment="Center" Text="Change it at" />
+                        <!--  Wired in code-behind: a TwoWay binding on a TimePicker can push 00:00 back on load.  -->
+                        <TimePicker x:Name="DailyTimePicker" ClockIdentifier="24HourClock" MinuteIncrement="5" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!--  3: Preferences  -->
+                <StackPanel Spacing="14" IsVisible="{Binding IsPreferences}">
+                    <StackPanel Spacing="8" Margin="0,0,0,6">
+                        <TextBlock Classes="title" Margin="0" Text="Make it yours" />
+                        <TextBlock Classes="muted" TextWrapping="Wrap"
+                                   Text="A few choices about how Oriel behaves. All of them can be changed later in Settings." />
+                    </StackPanel>
+
+                    <Border Padding="18,14" CornerRadius="16" Background="{DynamicResource OrielSurfaceBrush}">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                            <Border Width="44" Height="44" CornerRadius="14" Background="{DynamicResource OrielLineBrush}">
+                                <PathIcon Data="{StaticResource IconLock}" Width="18" Height="18" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock FontWeight="SemiBold" Text="Use it on the lock screen too" />
+                                <TextBlock Classes="muted small" TextWrapping="Wrap" Text="The same photo greets you before you sign in, on desktops that allow it." />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="2" OnContent="" OffContent="" IsChecked="{Binding ChangeLockScreen}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Padding="18,14" CornerRadius="16" Background="{DynamicResource OrielSurfaceBrush}">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                            <Border Width="44" Height="44" CornerRadius="14" Background="{DynamicResource OrielLineBrush}">
+                                <PathIcon Data="{StaticResource IconPower}" Width="18" Height="18" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock FontWeight="SemiBold" Text="Start when you log in" />
+                                <TextBlock Classes="muted small" TextWrapping="Wrap" Text="Oriel waits quietly in the tray so your schedule keeps running." />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="2" OnContent="" OffContent="" IsChecked="{Binding RunInBackground}" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!--  4: Done  -->
+                <StackPanel Spacing="22" IsVisible="{Binding IsDone}">
+                    <Border Width="64" Height="64" HorizontalAlignment="Left" CornerRadius="32" Background="{DynamicResource OrielSurfaceBrush}">
+                        <PathIcon Data="{StaticResource IconCheck}" Width="26" Height="26" />
+                    </Border>
+                    <StackPanel Spacing="8">
+                        <TextBlock Classes="title" Margin="0" Text="You're all set" />
+                        <TextBlock Classes="muted" TextWrapping="Wrap" Text="Here is what Oriel will do. Let's find your first wallpaper." />
+                    </StackPanel>
+                    <Border Padding="18,14" CornerRadius="16" Background="{DynamicResource OrielSurfaceBrush}">
+                        <StackPanel Spacing="10">
+                            <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
+                                <TextBlock Classes="muted" Text="Interests" />
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap" Text="{Binding SummaryInterests}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
+                                <TextBlock Classes="muted" Text="New photo" />
+                                <TextBlock Grid.Column="1" Text="{Binding SummarySchedule}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
+                                <TextBlock Classes="muted" Text="Applied to" />
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap" Text="{Binding SummaryLook}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding Tip}" />
+                </StackPanel>
+            </Panel>
+
+            <!--  ============ Footer ============  -->
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Back" Command="{Binding BackCommand}" IsVisible="{Binding ShowBack}" />
+                    <Button Classes="link" Content="Skip setup" Command="{Binding SkipCommand}" IsVisible="{Binding ShowSkip}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                    <Button Classes="primary" MinWidth="120" HorizontalContentAlignment="Center" Content="{Binding NextText}"
+                            Command="{Binding NextCommand}" IsVisible="{Binding ShowNext}" />
+                    <Button Content="Just take me in" Command="{Binding FinishCommand}" CommandParameter="{x:False}" IsVisible="{Binding IsDone}" />
+                    <Button Classes="primary" Command="{Binding FinishCommand}" CommandParameter="{x:True}" IsVisible="{Binding IsDone}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" />
+                            <TextBlock VerticalAlignment="Center" Text="{Binding FirstWallpaperText}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </ScrollViewer>
+</UserControl>
