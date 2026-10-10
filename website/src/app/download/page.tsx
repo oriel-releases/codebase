@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { releases } from "@/config/release";
 import { routes, site } from "@/config/site";
 import { downloadPage } from "@/content/download";
@@ -5,14 +6,16 @@ import { features } from "@/content/home";
 import { pageMetadata } from "@/lib/seo/metadata";
 import { breadcrumbSchema, softwareApplicationSchema } from "@/lib/seo/structured-data";
 import { DownloadCard } from "@/components/download/DownloadCard";
+import { ExtensionStores } from "@/components/download/ExtensionStores";
 import { InstallSteps } from "@/components/download/InstallSteps";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { Container } from "@/components/ui/Container";
 import { Logo } from "@/components/ui/Logo";
+import { SupportHint } from "@/components/ui/SupportCard";
 import { PageTransition } from "@/components/motion/PageTransition";
 import { SharedElement } from "@/components/motion/SharedElement";
-import { sharedElement } from "@/lib/transitions";
+import { navigation, sharedElement } from "@/lib/transitions";
 
 export const metadata = pageMetadata({
   title: "Download for Windows and Linux",
@@ -47,6 +50,21 @@ export default function DownloadPage() {
             </div>
             <div className="mt-8 w-full border-t border-line pt-6 sm:mt-10 sm:pt-8">
               <InstallSteps steps={downloadPage.installSteps} />
+            </div>
+            <div className="mt-8 w-full border-t border-line pt-6 sm:mt-10 sm:pt-8">
+              <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Browser extension</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-pretty text-muted">
+                A new tab with an Unsplash photo, a clock and a quote. It can match your desktop wallpaper.{" "}
+                <Link href={routes.extension} transitionTypes={[...navigation.forward]} className="underline underline-offset-4 transition-colors hover:text-ink">
+                  Learn more
+                </Link>
+              </p>
+              <div className="mt-6">
+                <ExtensionStores />
+              </div>
+            </div>
+            <div className="mt-6">
+              <SupportHint>Trouble installing?</SupportHint>
             </div>
           </Container>
         </section>

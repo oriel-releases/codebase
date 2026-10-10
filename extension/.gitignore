@@ -1,0 +1,10 @@
+node_modules
+dist
+*.zip
+*.tsbuildinfo
+*.log
+.env
+.env.*
+.vite
+.DS_Store
+release

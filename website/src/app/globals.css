@@ -135,3 +135,176 @@ body {
     animation-delay: 0s !important;
   }
 }
+
+/* Warning dialogs (the account page) move exactly like the extension's settings panel: a quick fade with a slight
+   scale (no slide), over a backdrop that fades. @starting-style gives the entry, allow-discrete keeps the dialog on
+   screen until its exit has finished. */
+dialog.confirm {
+  opacity: 0;
+  scale: 0.96;
+  transition:
+    opacity 0.22s ease,
+    scale 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    overlay 0.22s allow-discrete,
+    display 0.22s allow-discrete;
+}
+dialog.confirm[open] {
+  opacity: 1;
+  scale: 1;
+}
+@starting-style {
+  dialog.confirm[open] {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+dialog.confirm::backdrop {
+  background-color: rgb(0 0 0 / 0);
+  backdrop-filter: blur(0);
+  transition:
+    background-color 0.25s ease,
+    backdrop-filter 0.25s ease,
+    overlay 0.25s allow-discrete,
+    display 0.25s allow-discrete;
+}
+dialog.confirm[open]::backdrop {
+  background-color: rgb(0 0 0 / 0.45);
+  backdrop-filter: blur(8px);
+}
+@starting-style {
+  dialog.confirm[open]::backdrop {
+    background-color: rgb(0 0 0 / 0);
+    backdrop-filter: blur(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  dialog.confirm,
+  dialog.confirm::backdrop {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* The account page appears with a fade only (nothing moves) as the loading mark fades out. */
+.me-enter {
+  animation: me-in 0.4s ease both;
+}
+@keyframes me-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .me-enter {
+    animation: none;
+  }
+}
+
+/* ---- Hover effects (mouse and trackpad only) ----
+   spotlight: a soft accent glow follows the pointer across a card.
+   tilt:      the card leans a few degrees toward the pointer and lifts.
+   shine:     a band of light sweeps across a button.
+   grow:      a link's underline draws in from the left. */
+@media (hover: hover) and (pointer: fine) {
+  [data-spotlight] {
+    position: relative;
+    isolation: isolate;
+  }
+  [data-spotlight]::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    background: radial-gradient(
+      420px circle at var(--mx, 50%) var(--my, 50%),
+      color-mix(in oklab, var(--accent) 24%, transparent),
+      transparent 65%
+    );
+  }
+  [data-spotlight]:hover::before {
+    opacity: 1;
+  }
+
+  [data-tilt] {
+    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+    will-change: transform;
+  }
+  [data-tilt]:hover {
+    transform: perspective(900px) rotateX(var(--ry, 0deg)) rotateY(var(--rx, 0deg)) translateY(-6px);
+    transition-duration: 0.12s;
+  }
+
+  .shine {
+    position: relative;
+    overflow: hidden;
+  }
+  .shine::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(100deg, transparent 25%, color-mix(in oklab, currentColor 22%, transparent) 50%, transparent 75%);
+    transform: translateX(-130%);
+  }
+  .shine:hover::after {
+    transform: translateX(130%);
+    transition: transform 0.8s ease;
+  }
+
+  .grow {
+    background: linear-gradient(currentColor, currentColor) left bottom / 0% 1px no-repeat;
+    transition: background-size 0.3s ease, color 0.2s ease;
+    padding-bottom: 2px;
+  }
+  .grow:hover {
+    background-size: 100% 1px;
+  }
+}
+
+/* The status mark on the sign-in result screens: it pops in, and a success check draws itself. */
+.status-pop {
+  animation: status-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+}
+@keyframes status-pop {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+.status-check path {
+  stroke-dasharray: 26;
+  stroke-dashoffset: 26;
+  animation: status-draw 0.45s 0.25s ease-out forwards;
+}
+@keyframes status-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-pop {
+    animation: none;
+  }
+  .status-check path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* The sign-in area fades between its states instead of swapping abruptly. */
+.login-fade {
+  animation: login-fade 0.3s ease both;
+}
+@keyframes login-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-fade {
+    animation: none;
+  }
+}

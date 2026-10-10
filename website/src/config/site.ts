@@ -8,7 +8,7 @@ export const site = {
   /** Release stage shown next to the name; set to null once Oriel leaves beta. */
   stage: "Beta" as string | null,
   description:
-    "Oriel is a free app for Windows and Linux that sets a fresh, high-quality Unsplash photo as your desktop wallpaper every day. Lightweight, quiet, and it lives in your tray.",
+    "Oriel is a free daily wallpaper changer for Windows and Linux, with a matching new tab extension for Chrome, Edge, Brave and Firefox. Fresh Unsplash photos, lightweight, lives in your tray.",
   url: process.env.SITE_URL ?? (process.env.NODE_ENV === "production" ? productionUrl : "http://localhost:3000"),
   locale: "en_US",
   keywords: [
@@ -20,14 +20,23 @@ export const site = {
     "Windows 11 wallpaper",
     "GNOME KDE wallpaper changer",
     "desktop background",
+    "new tab extension",
+    "Chrome new tab wallpaper",
+    "Firefox new tab photo",
+    "Unsplash new tab",
   ],
+  /** Telegram bot where people get help. */
+  supportUrl: "https://t.me/oriel_support_bot",
   unsplashUrl: "https://unsplash.com/?utm_source=oriel&utm_medium=referral",
 } as const;
 
 export const routes = {
   home: "/",
   download: "/download",
+  extension: "/extension",
+  privacy: "/privacy",
   login: "/login",
+  me: "/me",
 } as const;
 
 export function absoluteUrl(path: string): string {

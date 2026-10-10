@@ -148,6 +148,10 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         _loading = false;
     }
 
+    [RelayCommand] void OpenAccount() => Launcher.OpenUrl(new Uri(OrielLinks.Account));
+
+    [RelayCommand] void OpenSupport() => Launcher.OpenUrl(new Uri(OrielLinks.Support));
+
     [RelayCommand] void OpenPicturesFolder() => Launcher.OpenFolder(PicturesFolder);
 
     [RelayCommand(CanExecute = nameof(CanChangeFolder))]

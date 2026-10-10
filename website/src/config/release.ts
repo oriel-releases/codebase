@@ -8,8 +8,8 @@ export const repoUrls = {
 
 /** Used only when Firestore can't be read at build time. */
 const fallbackVersions = {
-  windows: "1.0.5",
-  linux: "1.0.0",
+  windows: "1.0.6",
+  linux: "1.0.1",
 } as const satisfies Record<AppPlatform, string>;
 
 const [windowsVersion, linuxVersion] = await Promise.all([fetchLatestVersion("windows"), fetchLatestVersion("linux")]);

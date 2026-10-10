@@ -5,6 +5,7 @@ import { Container } from "@/components/ui/Container";
 import { DownloadIcon } from "@/components/ui/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Logo } from "@/components/ui/Logo";
+import { AccountLink } from "@/components/layout/AccountLink";
 import { navigation } from "@/lib/transitions";
 
 /** Always on top; content scrolls underneath a frosted background. */
@@ -15,15 +16,18 @@ export function SiteHeader() {
       className="fixed inset-x-0 top-0 z-50 border-b border-line/60 bg-paper/70 backdrop-blur-xl"
     >
       <Container className="flex h-16 items-center justify-between">
-        <Link href={routes.home} transitionTypes={[...navigation.back]} className="flex items-center gap-2.5 rounded-full font-semibold tracking-tight">
+        <Link href={routes.home} transitionTypes={[...navigation.back]} className="flex items-center gap-2.5 rounded-full font-semibold tracking-tight transition-opacity duration-200 hover:opacity-70">
           <Logo />
           {site.name}
           {site.stage && <Badge>{site.stage}</Badge>}
         </Link>
-        <ButtonLink href={routes.download} transitionTypes={[...navigation.forward]} variant="secondary" size="sm">
-          <DownloadIcon width={14} height={14} />
-          Download
-        </ButtonLink>
+        <div className="flex items-center gap-2">
+          <AccountLink />
+          <ButtonLink href={routes.download} transitionTypes={[...navigation.forward]} variant="secondary" size="sm">
+            <DownloadIcon width={14} height={14} />
+            Download
+          </ButtonLink>
+        </div>
       </Container>
     </header>
   );

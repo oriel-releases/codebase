@@ -1,0 +1,304 @@
+@import "tailwindcss";
+
+/* It is an app, not a document: nothing on the page can be selected (Ctrl+A shouldn't light things up), except what you type into. */
+body { -webkit-user-select: none; user-select: none; }
+input, textarea { -webkit-user-select: text; user-select: text; }
+img, a { -webkit-user-drag: none; }
+
+@theme {
+  --font-sans: "Segoe UI Variable Display", "Segoe UI", "SF Pro Display", system-ui, "Inter", "Cantarell", "Noto Sans", sans-serif;
+}
+
+/* ---- Text and icons placed straight on the photo: white or near-black depending on the photo behind them ---- */
+[data-adapt] {
+  color: #fff;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  transition: color 0.6s, text-shadow 0.6s, background-color 0.6s;
+}
+[data-adapt][data-tone="dark"] {
+  color: #121212;
+  text-shadow: 0 1px 2px rgb(255 255 255 / 0.3);
+}
+[data-adapt] a { text-underline-offset: 3px; }
+[data-adapt] a:hover { text-decoration: underline; }
+
+/* The search bar follows the photo too: dark text and a lighter glass over bright photos. */
+#search { text-shadow: none; }
+#search input { color: inherit; }
+#search input::placeholder { color: currentColor; opacity: 0.6; }
+#search[data-tone="dark"] { background: rgb(255 255 255 / 0.45); border-color: rgb(255 255 255 / 0.6); }
+#search[data-tone="dark"]:focus-within { background: rgb(255 255 255 / 0.6); --tw-ring-color: rgb(0 0 0 / 0.25); }
+#search:focus-within { --tw-ring-color: currentColor; }
+
+/* Frosted glass: only for controls that need it (search, toasts). */
+.glass {
+  background: rgb(255 255 255 / 0.14);
+  border: 1px solid rgb(255 255 255 / 0.22);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.18), inset 0 1px 0 rgb(255 255 255 / 0.18);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  transition: background-color 0.2s, transform 0.2s, color 0.6s;
+  cursor: pointer;
+}
+.icon-btn:hover { transform: scale(1.08); }
+.icon-btn:active { transform: scale(0.94); }
+.icon-btn[hidden] { display: none; }
+/* A quiet round button: no blur, just a faint disc so it stays findable on any photo. */
+.icon-btn.soft { background: rgb(255 255 255 / 0.14); border: 1px solid rgb(255 255 255 / 0.2); -webkit-backdrop-filter: blur(16px) saturate(150%); backdrop-filter: blur(16px) saturate(150%); }
+.icon-btn.soft:hover { background: rgb(255 255 255 / 0.26); }
+.icon-btn.soft[data-tone="dark"] { background: rgb(255 255 255 / 0.4); border-color: rgb(255 255 255 / 0.5); }
+.icon-btn.soft[data-tone="dark"]:hover { background: rgb(255 255 255 / 0.55); }
+.icon-btn.spin svg { animation: spin 0.6s ease; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+button, [role="button"], summary, label.switch { cursor: pointer; }
+
+/* ---- Small screens: no long lines at the bottom ---- */
+@media (max-width: 700px) {
+  #quote { display: none; }
+}
+/* Photo info dialog (opened by the "i" button) */
+.info-card {
+  position: fixed; inset: 0; z-index: 50; margin: auto; height: fit-content;
+  width: min(22rem, calc(100vw - 2rem)); padding: 1.3rem 1.3rem 1.2rem; border-radius: 1.4rem; color: #fff;
+  background: rgb(24 24 28 / 0.62); border: 1px solid rgb(255 255 255 / 0.14);
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.1);
+  -webkit-backdrop-filter: blur(36px) saturate(170%); backdrop-filter: blur(36px) saturate(170%);
+  opacity: 0; scale: 0.96; visibility: hidden;
+  transition: opacity 0.22s, scale 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0.22s;
+}
+.info-card.open { opacity: 1; scale: 1; visibility: visible; }
+.info-card h2 { font-size: 1.15rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 0.8rem; }
+.info-card p { font-size: 0.9rem; line-height: 1.5; color: rgb(255 255 255 / 0.85); }
+.info-card p + p { margin-top: 0.5rem; }
+.info-card a:not(.btn) { font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+.info-card .btn { width: 100%; margin-top: 1rem; }
+
+.fade-in { animation: fade-in 0.8s ease both; }
+.rise { animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Same top edge and height as the settings button, so they line up across the top bar. */
+.toast { position: fixed; top: 1rem; left: 50%; translate: -50% -1rem; opacity: 0; pointer-events: none; display: flex; align-items: center; height: 2.25rem; border-radius: 9999px; padding: 0 1.1rem; font-size: 0.85rem; white-space: nowrap; transition: opacity 0.3s, translate 0.3s; z-index: 60; }
+.toast.show { opacity: 1; translate: -50% 0; }
+
+/* Photo layers: a new one fades in over the old one. */
+.photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 1.2s ease; }
+.photo.show { opacity: 1; }
+
+/* ---- Settings dialog ---- */
+/* While it is open only the photo softens (a plain blur, not backdrop-filter, which can leave faint seams across big layers); the controls stay as they are. */
+#bg { transition: background-color 0.7s, filter 0.35s ease, scale 0.35s ease; }
+body.modal-open #bg { filter: blur(14px); scale: 1.02; }
+.backdrop {
+  position: fixed; inset: 0; z-index: 40; background: rgb(0 0 0 / 0.5);
+  opacity: 0; pointer-events: none; transition: opacity 0.25s;
+}
+.backdrop.open { opacity: 1; pointer-events: auto; }
+
+.modal {
+  position: fixed; inset: 0; z-index: 50; margin: auto;
+  width: min(52rem, calc(100vw - 2rem)); height: min(35rem, calc(100vh - 2rem));
+  display: flex; overflow: hidden; border-radius: 1.5rem; color: #fff;
+  background: rgb(24 24 28 / 0.62);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.1);
+  -webkit-backdrop-filter: blur(36px) saturate(170%); backdrop-filter: blur(36px) saturate(170%);
+  opacity: 0; scale: 0.96; visibility: hidden;
+  transition: opacity 0.22s, scale 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0.22s;
+}
+.modal.open { opacity: 1; scale: 1; visibility: visible; }
+
+.side { position: relative; display: flex; flex-direction: column; width: 13.5rem; flex: none; padding: 1.1rem 0.75rem; background: rgb(255 255 255 / 0.04); border-right: 1px solid rgb(255 255 255 / 0.08); }
+.brand { display: flex; align-items: center; gap: 0.6rem; padding: 0.2rem 0.6rem 1rem; font-weight: 600; letter-spacing: -0.01em; }
+/* Same pill as the website's "Beta" badge (its dark-theme colours). */
+.beta { padding: 0.125rem 0.5rem; border-radius: 9999px; background: #3a2f0b; color: #f5d46a; font-size: 11px; line-height: 1rem; font-weight: 500; letter-spacing: normal; }
+.brand img { width: 1.75rem; height: 1.75rem; }
+.nav { display: flex; flex-direction: column; gap: 0.15rem; }
+.nav-item { position: relative; display: flex; align-items: center; gap: 0.7rem; width: 100%; padding: 0.55rem 0.75rem; border-radius: 0.7rem; font-size: 0.88rem; color: rgb(255 255 255 / 0.72); text-align: left; transition: background-color 0.25s, color 0.25s; }
+.nav-item:hover { background: rgb(255 255 255 / 0.07); color: #fff; }
+.nav-item[aria-current="page"] { background: rgb(255 255 255 / 0.12); color: #fff; font-weight: 500; }
+.nav-item svg, .nav-item img { width: 1.1rem; height: 1.1rem; flex: none; }
+.nav-item img { border-radius: 9999px; object-fit: cover; }
+.nav-bottom { margin-top: auto; }
+/* The vertical marker: one element that glides to whichever item is current (positioned by placeBar in panel.ts). */
+.bar { position: absolute; left: 0.4rem; top: 0; width: 3px; height: 1rem; border-radius: 9999px; background: #fff; opacity: 0; translate: 0 0; transition: translate 0.45s cubic-bezier(0.3, 1.2, 0.4, 1), height 0.45s cubic-bezier(0.3, 1.2, 0.4, 1), opacity 0.2s; pointer-events: none; }
+.content.enter { animation: fade-only 0.25s ease both; }
+@keyframes fade-only { from { opacity: 0; } to { opacity: 1; } }
+.card { transition: background-color 0.25s; }
+/* A row that folds away smoothly (height animates from its natural size to 0). */
+.fold { max-height: 0; overflow: hidden; opacity: 0; transition: max-height 0.4s cubic-bezier(0.3, 0.9, 0.3, 1), opacity 0.3s ease; }
+.fold.open { max-height: 5rem; opacity: 1; }
+.card:hover { background: rgb(255 255 255 / 0.09); }
+
+.content { flex: 1; min-width: 0; overflow-y: auto; padding: 1.4rem 1.6rem 1.6rem; }
+.page-title { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 1rem; }
+.group-title { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: rgb(255 255 255 / 0.45); margin: 1.1rem 0 0.5rem 0.25rem; }
+.card { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem 1rem; margin-bottom: 0.4rem; border-radius: 0.9rem; background: rgb(255 255 255 / 0.07); border: 1px solid rgb(255 255 255 / 0.06); font-size: 0.9rem; }
+.card.stack { flex-direction: column; align-items: stretch; }
+.card .t { font-weight: 500; white-space: nowrap; }
+.card .d { margin-top: 0.1rem; font-size: 0.78rem; color: rgb(255 255 255 / 0.55); line-height: 1.4; }
+.close-x { position: absolute; top: 0.9rem; right: 0.9rem; background: rgb(255 255 255 / 0.1); border: 1px solid rgb(255 255 255 / 0.12); }
+.close-x:hover { background: rgb(255 255 255 / 0.2); }
+
+.seg { position: relative; isolation: isolate; flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 0.2rem; border-radius: 9999px; background: rgb(255 255 255 / 0.08); }
+/* The pill that slides to the chosen option (--i of --n). */
+.seg::before { content: ""; position: absolute; z-index: -1; top: 0.2rem; bottom: 0.2rem; left: 0.2rem; width: calc((100% - 0.4rem) / var(--n, 1)); translate: calc(var(--i, 0) * 100%) 0; border-radius: 9999px; background: rgb(255 255 255 / 0.94); box-shadow: 0 2px 10px rgb(0 0 0 / 0.28); transition: translate 0.4s cubic-bezier(0.3, 1.25, 0.4, 1); }
+.seg button { border-radius: 9999px; padding: 0.4rem 0.9rem; font-size: 0.8rem; font-weight: 500; white-space: nowrap; color: rgb(255 255 255 / 0.7); transition: color 0.3s; }
+.seg button:hover:not(:disabled):not([aria-pressed="true"]) { color: #fff; }
+.seg button[aria-pressed="true"] { color: #111; }
+.seg button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.chip { border-radius: 9999px; padding: 0.3rem 0.8rem; font-size: 0.8rem; border: 1px solid rgb(255 255 255 / 0.18); color: rgb(255 255 255 / 0.75); transition: background-color 0.25s, color 0.25s, border-color 0.25s, transform 0.2s; }
+.chip:active { transform: scale(0.95); }
+.chip .emoji { margin-right: 0.3rem; }
+.chip:hover { background: rgb(255 255 255 / 0.12); }
+.chip[aria-pressed="true"] { background: rgb(255 255 255 / 0.92); color: #111; border-color: transparent; font-weight: 500; }
+
+.switch { position: relative; width: 2.6rem; height: 1.5rem; flex: none; }
+.switch input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.switch span { position: absolute; inset: 0; border-radius: 9999px; background: rgb(255 255 255 / 0.2); transition: background-color 0.2s; pointer-events: none; }
+.switch span::after { content: ""; position: absolute; top: 0.2rem; left: 0.2rem; width: 1.1rem; height: 1.1rem; border-radius: 9999px; background: white; transition: transform 0.2s; box-shadow: 0 1px 4px rgb(0 0 0 / 0.3); }
+.switch input:checked + span { background: #5b8cff; }
+.switch input:checked + span::after { transform: translateX(1.1rem); }
+.switch input:focus-visible + span { outline: 2px solid white; outline-offset: 2px; }
+
+input[type="range"] { appearance: none; width: 10rem; height: 0.35rem; border-radius: 9999px; background: rgb(255 255 255 / 0.2); outline: none; }
+input[type="range"]::-webkit-slider-thumb { appearance: none; width: 1.1rem; height: 1.1rem; border-radius: 9999px; background: white; box-shadow: 0 1px 4px rgb(0 0 0 / 0.4); }
+input[type="range"]::-moz-range-thumb { width: 1.1rem; height: 1.1rem; border: 0; border-radius: 9999px; background: white; }
+
+.btn { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 9999px; padding: 0.45rem 1rem; font-size: 0.82rem; font-weight: 500; white-space: nowrap; transition: background-color 0.2s, transform 0.2s; }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.6; cursor: default; }
+.btn-primary { background: white; color: #111; }
+.btn-primary:hover:not(:disabled) { background: rgb(255 255 255 / 0.85); }
+.btn-ghost { background: rgb(255 255 255 / 0.12); }
+.btn-ghost:hover { background: rgb(255 255 255 / 0.2); }
+
+.text-input { width: 100%; border-radius: 0.7rem; background: rgb(255 255 255 / 0.08); border: 1px solid rgb(255 255 255 / 0.12); padding: 0.45rem 0.7rem; font-size: 0.85rem; outline: none; }
+.text-input:focus { border-color: rgb(255 255 255 / 0.5); }
+.text-input::placeholder { color: rgb(255 255 255 / 0.4); }
+
+/* Small screens: the menu becomes a row on top. */
+@media (max-width: 640px) {
+  .card { flex-wrap: wrap; }
+  .modal { flex-direction: column; }
+  /* The menu is a row on top here, so the close button sits just below it instead of over it. */
+  .modal .close-x { top: 3.9rem; }
+  .side { width: auto; flex-direction: row; align-items: center; padding: 0.5rem; border-right: 0; border-bottom: 1px solid rgb(255 255 255 / 0.08); overflow-x: auto; }
+  .brand, .bar { display: none; }
+  .nav-bottom { margin: 0 0 0 auto; }
+  .nav { flex-direction: row; }
+  .nav-item span { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* Where the browser doesn't support blur, keep the glass readable. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: rgb(30 30 34 / 0.7); }
+  .modal { background: rgb(18 18 22 / 0.94); }
+}
+
+/* The quote copies itself when clicked. */
+#quote { cursor: pointer; transition: opacity 0.2s, color 0.6s, text-shadow 0.6s; }
+#quote:hover, #quote:focus-visible { opacity: 0.7; outline: none; }
+#quote:active { opacity: 0.5; }
+
+/* ---- Account page ---- */
+.tile-ico { display: grid; place-items: center; width: 3.1rem; height: 3.1rem; flex: none; border-radius: 1rem; background: rgb(255 255 255 / 0.1); border: 1px solid rgb(255 255 255 / 0.12); }
+.tile-ico svg { width: 1.45rem; height: 1.45rem; }
+.tile-ico.xs { width: 2rem; height: 2rem; border-radius: 9999px; }
+.tile-ico.xs svg { width: 1rem; height: 1rem; }
+.tile-ico.sm { width: 2.4rem; height: 2.4rem; border-radius: 0.8rem; }
+.tile-ico.sm svg { width: 1.1rem; height: 1.1rem; }
+/* The Telegram logo on a white disc: a round badge whose "plane" cut-out shows white. */
+.tg { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; flex: none; border-radius: 9999px; background: #fff; box-shadow: 0 2px 10px rgb(0 0 0 / 0.25); }
+.tg svg { width: 100%; height: 100%; }
+.hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1rem; padding: 1.8rem 1.5rem 1.5rem; border-radius: 1.2rem; background: radial-gradient(120% 90% at 50% 0%, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.04)); border: 1px solid rgb(255 255 255 / 0.08); }
+.hero h3 { font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; }
+.link-art { display: flex; align-items: center; gap: 0.6rem; }
+.flow { position: relative; width: 4.5rem; height: 2px; border-radius: 9999px; background: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.4) 0 4px, transparent 4px 9px); }
+.flow i { position: absolute; top: -3px; left: 0; width: 8px; height: 8px; border-radius: 9999px; background: #fff; box-shadow: 0 0 10px rgb(255 255 255 / 0.8); animation: flow 2.4s ease-in-out infinite; }
+@keyframes flow { 0% { left: 0; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: calc(100% - 8px); opacity: 0; } }
+.perks { display: grid; gap: 0.55rem; margin: 0.2rem 0 0.4rem; text-align: left; font-size: 0.88rem; color: rgb(255 255 255 / 0.85); list-style: none; padding: 0; }
+.perks li { display: flex; align-items: center; gap: 0.6rem; }
+.perks svg { width: 1.1rem; height: 1.1rem; padding: 0.15rem; flex: none; border-radius: 9999px; background: rgb(80 200 130 / 0.25); color: #7be2a8; stroke-width: 3; }
+.btn-lg { padding: 0.7rem 1.6rem; font-size: 0.92rem; width: 100%; max-width: 18rem; }
+.status { display: flex; align-items: center; gap: 0.7rem; margin-top: 0.75rem; padding: 0.5rem 0.6rem; border-radius: 9999px; background: rgb(255 255 255 / 0.06); }
+.status .t { font-size: 0.85rem; }
+.pill .live { animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgb(74 222 128 / 0.6); } 50% { box-shadow: 0 0 0 5px rgb(74 222 128 / 0); } }
+.pill.warn { background: rgb(250 190 60 / 0.18); color: #ffd27a; margin-top: 0; text-decoration: none; }
+.pill.warn:hover { background: rgb(250 190 60 / 0.3); }
+.actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.6rem 0 0.4rem; }
+.actions .btn { flex: 1; }
+.actions.confirm { align-items: center; padding: 0.35rem 0.35rem 0.35rem 1rem; border-radius: 9999px; background: rgb(255 90 90 / 0.1); border: 1px solid rgb(255 90 90 / 0.25); animation: fade-only 0.2s ease both; }
+.actions.confirm .ask { flex: 1 1 auto; font-size: 0.85rem; font-weight: 500; white-space: nowrap; }
+.actions.confirm .btn { flex: none; }
+.btn-danger.solid { background: #e5484d; color: #fff; }
+.btn-danger.solid:hover { background: #f05a5f; }
+.pill { display: inline-flex; align-items: center; gap: 0.4rem; flex: none; padding: 0.15rem 0.6rem; border-radius: 9999px; font-size: 0.72rem; background: rgb(80 200 130 / 0.18); color: #8ff0b8; }
+.pill i { width: 6px; height: 6px; border-radius: 9999px; background: #4ade80; }
+.btn-danger { background: rgb(255 90 90 / 0.14); color: #ff9c9c; }
+.btn-danger:hover { background: rgb(255 90 90 / 0.26); }
+.value { color: rgb(255 255 255 / 0.65); font-size: 0.85rem; white-space: nowrap; }
+.foot { margin-top: 1rem; text-align: center; font-size: 0.75rem; color: rgb(255 255 255 / 0.45); }
+.foot a { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---- Account page (signed in) ---- */
+.acct { overflow: hidden; border-radius: 1.2rem; background: rgb(255 255 255 / 0.06); border: 1px solid rgb(255 255 255 / 0.08); }
+/* The banner is the photo on screen, blurred into a colour wash. */
+.acct-banner { position: relative; height: 5.5rem; overflow: hidden; background: linear-gradient(135deg, rgb(91 140 255 / 0.35), rgb(91 140 255 / 0.08)); -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent); mask-image: linear-gradient(to bottom, #000 30%, transparent); }
+.acct-banner img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scale(1.3); filter: blur(22px) saturate(1.5); }
+.acct-banner i { position: absolute; inset: 0; background: linear-gradient(to bottom, rgb(0 0 0 / 0.08), transparent); }
+.acct-body { position: relative; padding: 0 1.1rem 1.1rem; }
+.acct-top { display: flex; align-items: flex-end; justify-content: space-between; margin-top: -2rem; }
+.acct-avatar { padding: 0.3rem; border-radius: 9999px; background: rgb(32 28 30); }
+.acct-avatar > * { border-radius: 9999px; }
+.acct-top .pill { margin-bottom: 0.2rem; }
+.acct .who { margin-top: 0.7rem; font-size: 1.2rem; font-weight: 600; letter-spacing: -0.02em; }
+.acct .mail { font-size: 0.85rem; color: rgb(255 255 255 / 0.55); }
+.facts { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.8rem; }
+.fact { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.3rem 0.7rem; border-radius: 9999px; background: rgb(255 255 255 / 0.08); font-size: 0.78rem; color: rgb(255 255 255 / 0.8); }
+.fact svg { width: 0.9rem; height: 0.9rem; flex: none; opacity: 0.8; }
+
+/* The account actions: one clear main action, a link row, and a quiet destructive option (not three equal buttons). */
+.acct-actions { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.7rem; }
+.btn-wide { width: 100%; padding: 0.7rem 1rem; font-size: 0.9rem; }
+.row-link { display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 1rem; border-radius: 9999px; background: rgb(255 255 255 / 0.07); border: 1px solid rgb(255 255 255 / 0.08); font-size: 0.85rem; font-weight: 500; transition: background-color 0.2s; }
+.row-link:hover { background: rgb(255 255 255 / 0.13); }
+.row-link svg { width: 1rem; height: 1rem; opacity: 0.7; }
+.quiet-danger { align-self: center; margin-top: 0.3rem; padding: 0.4rem 0.9rem; border-radius: 9999px; font-size: 0.8rem; color: rgb(255 140 140 / 0.9); transition: background-color 0.2s, color 0.2s; }
+.quiet-danger:hover { background: rgb(255 90 90 / 0.14); color: #ffb0b0; }
+
+/* Sign out sits where the status used to be. */
+.signout { display: inline-flex; align-items: center; gap: 0.45rem; margin-bottom: 0.2rem; padding: 0.4rem 0.9rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 500; background: rgb(255 255 255 / 0.1); border: 1px solid rgb(255 255 255 / 0.12); transition: background-color 0.2s, color 0.2s, border-color 0.2s; }
+.signout svg { width: 0.9rem; height: 0.9rem; }
+.signout:disabled { opacity: 0.7; cursor: default; }
+.signout:disabled:hover { background: rgb(255 255 255 / 0.1); border-color: rgb(255 255 255 / 0.12); color: inherit; }
+.signout .spin { width: 0.8rem; height: 0.8rem; border-radius: 9999px; border: 2px solid rgb(255 255 255 / 0.3); border-top-color: #fff; animation: spin-ring 0.7s linear infinite; }
+@keyframes spin-ring { to { transform: rotate(360deg); } }
+.signout:hover:not(:disabled) { background: rgb(255 90 90 / 0.18); border-color: rgb(255 90 90 / 0.3); color: #ffb0b0; }
+
+/* The sign-out question: a small card over the panel; the panel behind dims and blurs. Fades and scales like the panel itself. */
+.confirm-layer { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 1rem; background: rgb(0 0 0 / 0); -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.22s ease, background-color 0.25s ease, backdrop-filter 0.25s ease, visibility 0.25s; }
+.confirm-layer.open { background: rgb(0 0 0 / 0.4); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); opacity: 1; visibility: visible; pointer-events: auto; }
+.confirm-card { display: flex; flex-direction: column; align-items: center; gap: 0.8rem; width: min(19rem, 100%); padding: 1.4rem 1.3rem 1.2rem; border-radius: 1.4rem; text-align: center; background: rgb(30 27 29); border: 1px solid rgb(255 255 255 / 0.12); box-shadow: 0 24px 60px rgb(0 0 0 / 0.5); scale: 0.96; transition: scale 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.confirm-layer.open .confirm-card { scale: 1; }
+.confirm-icon { display: grid; place-items: center; width: 2.8rem; height: 2.8rem; border-radius: 9999px; background: rgb(255 90 90 / 0.14); color: #ff9c9c; }
+.confirm-icon svg { width: 1.2rem; height: 1.2rem; }
+.confirm-card h3 { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
+.confirm-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; width: 100%; margin-top: 0.2rem; }
+.confirm-buttons .btn { width: 100%; padding: 0.55rem 0.8rem; }

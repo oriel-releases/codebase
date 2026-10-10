@@ -54,12 +54,20 @@
                         Text="{x:Bind ViewModel.AccountEmail}"
                         TextWrapping="Wrap" />
                 </StackPanel>
-                <Button
+                <StackPanel
                     Grid.Column="2"
                     VerticalAlignment="Center"
-                    AutomationProperties.Name="Sign out"
-                    Command="{x:Bind ViewModel.SignOutCommand}"
-                    Content="Sign out" />
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <Button
+                        AutomationProperties.Name="Manage account on the website"
+                        Command="{x:Bind ViewModel.OpenAccountCommand}"
+                        Content="Manage account" />
+                    <Button
+                        AutomationProperties.Name="Sign out"
+                        Command="{x:Bind ViewModel.SignOutCommand}"
+                        Content="Sign out" />
+                </StackPanel>
             </Grid>
 
             <!--  ============ Schedule ============  -->
@@ -251,6 +259,18 @@
                         </StackPanel>
                     </Button>
                 </StackPanel>
+            </controls:SettingRow>
+
+            <!--  ============ Help ============  -->
+            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Help" />
+            <controls:SettingRow
+                Description="Questions, bugs or ideas? Message the Oriel support bot on Telegram."
+                Glyph="&#xE8F2;"
+                Header="Contact support">
+                <Button
+                    AutomationProperties.Name="Open Telegram support chat"
+                    Command="{x:Bind ViewModel.OpenSupportCommand}"
+                    Content="Open Telegram" />
             </controls:SettingRow>
         </StackPanel>
         </Grid>

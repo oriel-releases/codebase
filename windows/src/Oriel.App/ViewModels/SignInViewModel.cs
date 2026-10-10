@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Oriel.Core;
 using Oriel.Core.Auth;
 using Windows.System;
 
@@ -21,6 +22,9 @@ public sealed partial class SignInViewModel(AuthService auth) : ObservableObject
 
     [ObservableProperty] public partial bool HasError { get; set; }
     [ObservableProperty] public partial string ErrorMessage { get; set; } = "";
+
+    [RelayCommand]
+    async Task OpenSupport() => await Launcher.LaunchUriAsync(new Uri(OrielLinks.Support));
 
     [RelayCommand]
     async Task OpenBrowser()

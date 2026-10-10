@@ -16,6 +16,7 @@ export const features: Feature[] = [
   { title: "Never repeats", body: "Every photo is remembered, so you won't see the same one twice." },
   { title: "Every screen", body: "All your monitors change together, on every virtual desktop that Windows or your Linux desktop allows." },
   { title: "Light and quiet", body: "Lives in the tray and sleeps between changes. Closing the window gives the memory back." },
+  { title: "In your browser too", body: "A free new tab extension for Chrome, Edge, Brave and Firefox shows the same photo as your desktop, or its own picks." },
   { title: "Credit where due", body: "Each photo links to its photographer on Unsplash. Keep your favorites forever." },
 ];
 
@@ -62,6 +63,19 @@ export const faq: FaqItem[] = [
     question: "Why does Windows warn me when I open the installer?",
     answer:
       "Oriel is new and in beta, so Windows SmartScreen doesn't know it yet. Click More info, then Run anyway. The warning goes away as more people install it. The Linux AppImage has no such warning.",
+  },
+  {
+    question: "Is there a browser extension?",
+    answer:
+      "Yes. Oriel for browsers is a free new tab extension for Chrome, Edge, Brave, Opera, Vivaldi and Firefox. It shows an Unsplash photo with a clock and a quote on every new tab, and can match your desktop wallpaper when you sign in with the same account.",
+  },
+  {
+    question: "Does Oriel work on macOS, Android or iOS?",
+    answer: "Not yet. Oriel runs on Windows 10 and 11, on Linux, and as a new tab extension in Chrome, Edge, Brave, Opera, Vivaldi and Firefox on those desktop systems.",
+  },
+  {
+    question: "What data does Oriel collect?",
+    answer: "Only what signing in needs: your Google name, email and picture, and the wallpaper your apps last set so your devices can match. No analytics, no ads, no tracking. See the privacy page for details.",
   },
   {
     question: "Where are the photos saved?",

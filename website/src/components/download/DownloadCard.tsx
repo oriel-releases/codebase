@@ -58,7 +58,7 @@ function PlatformCard({
 }) {
   const Icon = release.platform === "linux" ? LinuxIcon : WindowsIcon;
   // Everything that changes between states animates, so finding the system reads as a calm highlight, not a jump.
-  const ease = "transition-[color,background-color,border-color,box-shadow,opacity] duration-500 ease-out";
+  const ease = "transition-[color,background-color,border-color,box-shadow,opacity,translate] duration-500 ease-out";
 
   const button = (
     <a
@@ -79,8 +79,10 @@ function PlatformCard({
 
   return (
     <section
+      data-spotlight
+      data-tilt
       aria-label={release.name}
-      className={`flex flex-col rounded-[2rem] bg-surface p-6 text-left text-ink ring-2 sm:p-8 ${ease} ${
+      className={`flex flex-col rounded-[2rem] bg-surface p-6 text-left text-ink ring-2 hover:-translate-y-1 hover:shadow-xl hover:shadow-ink/10 motion-reduce:hover:translate-y-0 sm:p-8 ${ease} ${
         yours ? "ring-accent" : "ring-transparent"
       }`}
     >

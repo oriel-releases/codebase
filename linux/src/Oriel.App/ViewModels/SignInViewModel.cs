@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Oriel.Core;
 using Oriel.Core.Auth;
 using Oriel.UI.Services;
 
@@ -20,6 +21,9 @@ public sealed partial class SignInViewModel(AuthService auth) : ObservableObject
 
     [ObservableProperty] public partial bool HasError { get; set; }
     [ObservableProperty] public partial string ErrorMessage { get; set; } = "";
+
+    [RelayCommand]
+    void OpenSupport() => Launcher.OpenUrl(new Uri(OrielLinks.Support));
 
     [RelayCommand]
     void OpenBrowser()

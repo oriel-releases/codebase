@@ -24,6 +24,22 @@ service cloud.firestore {
       match /sessions/{sessionId} {
         allow read, create, update, delete: if request.auth.uid == uid;
       }
+
+      // What each device shows or does, shared between the account's devices.
+      // sync/current: the wallpaper a desktop app applied last; the browser extension follows it.
+      match /sync/{doc} {
+        allow read: if request.auth.uid == uid;
+        allow create, update: if request.auth.uid == uid
+          && doc == 'current'
+          && request.resource.data.keys().hasAll(['photoId', 'imageUrl', 'source', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['photoId', 'imageUrl', 'pageUrl', 'photographer',
+              'photographerUrl', 'description', 'topic', 'color', 'source', 'updatedAt'])
+          && request.resource.data.photoId is string
+          && request.resource.data.imageUrl is string
+          && request.resource.data.imageUrl.matches('https://images\\.unsplash\\.com/.*')
+          && request.resource.data.source in ['windows', 'linux']
+          && request.resource.data.updatedAt is timestamp;
+      }
     }
 
     match /{document=**} {

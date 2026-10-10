@@ -1,5 +1,5 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth, inMemoryPersistence, setPersistence } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 /** Public web config (not secret): access is enforced by Firebase Auth and firestore.rules. */
@@ -15,13 +15,11 @@ export function firebaseApp() {
 }
 
 /**
- * The site only signs in to hand the account to the app, so nothing is remembered in the browser:
- * every visit to /login starts fresh and yields a new Google credential for the app.
+ * The sign-in is remembered in this browser (Firebase's default), so /me can show your account without asking again.
+ * Signing in still always yields a fresh Google credential for the app or extension.
  */
 export async function firebaseAuth() {
-  const auth = getAuth(firebaseApp());
-  await setPersistence(auth, inMemoryPersistence);
-  return auth;
+  return getAuth(firebaseApp());
 }
 
 export function firestore() {
