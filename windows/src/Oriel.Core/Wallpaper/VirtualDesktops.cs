@@ -29,10 +29,19 @@ static class VirtualDesktops
             if (provider.QueryService(ref service, ref iid, out manager) != 0 || manager == IntPtr.Zero) return false;
 
             var vdm = (IVirtualDesktopManagerInternal24H2)Marshal.GetObjectForIUnknown(manager);
-            Marshal.ThrowExceptionForHR(WindowsCreateString(imagePath, imagePath.Length, out hstring));
-            vdm.UpdateWallpaperPathForAllDesktops(hstring);
-            Marshal.ReleaseComObject(vdm);
-            return true;
+            try
+            {
+                // One desktop (most people): it already has the picture, and setting it again made Explorer decode
+                // and redraw the photo a second time.
+                if (vdm.GetCount() <= 1) return true;
+                Marshal.ThrowExceptionForHR(WindowsCreateString(imagePath, imagePath.Length, out hstring));
+                vdm.UpdateWallpaperPathForAllDesktops(hstring);
+                return true;
+            }
+            finally
+            {
+                Marshal.ReleaseComObject(vdm);
+            }
         }
         catch (COMException)
         {

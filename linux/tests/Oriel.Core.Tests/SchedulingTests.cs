@@ -38,55 +38,76 @@ public sealed class SchedulingTests : IDisposable
     static DateTimeOffset At(int h, int m = 0) => new(2026, 10, 3, h, m, 0, Tz);
 
     [Fact]
-    public void Slideshow_is_due_once_the_interval_has_passed()
+    public void Slideshow_ticks_on_a_grid_from_the_daily_time()
     {
         var s = new OrielSettings { IntervalMinutes = 60 };
         var state = new OrielState { LastAppliedAt = At(9) };
 
         Assert.False(ScheduleRules.IsDue(s, state, At(9, 30), isStartupCheck: false));
-        Assert.True(ScheduleRules.IsDue(s, state, At(9, 59), isStartupCheck: false)); // a timer ticks a hair early
-        Assert.Equal(TimeSpan.FromMinutes(8), ScheduleRules.NextCheckIn(s, state, At(9, 50)));
-        Assert.True(ScheduleRules.IsDue(s, new OrielState(), At(7), isStartupCheck: false));
+        Assert.False(ScheduleRules.IsDue(s, state, At(9, 59), isStartupCheck: false));
+        Assert.True(ScheduleRules.IsDue(s, state, At(10), isStartupCheck: false));
+        Assert.Equal(TimeSpan.FromMinutes(10), ScheduleRules.NextCheckIn(s, state, At(9, 50)));
+        Assert.Equal("2026-10-03T10:00", ScheduleRules.SlotId(s, ScheduleRules.DueTick(s, At(10))));
     }
 
     [Fact]
-    public void Due_at_login_when_not_applied_today()
+    public void A_missed_tick_is_caught_up_once()
     {
+        // Never changed: yesterday's 09:00 was missed, so the first check changes it.
         Assert.True(ScheduleRules.IsDue(new OrielSettings(), new OrielState(), At(7), isStartupCheck: true));
+        Assert.True(ScheduleRules.IsDue(new OrielSettings(), new OrielState(), At(7), isStartupCheck: false));
+        // Changed after today's 09:00: nothing until tomorrow's.
+        Assert.False(ScheduleRules.IsDue(new OrielSettings(), new OrielState { LastAppliedAt = At(9, 1) }, At(15), false));
+        // Changed before it: due once 09:00 comes.
+        Assert.False(ScheduleRules.IsDue(new OrielSettings(), new OrielState { LastAppliedAt = At(8) }, At(8, 50), false));
+        Assert.True(ScheduleRules.IsDue(new OrielSettings(), new OrielState { LastAppliedAt = At(8) }, At(9), false));
     }
 
     [Fact]
-    public void Not_due_before_time_after_startup()
-    {
-        Assert.False(ScheduleRules.IsDue(new OrielSettings(), new OrielState(), At(7), isStartupCheck: false));
-        Assert.True(ScheduleRules.IsDue(new OrielSettings(), new OrielState(), At(9, 1), isStartupCheck: false));
-    }
-
-    [Fact]
-    public void Login_trigger_can_be_disabled()
+    public void Login_catch_up_can_be_disabled()
     {
         var s = new OrielSettings { ApplyAtLogin = false };
         Assert.False(ScheduleRules.IsDue(s, new OrielState(), At(7), isStartupCheck: true));
     }
 
     [Fact]
-    public void Not_due_when_done_today_paused_or_backing_off()
+    public void Editing_the_schedule_starts_it_fresh()
     {
-        Assert.False(ScheduleRules.IsDue(new OrielSettings(), new OrielState { LastAppliedDate = new DateOnly(2026, 10, 3) }, At(10), false));
-        Assert.False(ScheduleRules.IsDue(new OrielSettings { Paused = true }, new OrielState(), At(10), false));
-        Assert.False(ScheduleRules.IsDue(new OrielSettings(), new OrielState { NextRetryAt = At(10, 5) }, At(10), false));
-        Assert.True(ScheduleRules.IsDue(new OrielSettings(), new OrielState { NextRetryAt = At(10, 5) }, At(10, 6), false));
+        // The time was moved to 09:00 at 09:30: that 09:00 doesn't count as missed.
+        var state = new OrielState { LastAppliedAt = At(8), ScheduleStartedAt = At(9, 30) };
+        Assert.False(ScheduleRules.IsDue(new OrielSettings(), state, At(9, 40), false));
     }
 
     [Fact]
-    public void Scheduler_sleeps_until_due_capped_at_max_wait()
+    public void Not_due_when_paused_following_or_backing_off()
+    {
+        var missed = new OrielState { LastAppliedAt = At(8) };
+        Assert.False(ScheduleRules.IsDue(new OrielSettings { Paused = true }, missed, At(10), false));
+        Assert.False(ScheduleRules.IsDue(new OrielSettings { FollowUid = "friend" }, missed, At(10), false));
+        Assert.False(ScheduleRules.IsDue(new OrielSettings(), new OrielState { LastAppliedAt = At(8), NextRetryAt = At(10, 5) }, At(10), false));
+        Assert.True(ScheduleRules.IsDue(new OrielSettings(), new OrielState { LastAppliedAt = At(8), NextRetryAt = At(10, 5) }, At(10, 6), false));
+    }
+
+    [Fact]
+    public void Scheduler_sleeps_until_the_next_tick_capped_at_max_wait()
     {
         var s = new OrielSettings();
-        Assert.Equal(TimeSpan.FromMinutes(4), ScheduleRules.NextCheckIn(s, new OrielState(), At(8, 56)));
-        Assert.Equal(ScheduleRules.MaxWait, ScheduleRules.NextCheckIn(s, new OrielState(), At(7)));
-        Assert.Equal(TimeSpan.FromMinutes(3), ScheduleRules.NextCheckIn(s, new OrielState { NextRetryAt = At(10, 3) }, At(10)));
-        Assert.Equal(ScheduleRules.MaxWait,
-            ScheduleRules.NextCheckIn(s, new OrielState { LastAppliedDate = new DateOnly(2026, 10, 3) }, At(10)));
+        Assert.Equal(TimeSpan.FromMinutes(4), ScheduleRules.NextCheckIn(s, new OrielState { LastAppliedAt = At(8) }, At(8, 56)));
+        Assert.Equal(ScheduleRules.MaxWait, ScheduleRules.NextCheckIn(s, new OrielState { LastAppliedAt = At(6) }, At(7)));
+        Assert.Equal(TimeSpan.FromMinutes(3),
+            ScheduleRules.NextCheckIn(s, new OrielState { LastAppliedAt = At(8), NextRetryAt = At(10, 3) }, At(10)));
+        Assert.Equal(ScheduleRules.MaxWait, ScheduleRules.NextCheckIn(s, new OrielState { LastAppliedAt = At(9, 1) }, At(10)));
+    }
+
+    [Fact]
+    public void Ticks_follow_the_shared_time_zone_whatever_this_computer_uses()
+    {
+        // 09:00 in Tokyo is 00:00 UTC: every device, wherever its clock is, ticks then and names it the same.
+        var s = new OrielSettings { TimeZone = "Asia/Tokyo", DailyTime = "09:00" };
+        var now = new DateTimeOffset(2026, 10, 3, 0, 30, 0, TimeSpan.Zero);
+        Assert.Equal(new DateTimeOffset(2026, 10, 3, 0, 0, 0, TimeSpan.Zero), ScheduleRules.PreviousTick(s, now));
+        Assert.Equal(new DateTimeOffset(2026, 10, 4, 0, 0, 0, TimeSpan.Zero), ScheduleRules.NextTick(s, now));
+        Assert.Equal("2026-10-03T09:00", ScheduleRules.SlotId(s, ScheduleRules.PreviousTick(s, now)));
     }
 
     [Fact]

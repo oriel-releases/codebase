@@ -11,9 +11,69 @@ using Microsoft.Extensions.Logging;
 namespace Oriel.Core.Services;
 
 /// <summary>What a change is doing right now, for progress UI.</summary>
-public enum ApplyPhase { Finding, Changing }
+/// <summary>What a change is doing right now, for the "Finding a photo… → Downloading… → Changing… → Syncing…" text.</summary>
+public enum ApplyPhase
+{
+    Finding,
+    Downloading,
+    Changing,
+    /// <summary>Sharing the new photo with the account's other devices.</summary>
+    Syncing,
+    /// <summary>Another device set a new photo; it is being fetched here.</summary>
+    Receiving,
+    /// <summary>Nothing in progress any more.</summary>
+    Done,
+}
 
-public enum ApplyStatus { Applied, AlreadyAppliedToday, Paused, Failed, Busy, SignInRequired, RateLimited }
+/// <summary>The words shown for each <see cref="ApplyPhase"/>: on Home's button and in the change popup.</summary>
+public static class PhaseText
+{
+    public static string For(ApplyPhase phase) => phase switch
+    {
+        ApplyPhase.Finding => "Finding a photo…",
+        ApplyPhase.Downloading => "Downloading…",
+        ApplyPhase.Changing => "Changing…",
+        ApplyPhase.Syncing => "Syncing…",
+        ApplyPhase.Receiving => "Receiving…",
+        _ => "",
+    };
+
+    public static readonly string[] All =
+        [.. Enum.GetValues<ApplyPhase>().Where(p => p != ApplyPhase.Done).Select(For)];
+}
+
+/// <summary>
+/// Runs a change started from a button (Search, Wallpaper of the day, a shared photo) and reports its steps, the same
+/// words as Home: "Downloading…", "Changing…", "Syncing…". It returns once the change is fully done, sharing with the
+/// other devices included, so the button doesn't say "set" while it's still syncing.
+/// </summary>
+public static class PhaseWatch
+{
+    /// <param name="report">Called from any thread with the step's words, then null at the end: post it to the UI.</param>
+    public static async Task<ApplyResult> RunAsync(WallpaperService wallpapers, Func<Task<ApplyResult>> change, Action<string?> report)
+    {
+        var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnPhase(object? sender, ApplyPhase phase)
+        {
+            if (phase == ApplyPhase.Done) done.TrySetResult();
+            else report(PhaseText.For(phase));
+        }
+        wallpapers.PhaseChanged += OnPhase;
+        try
+        {
+            var result = await change();
+            if (result.Status == ApplyStatus.Applied) await Task.WhenAny(done.Task, Task.Delay(TimeSpan.FromSeconds(20)));
+            return result;
+        }
+        finally
+        {
+            wallpapers.PhaseChanged -= OnPhase;
+            report(null);
+        }
+    }
+}
+
+public enum ApplyStatus { Applied, AlreadyAppliedToday, Paused, Failed, Busy, SignInRequired, RateLimited, TakenByOtherDevice }
 
 public sealed record ApplyResult(ApplyStatus Status, IReadOnlyList<HistoryEntry> Entries, string? Error = null,
     ProviderErrorKind? ErrorKind = null)
@@ -34,7 +94,8 @@ public sealed class WallpaperService(
     ILockScreenSetter? lockScreen = null,
     IAuthState? auth = null,
     ISyncPublisher? sync = null,
-    ISystemTheme? theme = null)
+    ISystemTheme? theme = null,
+    ISlotClaimer? slots = null)
 {
     const int MaxQueriesPerTarget = 3;
 
@@ -70,6 +131,12 @@ public sealed class WallpaperService(
     /// <param name="force">Change even if today's wallpaper was already set ("Change now").</param>
     public async Task<ApplyResult> ApplyAsync(bool force, CancellationToken ct = default)
     {
+        try { return await ApplyNowAsync(force, ct); }
+        finally { FinishPhase(); }
+    }
+
+    async Task<ApplyResult> ApplyNowAsync(bool force, CancellationToken ct)
+    {
         if (auth is { IsSignedIn: false }) return SignInRequired;
 
         var settings = settingsStore.Load();
@@ -87,6 +154,20 @@ public sealed class WallpaperService(
         // Re-check under the lock; the other process may have just finished.
         state = settingsStore.LoadState();
         if (!force && ScheduleRules.IsFresh(settings, state, clock.Now)) return new(ApplyStatus.AlreadyAppliedToday, []);
+
+        // "First device wins": every device ticks at the same moment, and only the one that claims it picks a photo.
+        if (!force && slots is not null)
+        {
+            var slot = ScheduleRules.SlotId(settings, ScheduleRules.DueTick(settings, clock.Now));
+            if (await slots.TryClaimAsync(slot, ct) == false)
+            {
+                // Done for this tick: the other device's photo comes through sync/current.
+                state.ScheduleStartedAt = clock.Now;
+                state.NextRetryAt = null;
+                settingsStore.SaveState(state);
+                return new(ApplyStatus.TakenByOtherDevice, []);
+            }
+        }
 
         if (force)
         {
@@ -117,7 +198,7 @@ public sealed class WallpaperService(
             settingsStore.SaveState(state);
 
             // Let the account's other devices (the browser extension) show the same photo. Never fails the change.
-            if (sync is not null && entries.Count > 0) await sync.PublishAsync(entries[0], CancellationToken.None);
+            if (entries.Count > 0) await PublishSoon(entries[0]);
 
             var result = new ApplyResult(ApplyStatus.Applied, entries);
             Applied?.Invoke(this, result);
@@ -157,6 +238,17 @@ public sealed class WallpaperService(
         return found with { Photos = fits };
     }
 
+    /// <summary>
+    /// A photo for the tile of one of your own interests: the top search result's thumbnail. One request, made once
+    /// per interest (the link is kept with it), and only with requests to spare (null otherwise, to try later).
+    /// </summary>
+    public async Task<string?> FindCoverAsync(string query, CancellationToken ct = default)
+    {
+        if (!provider.IsConfigured || provider.RemainingRequests is < SearchReserve) return null;
+        var found = await provider.SearchAsync(query, 1, ct);
+        return (found.Photos.FirstOrDefault(p => p.IsLandscape) ?? found.Photos.FirstOrDefault())?.ThumbnailUrl;
+    }
+
     /// <summary>A photo someone shared with a link, looked up by its Unsplash ID.</summary>
     public Task<PhotoCandidate> GetSharedPhotoAsync(string id, CancellationToken ct = default)
     {
@@ -165,8 +257,17 @@ public sealed class WallpaperService(
         return provider.GetPhotoAsync(id, ct);
     }
 
-    /// <summary>Sets one specific photo (chosen by the user) as the wallpaper.</summary>
-    public async Task<ApplyResult> ApplyPhotoAsync(PhotoCandidate photo, string? topic = null, CancellationToken ct = default)
+    /// <summary>
+    /// Sets one specific photo (chosen by the user, or from another device) as the wallpaper. <paramref name="publish"/>
+    /// shares it with the account's other devices; a photo that came from one of them isn't sent back.
+    /// </summary>
+    public async Task<ApplyResult> ApplyPhotoAsync(PhotoCandidate photo, string? topic = null, CancellationToken ct = default, bool publish = true)
+    {
+        try { return await ApplyPhotoNowAsync(photo, topic, publish, ct); }
+        finally { FinishPhase(); }
+    }
+
+    async Task<ApplyResult> ApplyPhotoNowAsync(PhotoCandidate photo, string? topic, bool publish, CancellationToken ct)
     {
         if (auth is { IsSignedIn: false }) return SignInRequired;
 
@@ -177,10 +278,12 @@ public sealed class WallpaperService(
         try
         {
             var size = PlanTargets(setter.GetMonitors(), settings, perMonitor: false)[0].Size;
+            PhaseChanged?.Invoke(this, ApplyPhase.Downloading);
             var bytes = await provider.DownloadAsync(photo, size, ct);
             if (!LooksLikeJpeg(bytes))
                 throw new WallpaperException("Downloaded file isn't a valid image; keeping your current wallpaper.");
             var file = await SaveAsync(photo, bytes, 0, paths.WallpaperFolder(settings), ct);
+            PhaseChanged?.Invoke(this, ApplyPhase.Changing);
 
             // Lock screen first: it is the slow one, and the desktop changing is the user's "done" signal.
             await SetLockScreenAsync(file, settings);
@@ -194,7 +297,7 @@ public sealed class WallpaperService(
             }
 
             var entry = RecordEntry(photo, file, topic ?? "search", null, clock.Now);
-            await provider.TrackUsageAsync(photo, ct);
+            await AfterChange(() => provider.TrackUsageAsync(photo, CancellationToken.None));
 
             // Counts as today's change, so the scheduler doesn't replace it right away.
             var state = settingsStore.LoadState();
@@ -205,7 +308,7 @@ public sealed class WallpaperService(
             state.NextRetryAt = null;
             settingsStore.SaveState(state);
 
-            if (sync is not null) await sync.PublishAsync(entry, CancellationToken.None);
+            if (publish) await PublishSoon(entry);
 
             var result = new ApplyResult(ApplyStatus.Applied, [entry]);
             Applied?.Invoke(this, result);
@@ -260,10 +363,10 @@ public sealed class WallpaperService(
         var mood = MoodNow(settings);
         foreach (var target in targets)
         {
-            // The photo prepared ahead of time, when there is one that still fits: no search, no download.
+            // A photo prepared ahead of time, when one still fits: no search, no download.
             if (targets.Count == 1 && TakePrefetch(target.Size, enabled, settings, mood) is { } ready)
             {
-                picked.Add((target, ready.Photo, ready.Topic, KeepPrefetched(ready, settings)));
+                picked.Add((target, ready.Photo, ready.Topic, ready.File));
                 log.LogInformation("Using the photo prepared ahead of time: {Id}", ready.Photo.Id);
                 continue;
             }
@@ -271,6 +374,7 @@ public sealed class WallpaperService(
             usedTopics.Add(topic);
             pickedIds.Add(photo.Id);
 
+            PhaseChanged?.Invoke(this, ApplyPhase.Downloading);
             var bytes = await provider.DownloadAsync(photo, target.Size, ct);
             if (!LooksLikeJpeg(bytes))
                 throw new WallpaperException("Downloaded file isn't a valid image; keeping your current wallpaper.");
@@ -301,7 +405,7 @@ public sealed class WallpaperService(
         foreach (var p in picked)
         {
             entries.Add(RecordEntry(p.Photo, p.File, p.Topic, p.Target.MonitorPath, now));
-            await provider.TrackUsageAsync(p.Photo, ct);
+            await AfterChange(() => provider.TrackUsageAsync(p.Photo, CancellationToken.None));
         }
 
         log.LogInformation("Applied {Count} wallpaper(s): {Ids}", entries.Count, string.Join(", ", entries.Select(e => e.PhotoId)));
@@ -380,11 +484,26 @@ public sealed class WallpaperService(
     /// </summary>
     public async Task ReapplyAsync(HistoryEntry entry)
     {
+        // A favorite from another device (or a file cleaned up since): fetched again, like a shared photo.
+        if (!File.Exists(entry.FilePath) && entry.Provider == "unsplash")
+        {
+            var photo = await GetSharedPhotoAsync(entry.PhotoId);
+            var result = await ApplyPhotoAsync(photo, entry.Topic ?? "favorite");
+            if (result.Status != ApplyStatus.Applied) throw new WallpaperException(result.Error ?? "Couldn't set it. Try again.");
+            return;
+        }
+        try { await ReapplyNowAsync(entry); }
+        finally { FinishPhase(); }
+    }
+
+    async Task ReapplyNowAsync(HistoryEntry entry)
+    {
+        PhaseChanged?.Invoke(this, ApplyPhase.Changing);
         await ReapplyCoreAsync(entry);
         var touched = entry with { AppliedAt = clock.Now };
         history.Add(touched);
         // History is another way to change the wallpaper: share it with the account's other devices like the rest.
-        if (sync is not null) await sync.PublishAsync(touched, CancellationToken.None);
+        await PublishSoon(touched);
         Applied?.Invoke(this, new ApplyResult(ApplyStatus.Applied, [touched]));
     }
 
@@ -415,47 +534,76 @@ public sealed class WallpaperService(
         }
     }
 
-    // ---------------------------------------------------------------- the next wallpaper, ahead of time
+    // ---------------------------------------------------------------- the next wallpapers, ahead of time
 
     /// <summary>
-    /// The app turns this on: after each change the next photo is found and downloaded in the background, so the next
-    /// change (scheduled or "Change now") is instant and works offline. Off for one-shot runs, which exit right away.
+    /// The app (a long-running process) turns this on. Photos for the next changes are then found and downloaded in the
+    /// background, so a change (scheduled or "Change now") is instant and works offline, and network work that doesn't
+    /// change the screen (syncing, Unsplash's download count) runs after the change instead of holding it up. Off for
+    /// one-shot runs, which exit right away and so do everything before returning.
     /// </summary>
     public bool PrefetchEnabled { get; set; }
 
+    /// <summary>How many photos wait ready: "Change now" works twice an hour, so both changes are instant.</summary>
+    internal const int PrefetchDepth = MaxManualChangesPerHour;
+
+    /// <summary>One filler at a time.</summary>
     readonly SemaphoreSlim _prefetchGate = new(1, 1);
+    /// <summary>Guards the queue file and its photos only, so taking a photo never waits for a download.</summary>
+    readonly Lock _queueLock = new();
     static readonly TimeSpan PrefetchMaxAge = TimeSpan.FromDays(3);
 
     sealed record Prefetched(PhotoCandidate Photo, string Topic, int Width, int Height, string File, DateTimeOffset At);
 
-    string PrefetchMeta => Path.Combine(paths.PrefetchDir, "next.json");
+    string QueueFile => Path.Combine(paths.PrefetchDir, "queue.json");
 
-    /// <summary>Prepares the next wallpaper if there isn't one yet: finds it and downloads it, without touching the desktop.</summary>
+    /// <summary>
+    /// Tops up the photos prepared ahead of time (up to <see cref="PrefetchDepth"/>): finds and downloads them, without
+    /// touching the desktop.
+    /// </summary>
     public async Task PrefetchAsync(CancellationToken ct = default)
     {
         if (!PrefetchEnabled || auth is { IsSignedIn: false } || !await _prefetchGate.WaitAsync(0, ct)) return;
         try
         {
-            if (File.Exists(PrefetchMeta)) return;
             var settings = settingsStore.Load();
             if (settings.FavoritesOnly || settings.IsFollowing || !provider.IsConfigured) return;
-            // Only with requests to spare: never at the cost of the scheduled change or a search.
-            if (provider.RemainingRequests is < SearchReserve * 2) return;
             var targets = PlanTargets(setter.GetMonitors(), settings);
             if (targets.Count != 1) return;
             var size = targets[0].Size;
-            var mood = settings.MatchTimeOfDay ? PhotoMood.For(NextChangeAt(settings).LocalDateTime, theme?.IsDark ?? false) : Mood.Any;
-            var (photo, topic) = await FindCandidateAsync(size, settings.EnabledQueries(),
-                new HashSet<string>(StringComparer.OrdinalIgnoreCase), [], settings, mood, ct);
-            var bytes = await provider.DownloadAsync(photo, size, ct);
-            if (!LooksLikeJpeg(bytes)) return;
-            Directory.CreateDirectory(paths.PrefetchDir);
-            var file = Path.Combine(paths.PrefetchDir, "next.jpg");
-            await File.WriteAllBytesAsync(file + ".part", bytes, ct);
-            File.Move(file + ".part", file, overwrite: true);
-            await File.WriteAllTextAsync(PrefetchMeta,
-                JsonSerializer.Serialize(new Prefetched(photo, topic, size.Width, size.Height, file, clock.Now)), ct);
-            log.LogInformation("Prepared the next wallpaper ahead of time: {Id}", photo.Id);
+            lock (_queueLock) ForgetStrayFiles();
+
+            while (true)
+            {
+                List<Prefetched> queue;
+                lock (_queueLock) queue = ReadQueue();
+                if (queue.Count >= PrefetchDepth) return;
+                // Only with requests to spare: never at the cost of the scheduled change or a search.
+                if (provider.RemainingRequests is < SearchReserve * 2) return;
+
+                // The first suits right now (the next "Change now"), the second the next scheduled change.
+                var at = queue.Count == 0 ? clock.Now : NextChangeAt(settings);
+                var mood = settings.MatchTimeOfDay ? PhotoMood.For(at.LocalDateTime, theme?.IsDark ?? false) : Mood.Any;
+                // Different photos, from different topics when there are enough, so two quick changes don't look alike.
+                var (photo, topic) = await FindCandidateAsync(size, settings.EnabledQueries(),
+                    queue.Select(q => q.Topic).ToHashSet(StringComparer.OrdinalIgnoreCase), queue.Select(q => q.Photo.Id).ToHashSet(),
+                    settings, mood, ct);
+                var bytes = await provider.DownloadAsync(photo, size, ct);
+                if (!LooksLikeJpeg(bytes)) return;
+
+                Directory.CreateDirectory(paths.PrefetchDir);
+                var file = Path.Combine(paths.PrefetchDir, $"{Sanitize(photo.Id)}.jpg");
+                await File.WriteAllBytesAsync(file + ".part", bytes, ct);
+                File.Move(file + ".part", file, overwrite: true);
+                // Only listed once it is whole on disk, so whatever is in the queue can be used right away.
+                lock (_queueLock)
+                {
+                    var now = ReadQueue();
+                    now.Add(new Prefetched(photo, topic, size.Width, size.Height, file, clock.Now));
+                    WriteQueue(now);
+                }
+                log.LogInformation("Prepared a wallpaper ahead of time: {Id} ({Count} ready)", photo.Id, queue.Count + 1);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -472,43 +620,45 @@ public sealed class WallpaperService(
         if (!PrefetchEnabled) return;
         _ = Task.Run(async () =>
         {
-            await Task.Delay(TimeSpan.FromSeconds(30)); // the change itself comes first
+            await Task.Delay(TimeSpan.FromSeconds(10)); // the change itself (and what follows it) comes first
             await PrefetchAsync();
         });
     }
 
     /// <summary>
-    /// The prepared photo, if it still fits: same screen size, a topic that is still on, the filters and the moment.
-    /// Used once either way; a photo that no longer fits is thrown away.
+    /// A prepared photo that still fits (same screen size, a topic that is still on, the filters, not used since),
+    /// moved into the wallpaper folder. Time of day is only a preference: one that suits the moment comes first, else
+    /// any. Photos that no longer fit at all are thrown away.
     /// </summary>
     Prefetched? TakePrefetch(PixelSize size, IReadOnlyList<string> enabled, OrielSettings settings, Mood mood)
     {
-        if (!_prefetchGate.Wait(0)) return null; // being prepared right now
-        try
+        lock (_queueLock)
         {
-            if (!File.Exists(PrefetchMeta)) return null;
-            Prefetched? ready = null;
-            try { ready = JsonSerializer.Deserialize<Prefetched>(File.ReadAllText(PrefetchMeta)); }
-            catch (JsonException) { }
-            File.Delete(PrefetchMeta);
-            var fits = ready is not null && File.Exists(ready.File)
-                && ready.Width == size.Width && ready.Height == size.Height
-                && clock.Now - ready.At < PrefetchMaxAge
-                && (enabled.Count == 0 ? ready.Topic == RandomTopicPicker.Fallback : enabled.Contains(ready.Topic, StringComparer.OrdinalIgnoreCase))
-                && CandidateFilter.Reject(ready.Photo, size, settings) is null
-                && !history.WasUsed(ready.Photo.Provider, ready.Photo.Id)
-                && PhotoMood.Fits(ready.Photo, mood);
-            if (fits) return ready;
-            if (ready is not null && File.Exists(ready.File)) File.Delete(ready.File);
-            return null;
-        }
-        catch (IOException)
-        {
-            return null;
-        }
-        finally
-        {
-            _prefetchGate.Release();
+            try
+            {
+                var queue = ReadQueue();
+                if (queue.Count == 0) return null;
+                var usable = new List<Prefetched>();
+                foreach (var ready in queue)
+                {
+                    var fits = File.Exists(ready.File)
+                        && ready.Width == size.Width && ready.Height == size.Height
+                        && clock.Now - ready.At < PrefetchMaxAge
+                        && (enabled.Count == 0 ? ready.Topic == RandomTopicPicker.Fallback : enabled.Contains(ready.Topic, StringComparer.OrdinalIgnoreCase))
+                        && CandidateFilter.Reject(ready.Photo, size, settings) is null
+                        && !history.WasUsed(ready.Photo.Provider, ready.Photo.Id);
+                    if (fits) usable.Add(ready);
+                    else TryDelete(ready.File);
+                }
+                var pick = usable.FirstOrDefault(r => PhotoMood.Fits(r.Photo, mood)) ?? usable.FirstOrDefault();
+                if (pick is not null) usable.Remove(pick);
+                WriteQueue(usable);
+                return pick is null ? null : pick with { File = KeepPrefetched(pick, settings) };
+            }
+            catch (IOException)
+            {
+                return null;
+            }
         }
     }
 
@@ -520,6 +670,104 @@ public sealed class WallpaperService(
         var file = Path.Combine(folder, $"{clock.Now:yyyy-MM-dd}_{ready.Photo.Provider}_{Sanitize(ready.Photo.Id)}.jpg");
         File.Move(ready.File, file, overwrite: true);
         return file;
+    }
+
+    List<Prefetched> ReadQueue()
+    {
+        try
+        {
+            return File.Exists(QueueFile) ? JsonSerializer.Deserialize<List<Prefetched>>(File.ReadAllText(QueueFile)) ?? [] : [];
+        }
+        catch (Exception ex) when (ex is JsonException or IOException)
+        {
+            return [];
+        }
+    }
+
+    void WriteQueue(List<Prefetched> queue)
+    {
+        Directory.CreateDirectory(paths.PrefetchDir);
+        File.WriteAllText(QueueFile + ".part", JsonSerializer.Serialize(queue));
+        File.Move(QueueFile + ".part", QueueFile, overwrite: true);
+    }
+
+    /// <summary>Photos no longer in the queue (half-written ones, or the single "next" photo of older versions).</summary>
+    void ForgetStrayFiles()
+    {
+        if (!Directory.Exists(paths.PrefetchDir)) return;
+        var listed = ReadQueue().Select(q => q.File).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in Directory.EnumerateFiles(paths.PrefetchDir))
+            if (file != QueueFile && !listed.Contains(file)) TryDelete(file);
+    }
+
+    static void TryDelete(string file)
+    {
+        try { File.Delete(file); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
+
+    // ---------------------------------------------------------------- after the change
+
+    readonly Lock _afterLock = new();
+    Task _after = Task.CompletedTask;
+
+    /// <summary>
+    /// Network work that doesn't change what's on screen. In the app it runs after the change, one at a time in order
+    /// (so the account's devices see the changes in the order they happened), and never fails it. A one-shot run waits
+    /// for it, as it is about to exit.
+    /// </summary>
+    Task AfterChange(Func<Task> work)
+    {
+        if (!PrefetchEnabled) return work();
+        lock (_afterLock)
+            _after = _after.ContinueWith(async _ =>
+            {
+                try { await work(); }
+                catch (Exception ex) { log.LogInformation("Background work after a change failed: {Reason}", ex.Message); }
+            }, TaskScheduler.Default).Unwrap();
+        return Task.CompletedTask;
+    }
+
+    readonly Lock _syncLock = new();
+    Task _syncs = Task.CompletedTask;
+    int _publishing;
+
+    /// <summary>
+    /// Shares a new wallpaper with the account's other devices at once: its own queue (in order), not behind the lock
+    /// screen and accent color, which take seconds. Shows "Syncing…" until it's done. Never fails the change.
+    /// </summary>
+    Task PublishSoon(HistoryEntry entry)
+    {
+        if (sync is null) return Task.CompletedTask;
+        Interlocked.Increment(ref _publishing);
+        PhaseChanged?.Invoke(this, ApplyPhase.Syncing);
+        async Task Work()
+        {
+            try { await sync.PublishAsync(entry, CancellationToken.None); }
+            catch (Exception ex) { log.LogInformation("Sharing the wallpaper failed: {Reason}", ex.Message); }
+            finally
+            {
+                if (Interlocked.Decrement(ref _publishing) == 0) PhaseChanged?.Invoke(this, ApplyPhase.Done);
+            }
+        }
+        if (!PrefetchEnabled) return Work();
+        lock (_syncLock) _syncs = _syncs.ContinueWith(_ => Work(), TaskScheduler.Default).Unwrap();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Shown by <see cref="FollowService"/> while it fetches a photo another device set.</summary>
+    public void ReportPhase(ApplyPhase phase) => PhaseChanged?.Invoke(this, phase);
+
+    /// <summary>A change ended: "Done", unless its photo is still being shared ("Syncing…" ends that one).</summary>
+    public void FinishPhase()
+    {
+        if (Volatile.Read(ref _publishing) == 0) PhaseChanged?.Invoke(this, ApplyPhase.Done);
+    }
+
+    /// <summary>Done once everything queued by <see cref="AfterChange"/> so far has finished (for tests).</summary>
+    internal Task AfterChangeDone
+    {
+        get { lock (_afterLock) return _after; }
     }
 
     /// <summary>Roughly when the next scheduled change happens, to pick a photo that suits that moment.</summary>

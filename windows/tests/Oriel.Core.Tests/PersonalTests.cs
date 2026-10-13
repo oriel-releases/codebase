@@ -114,7 +114,9 @@ public sealed class PersonalTests : IDisposable
         var r = await _svc.ApplyAsync(force: true); // no search response queued: it must come from the prepared one
         Assert.Equal(ApplyStatus.Applied, r.Status);
         Assert.Equal("ready", Assert.Single(r.Entries).PhotoId);
-        Assert.Equal(["ready"], _provider.Tracked); // still counted as a download on Unsplash, at the moment it is used
+        // Still counted as a download on Unsplash when it is used, just after the change instead of holding it up.
+        await _svc.AfterChangeDone;
+        Assert.Equal(["ready"], _provider.Tracked);
         Assert.True(File.Exists(Assert.Single(_setter.Calls).Path));
     }
 
@@ -132,6 +134,71 @@ public sealed class PersonalTests : IDisposable
         Assert.Equal("fresh", Assert.Single(r.Entries).PhotoId);
     }
 
+    [Fact]
+    public async Task Two_photos_are_prepared_so_both_changes_of_the_hour_are_instant()
+    {
+        _svc.PrefetchEnabled = true;
+        _store.Update(s => s.MatchTimeOfDay = false);
+        _provider.Responses.Enqueue(() => [FakeProvider.Photo("first")]);
+        _provider.Responses.Enqueue(() => [FakeProvider.Photo("first"), FakeProvider.Photo("second")]);
+        await _svc.PrefetchAsync();
+        Assert.Equal(2, _provider.Queries.Count);
+
+        // No search response queued: both come from the prepared ones, each a different photo.
+        var a = await _svc.ApplyAsync(force: true);
+        var b = await _svc.ApplyAsync(force: true);
+        Assert.Equal(["first", "second"], new[] { a, b }.Select(r => Assert.Single(r.Entries).PhotoId));
+        Assert.Equal(2, _provider.Queries.Count);
+    }
+
+    [Fact]
+    public async Task A_prepared_photo_is_used_even_if_it_doesnt_suit_the_time_of_day()
+    {
+        // Time of day is a preference: a bright photo prepared earlier still makes the evening change instant.
+        _svc.PrefetchEnabled = true;
+        _provider.Responses.Enqueue(() => [Colored("bright", "#F2F2F2")]);
+        await _svc.PrefetchAsync();
+
+        var r = await _svc.ApplyAsync(force: true);
+        Assert.Equal("bright", Assert.Single(r.Entries).PhotoId);
+    }
+
+    [Fact]
+    public async Task Of_two_prepared_photos_the_one_that_suits_the_moment_goes_first()
+    {
+        _svc.PrefetchEnabled = true;
+        _store.Update(s => s.MatchTimeOfDay = false);
+        _provider.Responses.Enqueue(() => [Colored("bright", "#F2F2F2")]);
+        _provider.Responses.Enqueue(() => [Colored("dark", "#141414")]);
+        await _svc.PrefetchAsync();
+        _store.Update(s => s.MatchTimeOfDay = true); // 9 pm: dark first
+
+        var r = await _svc.ApplyAsync(force: true);
+        Assert.Equal("dark", Assert.Single(r.Entries).PhotoId);
+    }
+
+    [Fact]
+    public void Saved_interests_follow_the_new_built_in_list()
+    {
+        var s = new OrielSettings
+        {
+            Topics =
+            [
+                new TopicSetting { Query = "nature", Enabled = true },
+                new TopicSetting { Query = "minimal", Enabled = true },   // no longer built in, but on: kept as your own
+                new TopicSetting { Query = "abstract", Enabled = false }, // no longer built in, off: gone
+                new TopicSetting { Query = "tokyo night", Enabled = false, IsCustom = true },
+            ],
+        };
+        s.UpdateBuiltInTopics();
+        Assert.Equal(OrielSettings.BuiltInTopics, s.Topics.Where(t => !t.IsCustom).Select(t => t.Query));
+        Assert.True(s.Topics.Single(t => t.Query == "nature").Enabled);
+        Assert.False(s.Topics.Single(t => t.Query == "waterfalls").Enabled); // new ones start off
+        Assert.True(s.Topics.Single(t => t.Query == "minimal").IsCustom);
+        Assert.DoesNotContain(s.Topics, t => t.Query == "abstract");
+        Assert.Contains(s.Topics, t => t.Query == "tokyo night" && t.IsCustom);
+    }
+
     // ---------------------------------------------------------------- following
 
     [Fact]
@@ -147,6 +214,27 @@ public sealed class PersonalTests : IDisposable
     [InlineData("K7MQ2XP", null)]
     [InlineData("K7MQ2XP0", null)] // 0 is never used: it looks like O
     public void Follow_codes_are_forgiving_to_type(string input, string? expected) => Assert.Equal(expected, FollowService.Normalize(input));
+
+    [Theory]
+    [InlineData("k7mq", "K7MQ")]
+    [InlineData("k7mq2", "K7MQ-2")]
+    [InlineData(" k7 mq-2xpa ", "K7MQ-2XPA")]
+    [InlineData("K7MQ-2XPA-EXTRA", "K7MQ-2XPA")]
+    [InlineData("", "")]
+    public void A_code_is_tidied_as_it_is_typed(string typed, string shown) => Assert.Equal(shown, FollowService.FormatInput(typed));
+
+    [Theory]
+    [InlineData("oriel://follow?code=K7MQ2XPA", "K7MQ2XPA")]
+    [InlineData("oriel://follow?code=k7mq-2xpa", "K7MQ2XPA")]
+    [InlineData("oriel://auth?token=t&follow=K7MQ2XPA", "K7MQ2XPA")]
+    [InlineData("oriel://follow?code=nope", null)]
+    [InlineData("oriel://wallpaper?id=abcdef&code=K7MQ2XPA", null)]
+    public void Follow_links_are_read_from_the_page_and_through_sign_in(string arg, string? expected)
+    {
+        var found = DeepLink.TryGetFollowCode([arg], out var code);
+        Assert.Equal(expected is not null, found);
+        if (found) Assert.Equal(expected, code);
+    }
 
     [Fact]
     public void New_follow_codes_are_valid_and_shown_in_two_halves()

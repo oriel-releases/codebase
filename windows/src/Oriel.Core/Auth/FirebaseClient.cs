@@ -17,6 +17,9 @@ public sealed record FirebaseTokens(string IdToken, string RefreshToken, DateTim
 
 public sealed record FirebaseProfile(string Uid, string Email, string DisplayName, string PhotoUrl, FirebaseTokens Tokens);
 
+/// <summary>Someone following this account: their account, first name and since when.</summary>
+public sealed record Follower(string Uid, string Name, DateTimeOffset? Since);
+
 public sealed record SessionInfo(string Platform, string DeviceName, string AppVersion);
 
 /// <summary>The wallpaper a desktop app applied last, shared through <c>users/{uid}/sync/current</c> so the browser extension can show the same photo.</summary>
@@ -33,6 +36,31 @@ public sealed class FirebaseClient(HttpClient http)
     const string DocumentsPath = "projects/oriel-gcp/databases/(default)/documents";
     const string DocumentsUrl = "https://firestore.googleapis.com/v1/" + DocumentsPath;
 
+    /// <summary>The Realtime Database: only the doorbell <c>pulse/{uid}</c> lives there (see database.rules.json).</summary>
+    const string RealtimeUrl = "https://oriel-gcp-default-rtdb.firebaseio.com";
+
+    /// <summary>The account's doorbell, readable and writable with its ID token (also as a live event stream).</summary>
+    public static string PulseUrl(FirebaseTokens tokens) => $"{RealtimeUrl}/pulse/{tokens.Uid}.json?auth={Uri.EscapeDataString(tokens.IdToken)}";
+
+    /// <summary>
+    /// Rings the account's doorbell after <c>sync/current</c> changed: the other devices listening to it fetch the new
+    /// photo within a second. <paramref name="device"/> lets this device ignore its own ring.
+    /// </summary>
+    public async Task RingAsync(FirebaseTokens tokens, string photoId, string source, string device, CancellationToken ct = default)
+    {
+        var body = new Dictionary<string, object>
+        {
+            ["photoId"] = photoId,
+            ["source"] = source,
+            ["device"] = device,
+            ["at"] = new Dictionary<string, string> { [".sv"] = "timestamp" },
+        };
+        // PATCH, not PUT: a photo ring leaves a settings ring's fields alone, and the other way round.
+        using var request = new HttpRequestMessage(HttpMethod.Patch, PulseUrl(tokens)) { Content = JsonContent.Create(body) };
+        using var response = await SendAsync(() => http.SendAsync(request, ct));
+        await EnsureOkAsync(response, ct);
+    }
+
     /// <summary>Exchanges the Google ID token from the website for this app's own Firebase session.</summary>
     public async Task<FirebaseProfile> SignInWithGoogleAsync(string googleIdToken, CancellationToken ct = default)
     {
@@ -48,6 +76,20 @@ public sealed class FirebaseClient(HttpClient http)
         var r = await ReadAsync<SignInResponse>(response, ct);
         return new FirebaseProfile(r.LocalId, r.Email ?? "", r.DisplayName ?? "", r.PhotoUrl ?? "",
             Tokens(r.IdToken, r.RefreshToken, r.ExpiresIn, r.LocalId));
+    }
+
+    /// <summary>
+    /// Takes over the Firebase session the website made for an account without Google (email and password): fresh
+    /// tokens from its refresh token, then the profile, which the token exchange doesn't return.
+    /// </summary>
+    public async Task<FirebaseProfile> SignInWithRefreshTokenAsync(string refreshToken, CancellationToken ct = default)
+    {
+        var tokens = await RefreshAsync(refreshToken, ct);
+        using var response = await SendAsync(() => http.PostAsJsonAsync(
+            $"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={ApiKey}", new { idToken = tokens.IdToken }, ct));
+        var r = await ReadAsync<LookupResponse>(response, ct);
+        var user = r.Users?.FirstOrDefault() ?? throw new FirebaseException(FirebaseFailure.Rejected, "Account not found.");
+        return new FirebaseProfile(tokens.Uid, user.Email ?? "", user.DisplayName ?? "", user.PhotoUrl ?? "", tokens);
     }
 
     public async Task<FirebaseTokens> RefreshAsync(string refreshToken, CancellationToken ct = default)
@@ -160,24 +202,237 @@ public sealed class FirebaseClient(HttpClient http)
         await EnsureOkAsync(response, ct);
     }
 
+    // ---------------------------------------------------------------- shared settings and the schedule's slot
+
+    static string SettingsUrl(string uid) => $"{DocumentsUrl}/users/{uid}/sync/settings";
+    static string SlotUrl(string uid) => $"{DocumentsUrl}/users/{uid}/sync/slot";
+
+    /// <summary>The account's shared settings and when they were last written, or null when no device has shared any yet.</summary>
+    public async Task<(Services.SyncedSettings Settings, DateTimeOffset UpdatedAt)?> GetSyncedSettingsAsync(FirebaseTokens tokens, CancellationToken ct = default)
+    {
+        if (await GetDocumentAsync(SettingsUrl(tokens.Uid), tokens, ct) is not { } f) return null;
+        static int Int(JsonElement f, string name, int fallback) =>
+            f.TryGetProperty(name, out var v) && v.TryGetProperty("integerValue", out var i) && int.TryParse(i.GetString(), out var n) ? n : fallback;
+        static bool Bool(JsonElement f, string name) =>
+            f.TryGetProperty(name, out var v) && v.TryGetProperty("booleanValue", out var b) && b.GetBoolean();
+        var interests = new List<Services.SyncedInterest>();
+        if (f.TryGetProperty("interests", out var list) && list.TryGetProperty("arrayValue", out var array) && array.TryGetProperty("values", out var values))
+        {
+            foreach (var item in values.EnumerateArray())
+            {
+                if (!item.TryGetProperty("mapValue", out var map) || !map.TryGetProperty("fields", out var m)) continue;
+                if (StringField(m, "query") is not { Length: > 0 } query) continue;
+                interests.Add(new Services.SyncedInterest(query, Bool(m, "enabled"), Bool(m, "isCustom")));
+            }
+        }
+        var settings = new Services.SyncedSettings(
+            StringField(f, "dailyTime") ?? "09:00", StringField(f, "timeZone") ?? "UTC", Int(f, "intervalMinutes", 0),
+            Bool(f, "paused"), Bool(f, "favoritesOnly"), Bool(f, "skipLowLikes"), Int(f, "minLikes", 50), interests,
+            !f.TryGetProperty("matchTimeOfDay", out _) || Bool(f, "matchTimeOfDay"));
+        return (settings, TimeField(f, "updatedAt") ?? DateTimeOffset.MinValue);
+    }
+
+    public Task SetSyncedSettingsAsync(FirebaseTokens tokens, Services.SyncedSettings s, string device, DateTimeOffset at, CancellationToken ct = default) =>
+        WriteDocumentAsync(SettingsUrl(tokens.Uid), tokens, new Dictionary<string, object>
+        {
+            ["dailyTime"] = Str(s.DailyTime),
+            ["timeZone"] = Str(s.TimeZone),
+            ["intervalMinutes"] = new { integerValue = s.IntervalMinutes.ToString(System.Globalization.CultureInfo.InvariantCulture) },
+            ["paused"] = new { booleanValue = s.Paused },
+            ["favoritesOnly"] = new { booleanValue = s.FavoritesOnly },
+            ["skipLowLikes"] = new { booleanValue = s.SkipLowLikes },
+            ["minLikes"] = new { integerValue = s.MinLikes.ToString(System.Globalization.CultureInfo.InvariantCulture) },
+            ["matchTimeOfDay"] = new { booleanValue = s.MatchTimeOfDay },
+            ["interests"] = new
+            {
+                arrayValue = new
+                {
+                    values = s.Interests.Select(i => new
+                    {
+                        mapValue = new
+                        {
+                            fields = new Dictionary<string, object>
+                            {
+                                ["query"] = Str(i.Query),
+                                ["enabled"] = new { booleanValue = i.Enabled },
+                                ["isCustom"] = new { booleanValue = i.IsCustom },
+                            },
+                        },
+                    }).ToArray(),
+                },
+            },
+            ["updatedAt"] = Time(at),
+            ["device"] = Str(device),
+        }, ct);
+
+    /// <summary>
+    /// Claims a scheduled moment for this device ("first device wins"): a compare-and-set on one document, so of two
+    /// devices ticking together exactly one gets it. False when another device already holds this slot.
+    /// </summary>
+    public async Task<bool> ClaimSlotAsync(FirebaseTokens tokens, string slotId, string device, CancellationToken ct = default)
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            string precondition;
+            using (var request = new HttpRequestMessage(HttpMethod.Get, SlotUrl(tokens.Uid)))
+            {
+                request.Headers.Authorization = new("Bearer", tokens.IdToken);
+                using var response = await SendAsync(() => http.SendAsync(request, ct));
+                if (response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    precondition = "currentDocument.exists=false";
+                }
+                else
+                {
+                    await EnsureOkAsync(response, ct);
+                    using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+                    var fields = doc.RootElement.TryGetProperty("fields", out var f) ? f : default;
+                    if (fields.ValueKind == JsonValueKind.Object && StringField(fields, "slotId") == slotId) return false;
+                    precondition = "currentDocument.updateTime=" + Uri.EscapeDataString(doc.RootElement.GetProperty("updateTime").GetString()!);
+                }
+            }
+            try
+            {
+                await WriteDocumentAsync($"{SlotUrl(tokens.Uid)}?{precondition}", tokens, new Dictionary<string, object>
+                {
+                    ["slotId"] = Str(slotId),
+                    ["device"] = Str(device),
+                    ["at"] = Time(DateTimeOffset.UtcNow),
+                }, ct);
+                return true;
+            }
+            catch (FirebaseException ex) when (ex.Failure is FirebaseFailure.NotFound or FirebaseFailure.Rejected)
+            {
+                // Another device wrote it between the read and the write: look again.
+            }
+        }
+        return false;
+    }
+
+    /// <summary>Rings the other devices: the shared settings changed (they read sync/settings again).</summary>
+    public async Task RingSettingsAsync(FirebaseTokens tokens, string device, CancellationToken ct = default)
+    {
+        var body = new Dictionary<string, object>
+        {
+            ["settingsAt"] = new Dictionary<string, string> { [".sv"] = "timestamp" },
+            ["settingsDevice"] = device,
+        };
+        using var request = new HttpRequestMessage(HttpMethod.Patch, PulseUrl(tokens)) { Content = JsonContent.Create(body) };
+        using var response = await SendAsync(() => http.SendAsync(request, ct));
+        await EnsureOkAsync(response, ct);
+    }
+
+    // ---------------------------------------------------------------- favorites, the same on every device
+
+    /// <summary>Writes one favorite (or un-favorite: the document stays, with favorite = false, so the change syncs).</summary>
+    public Task SetFavoriteAsync(FirebaseTokens tokens, Services.SyncedFavorite f, string device, CancellationToken ct = default)
+    {
+        var fields = new Dictionary<string, object>
+        {
+            ["photoId"] = Str(f.PhotoId),
+            ["imageUrl"] = Str(f.ImageUrl),
+            ["pageUrl"] = Str(f.PageUrl),
+            ["photographer"] = Str(f.Photographer),
+            ["photographerUrl"] = Str(f.PhotographerUrl),
+            ["favorite"] = new { booleanValue = f.Favorite },
+            ["updatedAt"] = Time(f.UpdatedAt),
+            ["device"] = Str(device),
+        };
+        if (!string.IsNullOrWhiteSpace(f.Description)) fields["description"] = Str(f.Description);
+        return WriteDocumentAsync($"{DocumentsUrl}/users/{tokens.Uid}/favorites/{Uri.EscapeDataString(f.PhotoId)}", tokens, fields, ct);
+    }
+
+    /// <summary>The favorites changed since <paramref name="since"/> (all of them when null), oldest first.</summary>
+    public async Task<IReadOnlyList<Services.SyncedFavorite>> GetFavoritesSinceAsync(FirebaseTokens tokens, DateTimeOffset? since, CancellationToken ct = default)
+    {
+        object query = since is { } s
+            ? new
+            {
+                structuredQuery = new
+                {
+                    from = new[] { new { collectionId = "favorites" } },
+                    where = new { fieldFilter = new { field = new { fieldPath = "updatedAt" }, op = "GREATER_THAN", value = new { timestampValue = s.UtcDateTime.ToString("o") } } },
+                },
+            }
+            : new { structuredQuery = new { from = new[] { new { collectionId = "favorites" } } } };
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{DocumentsUrl}/users/{tokens.Uid}:runQuery") { Content = JsonContent.Create(query) };
+        request.Headers.Authorization = new("Bearer", tokens.IdToken);
+        using var response = await SendAsync(() => http.SendAsync(request, ct));
+        await EnsureOkAsync(response, ct);
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+        var list = new List<Services.SyncedFavorite>();
+        foreach (var row in doc.RootElement.EnumerateArray())
+        {
+            if (!row.TryGetProperty("document", out var d) || !d.TryGetProperty("fields", out var f)) continue;
+            if (StringField(f, "photoId") is not { Length: > 0 } id || StringField(f, "imageUrl") is not { } image) continue;
+            var favorite = f.TryGetProperty("favorite", out var fv) && fv.TryGetProperty("booleanValue", out var b) && b.GetBoolean();
+            list.Add(new Services.SyncedFavorite(id, image, StringField(f, "pageUrl") ?? "", StringField(f, "photographer") ?? "",
+                StringField(f, "photographerUrl") ?? "", StringField(f, "description"), favorite, TimeField(f, "updatedAt") ?? DateTimeOffset.UtcNow));
+        }
+        return list;
+    }
+
+    /// <summary>Rings the other devices: favorites changed (they fetch the changes).</summary>
+    public async Task RingFavoritesAsync(FirebaseTokens tokens, string device, CancellationToken ct = default)
+    {
+        var body = new Dictionary<string, object>
+        {
+            ["favoritesAt"] = new Dictionary<string, string> { [".sv"] = "timestamp" },
+            ["favoritesDevice"] = device,
+        };
+        using var request = new HttpRequestMessage(HttpMethod.Patch, PulseUrl(tokens)) { Content = JsonContent.Create(body) };
+        using var response = await SendAsync(() => http.SendAsync(request, ct));
+        await EnsureOkAsync(response, ct);
+    }
+
     // ---------------------------------------------------------------- following a friend
 
     /// <summary>Who a follow code belongs to, or null when there is no such code.</summary>
-    public async Task<(string Uid, string Name)?> GetFollowCodeAsync(FirebaseTokens tokens, string code, CancellationToken ct = default)
+    public async Task<(string Uid, string Name, string Picture)?> GetFollowCodeAsync(FirebaseTokens tokens, string code, CancellationToken ct = default)
     {
         var fields = await GetDocumentAsync($"{DocumentsUrl}/codes/{code}", tokens, ct);
         if (fields is not { } f) return null;
-        return (StringField(f, "uid") ?? "", StringField(f, "name") ?? "");
+        return (StringField(f, "uid") ?? "", StringField(f, "name") ?? "", StringField(f, "picture") ?? "");
     }
 
-    /// <summary>Claims a new follow code for this account. Fails if the code is taken (a new one is tried).</summary>
-    public Task CreateFollowCodeAsync(FirebaseTokens tokens, string code, string name, CancellationToken ct = default) =>
+    /// <summary>
+    /// Claims a new follow code for this account, with the first name and picture its follow page shows. Fails if the
+    /// code is taken (a new one is tried).
+    /// </summary>
+    public Task CreateFollowCodeAsync(FirebaseTokens tokens, string code, string name, string picture, CancellationToken ct = default) =>
         WriteDocumentAsync($"{DocumentsUrl}/codes/{code}?currentDocument.exists=false", tokens, new Dictionary<string, object>
         {
             ["uid"] = Str(tokens.Uid),
             ["name"] = Str(name),
+            ["picture"] = Str(picture),
             ["createdAt"] = Time(DateTimeOffset.UtcNow),
         }, ct);
+
+    /// <summary>The wallpaper the follow page shows: the owner's current one, updated as it changes.</summary>
+    public Task SetFollowCodePhotoAsync(FirebaseTokens tokens, string code, Models.SharedPhoto photo, CancellationToken ct = default) =>
+        WriteDocumentAsync($"{DocumentsUrl}/codes/{code}?currentDocument.exists=true" + string.Concat(PhotoFieldNames.Select(f => $"&updateMask.fieldPaths={f}")),
+            tokens, PhotoFields(photo), ct);
+
+    /// <summary>A shared wallpaper's <c>shares/{id}</c> document: the photo, and the sender's first name and picture.</summary>
+    public Task CreateShareAsync(FirebaseTokens tokens, string id, string from, string picture, Models.SharedPhoto photo, CancellationToken ct = default)
+    {
+        var fields = PhotoFields(photo);
+        fields["uid"] = Str(tokens.Uid);
+        fields["from"] = Str(from);
+        fields["picture"] = Str(picture);
+        fields["createdAt"] = Time(DateTimeOffset.UtcNow);
+        return WriteDocumentAsync($"{DocumentsUrl}/shares/{id}?currentDocument.exists=false", tokens, fields, ct);
+    }
+
+    static readonly string[] PhotoFieldNames = ["photoId", "photoPath", "photographer", "photographerHandle"];
+
+    static Dictionary<string, object> PhotoFields(Models.SharedPhoto photo) => new()
+    {
+        ["photoId"] = Str(photo.Id),
+        ["photoPath"] = Str(photo.Path),
+        ["photographer"] = Str(photo.Photographer),
+        ["photographerHandle"] = Str(photo.Handle),
+    };
 
     public Task DeleteFollowCodeAsync(FirebaseTokens tokens, string code, CancellationToken ct = default) =>
         DeleteDocumentAsync($"{DocumentsUrl}/codes/{code}", tokens, ct);
@@ -194,16 +449,26 @@ public sealed class FirebaseClient(HttpClient http)
     public Task RemoveFollowerAsync(FirebaseTokens tokens, string ownerUid, string followerUid, CancellationToken ct = default) =>
         DeleteDocumentAsync($"{DocumentsUrl}/users/{ownerUid}/followers/{followerUid}", tokens, ct);
 
-    /// <summary>The accounts following this one.</summary>
-    public async Task<IReadOnlyList<string>> ListFollowersAsync(FirebaseTokens tokens, CancellationToken ct = default)
+    /// <summary>The accounts following this one, newest first.</summary>
+    public async Task<IReadOnlyList<Follower>> ListFollowersAsync(FirebaseTokens tokens, CancellationToken ct = default)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"{DocumentsUrl}/users/{tokens.Uid}/followers?pageSize=300&mask.fieldPaths=code");
+        using var request = new HttpRequestMessage(HttpMethod.Get,
+            $"{DocumentsUrl}/users/{tokens.Uid}/followers?pageSize=300&mask.fieldPaths=name&mask.fieldPaths=createdAt");
         request.Headers.Authorization = new("Bearer", tokens.IdToken);
         using var response = await SendAsync(() => http.SendAsync(request, ct));
         await EnsureOkAsync(response, ct);
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
         if (!doc.RootElement.TryGetProperty("documents", out var docs)) return [];
-        return docs.EnumerateArray().Select(d => d.GetProperty("name").GetString()!.Split('/')[^1]).ToList();
+        return docs.EnumerateArray()
+            .Select(d =>
+            {
+                var fields = d.TryGetProperty("fields", out var f) ? f : default;
+                var uid = d.GetProperty("name").GetString()!.Split('/')[^1];
+                var name = fields.ValueKind == JsonValueKind.Object ? StringField(fields, "name") : null;
+                return new Follower(uid, string.IsNullOrWhiteSpace(name) ? "A friend" : name, TimeField(fields, "createdAt"));
+            })
+            .OrderByDescending(f => f.Since)
+            .ToList();
     }
 
     /// <summary>
@@ -238,6 +503,11 @@ public sealed class FirebaseClient(HttpClient http)
 
     static string? StringField(JsonElement fields, string name) =>
         fields.TryGetProperty(name, out var f) && f.TryGetProperty("stringValue", out var v) ? v.GetString() : null;
+
+    static DateTimeOffset? TimeField(JsonElement fields, string name) =>
+        fields.ValueKind == JsonValueKind.Object && fields.TryGetProperty(name, out var f) && f.TryGetProperty("timestampValue", out var v)
+            && DateTimeOffset.TryParse(v.GetString(), System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal, out var at) ? at : null;
 
     static string CurrentUrl(string uid) => $"{DocumentsUrl}/users/{uid}/sync/current";
 
@@ -309,6 +579,13 @@ public sealed class FirebaseClient(HttpClient http)
         [property: JsonPropertyName("idToken")] string IdToken,
         [property: JsonPropertyName("refreshToken")] string RefreshToken,
         [property: JsonPropertyName("expiresIn")] string ExpiresIn,
+        [property: JsonPropertyName("email")] string? Email,
+        [property: JsonPropertyName("displayName")] string? DisplayName,
+        [property: JsonPropertyName("photoUrl")] string? PhotoUrl);
+
+    sealed record LookupResponse([property: JsonPropertyName("users")] List<LookupUser>? Users);
+
+    sealed record LookupUser(
         [property: JsonPropertyName("email")] string? Email,
         [property: JsonPropertyName("displayName")] string? DisplayName,
         [property: JsonPropertyName("photoUrl")] string? PhotoUrl);

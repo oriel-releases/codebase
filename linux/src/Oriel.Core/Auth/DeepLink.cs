@@ -2,22 +2,31 @@ using System.Web;
 
 namespace Oriel.Core.Auth;
 
-/// <summary>The <c>oriel://auth?token=...</c> link the website opens after Google sign-in.</summary>
+/// <summary>
+/// The <c>oriel://auth</c> link the website opens after signing in: <c>?token=</c> carries a Google ID token,
+/// <c>?refresh=</c> the Firebase session of an account without Google (email and password).
+/// </summary>
 public static partial class DeepLink
 {
-    /// <summary>Finds an auth link among command-line arguments or a launch argument string.</summary>
-    public static bool TryGetGoogleToken(IEnumerable<string> args, out string token)
+    /// <summary>Finds a Google sign-in link among command-line arguments or a launch argument string.</summary>
+    public static bool TryGetGoogleToken(IEnumerable<string> args, out string token) => TryGetAuthValue(args, "token", out token);
+
+    /// <summary>Finds an email and password sign-in link (the website's Firebase refresh token).</summary>
+    public static bool TryGetSessionToken(IEnumerable<string> args, out string refreshToken) =>
+        TryGetAuthValue(args, "refresh", out refreshToken);
+
+    static bool TryGetAuthValue(IEnumerable<string> args, string name, out string value)
     {
-        token = "";
+        value = "";
         foreach (var arg in args)
         {
             var candidate = arg.Trim().Trim('"');
             if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri)) continue;
             if (!uri.Scheme.Equals("oriel", StringComparison.OrdinalIgnoreCase) ||
                 !uri.Host.Equals("auth", StringComparison.OrdinalIgnoreCase)) continue;
-            var value = HttpUtility.ParseQueryString(uri.Query)["token"];
-            if (string.IsNullOrWhiteSpace(value)) continue;
-            token = value;
+            var found = HttpUtility.ParseQueryString(uri.Query)[name];
+            if (string.IsNullOrWhiteSpace(found)) continue;
+            value = found;
             return true;
         }
         return false;
@@ -69,6 +78,31 @@ public static partial class DeepLink
             if (query["share"] is not { } id || !ValidPhotoId().IsMatch(id)) continue;
             photoId = id;
             from = Models.ShareLink.CleanName(query["from"]);
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// A follow code from the website's follow page (<c>oriel://follow?code=K7MQ2XPA</c>), or carried through sign-in
+    /// by someone who opened that page before installing Oriel (<c>oriel://auth?...&amp;follow=K7MQ2XPA</c>).
+    /// </summary>
+    public static bool TryGetFollowCode(IEnumerable<string> args, out string code)
+    {
+        code = "";
+        foreach (var arg in args)
+        {
+            if (!Uri.TryCreate(arg.Trim().Trim('"'), UriKind.Absolute, out var uri) ||
+                !uri.Scheme.Equals("oriel", StringComparison.OrdinalIgnoreCase)) continue;
+            var query = HttpUtility.ParseQueryString(uri.Query);
+            var value = uri.Host.ToLowerInvariant() switch
+            {
+                "follow" => query["code"],
+                "auth" => query["follow"],
+                _ => null,
+            };
+            if (Services.FollowService.Normalize(value) is not { } valid) continue;
+            code = valid;
             return true;
         }
         return false;

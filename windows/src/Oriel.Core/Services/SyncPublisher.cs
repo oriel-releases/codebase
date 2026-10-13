@@ -18,7 +18,7 @@ public interface ISyncPublisher
 /// or signed out never affects changing the wallpaper.
 /// </summary>
 public sealed class SyncPublisher(AuthService auth, FirebaseClient firebase, IHistoryStore history, ILogger<SyncPublisher> log,
-    IAccentSampler? accent = null) : ISyncPublisher
+    IAccentSampler? accent = null, Settings.ISettingsStore? settings = null) : ISyncPublisher
 {
     const string Source = "windows";
     static readonly TimeSpan Timeout = TimeSpan.FromSeconds(8);
@@ -52,7 +52,22 @@ public sealed class SyncPublisher(AuthService auth, FirebaseClient firebase, IHi
             if (tokens is null) return;
             if (onlyIfMissing && await firebase.HasCurrentWallpaperAsync(tokens, timeout.Token)) return;
             await firebase.SetCurrentWallpaperAsync(tokens, document with { Color = await SampleColorAsync(entry) }, timeout.Token);
+            // The doorbell: devices listening hear about it now instead of at their next poll.
+            if (!onlyIfMissing)
+            {
+                try
+                {
+                    await firebase.RingAsync(tokens, entry.PhotoId, Source, auth.Current?.SessionId ?? "", timeout.Token);
+                }
+                catch (Exception ex)
+                {
+                    log.LogInformation("Couldn't ring the other devices (they still poll): {Reason}", ex.Message);
+                }
+            }
             log.LogInformation("Shared the wallpaper {Photo} with your other devices", entry.PhotoId);
+            // Sharing with friends: your follow page shows the new wallpaper too.
+            if (!onlyIfMissing && settings?.Load().MyFollowCode is { } code && ShareLink.Photo(entry) is { } photo)
+                await firebase.SetFollowCodePhotoAsync(tokens, code, photo, timeout.Token);
         }
         catch (Exception ex)
         {

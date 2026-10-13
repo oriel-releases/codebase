@@ -11,6 +11,8 @@ public interface IHistoryStore
     IReadOnlyList<HistoryEntry> List(bool includeDeleted = false);
     HistoryEntry? Get(long id);
     void SetFavorite(long id, bool favorite);
+    /// <summary>Raised after <see cref="SetFavorite"/> with the entry as it is now (FavoritesSync shares it).</summary>
+    event Action<HistoryEntry>? FavoriteChanged;
     void MarkDeleted(long id);
     /// <summary>Non-favorite, not-yet-deleted entries applied before the cutoff.</summary>
     IReadOnlyList<HistoryEntry> ExpiredBefore(DateTimeOffset cutoff);
@@ -118,8 +120,13 @@ public sealed class SqliteHistoryStore : IHistoryStore
     public HistoryEntry? Get(long id) =>
         Query("SELECT * FROM history WHERE id = $id", ("$id", id)).FirstOrDefault();
 
-    public void SetFavorite(long id, bool favorite) =>
+    public event Action<HistoryEntry>? FavoriteChanged;
+
+    public void SetFavorite(long id, bool favorite)
+    {
         Exec("UPDATE history SET is_favorite = $f WHERE id = $id", ("$f", favorite ? 1 : 0), ("$id", id));
+        if (FavoriteChanged is { } changed && Get(id) is { } entry) changed(entry);
+    }
 
     public void MarkDeleted(long id) =>
         Exec("UPDATE history SET is_deleted = 1 WHERE id = $id", ("$id", id));

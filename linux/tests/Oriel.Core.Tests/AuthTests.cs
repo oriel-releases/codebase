@@ -32,6 +32,23 @@ public sealed class AuthTests : IDisposable
     public void Ignores_links_without_a_usable_token(string arg) =>
         Assert.False(DeepLink.TryGetGoogleToken([arg], out _));
 
+    [Theory]
+    [InlineData("oriel://auth?refresh=AMf-vBx_1%2B2", "AMf-vBx_1+2")]
+    [InlineData("\"oriel://auth?refresh=r&share=AbC123xyz&from=Akbar\"", "r")]
+    public void Reads_the_session_from_an_email_sign_in_link(string arg, string expected)
+    {
+        Assert.True(DeepLink.TryGetSessionToken(["--background", arg], out var refresh));
+        Assert.Equal(expected, refresh);
+        Assert.False(DeepLink.TryGetGoogleToken([arg], out _));
+    }
+
+    [Theory]
+    [InlineData("oriel://auth?token=x")]
+    [InlineData("oriel://auth?refresh=")]
+    [InlineData("oriel://wallpaper?refresh=x")]
+    public void Ignores_links_without_a_session(string arg) =>
+        Assert.False(DeepLink.TryGetSessionToken([arg], out _));
+
     [Fact]
     public void Recognises_links_even_without_a_token()
     {
