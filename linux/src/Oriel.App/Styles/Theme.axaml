@@ -82,6 +82,44 @@
         <Setter Property="Opacity" Value="0.55" />
     </Style>
 
+    <!--
+        Photo tiles (Interests, the tour): a button with nothing but its content. No hover or press look, so the photo
+        never flashes; the page zooms the photo on hover instead. Still a real button for keyboard and screen readers.
+    -->
+    <Style Selector="Button.phototile">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="ClipToBounds" Value="True" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ContentPresenter Name="TilePresenter"
+                                  Padding="{TemplateBinding Padding}"
+                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                  Background="{TemplateBinding Background}"
+                                  CornerRadius="{TemplateBinding CornerRadius}"
+                                  ClipToBounds="True"
+                                  Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}" />
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="Button.phototile Panel.zoom">
+        <Setter Property="RenderTransform" Value="scale(1)" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.3" Easing="CubicEaseOut" />
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="Button.phototile:pointerover Panel.zoom">
+        <Setter Property="RenderTransform" Value="scale(1.06)" />
+    </Style>
+
     <!--  The main call to action: ink on paper  -->
     <Style Selector="Button.primary">
         <Setter Property="Background" Value="{DynamicResource OrielInkBrush}" />

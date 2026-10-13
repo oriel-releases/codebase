@@ -26,11 +26,17 @@ public sealed partial class SignInViewModel(AuthService auth) : ObservableObject
     void OpenSupport() => Launcher.OpenUrl(new Uri(OrielLinks.Support));
 
     [RelayCommand]
-    void OpenBrowser()
+    void OpenBrowser() => OpenLogin(LoginUrl);
+
+    /// <summary>The website's sign-in with the email form ready, for accounts without Google.</summary>
+    [RelayCommand]
+    void OpenEmail() => OpenLogin(LoginUrl + "?method=email");
+
+    void OpenLogin(string url)
     {
         HasError = false;
         IsWaiting = true;
-        if (!Launcher.OpenUrl(new Uri(LoginUrl)))
+        if (!Launcher.OpenUrl(new Uri(url)))
         {
             IsWaiting = false;
             Fail("Couldn't open your browser. Go to oriel.akbarjon.uz/login yourself.");
@@ -38,14 +44,19 @@ public sealed partial class SignInViewModel(AuthService auth) : ObservableObject
     }
 
     /// <summary>The website opened Oriel with a Google token: turn it into a signed-in session.</summary>
-    public async Task CompleteAsync(string googleIdToken)
+    public Task CompleteAsync(string googleIdToken) => CompleteAsync(() => auth.SignInAsync(googleIdToken));
+
+    /// <summary>The website opened Oriel with an email and password account's session: take it over.</summary>
+    public Task CompleteWithSessionAsync(string refreshToken) => CompleteAsync(() => auth.SignInWithSessionAsync(refreshToken));
+
+    async Task CompleteAsync(Func<Task> signIn)
     {
         if (IsWorking || auth.IsSignedIn) return;
         IsWorking = true;
         HasError = false;
         try
         {
-            await auth.SignInAsync(googleIdToken);
+            await signIn();
             IsWaiting = false;
         }
         catch (FirebaseException ex)
@@ -54,7 +65,7 @@ public sealed partial class SignInViewModel(AuthService auth) : ObservableObject
             {
                 FirebaseFailure.Network => ex.Message,
                 FirebaseFailure.Rejected => "That sign-in expired or isn't valid. Sign in again from the website.",
-                _ => "Google couldn't sign you in right now. Please try again.",
+                _ => "Couldn't sign you in right now. Please try again.",
             });
         }
         finally

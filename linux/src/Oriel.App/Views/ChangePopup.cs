@@ -17,7 +17,7 @@ public sealed class ChangePopup : Window
 {
     const double PillHeight = 40, Gap = 20, SlideMs = 240, MinVisibleMs = 700;
 
-    static readonly string[] Words = ["Finding…", "Changing…"];
+    static readonly string[] Words = PhaseText.All;
 
     readonly TextBlock _label;
     readonly DispatcherTimer _slideTimer;
@@ -98,7 +98,10 @@ public sealed class ChangePopup : Window
         Show();
     }
 
-    public void SetPhase(ApplyPhase phase) => _label.Text = phase == ApplyPhase.Changing ? Words[1] : Words[0];
+    public void SetPhase(ApplyPhase phase)
+    {
+        if (phase != ApplyPhase.Done) _label.Text = PhaseText.For(phase);
+    }
 
     /// <summary>Sinks back below the screen edge and closes. Stays up long enough to be read.</summary>
     public async void Dismiss()

@@ -3,131 +3,165 @@
              xmlns:vm="using:Oriel.UI.ViewModels"
              x:Class="Oriel.UI.Views.FriendsView"
              x:DataType="vm:FriendsViewModel">
-    <ScrollViewer>
-        <StackPanel MaxWidth="960" Margin="40,8,40,40" Spacing="16">
-            <StackPanel Spacing="4">
+    <Panel>
+        <ScrollViewer>
+            <StackPanel MaxWidth="960" Margin="40,8,40,40" Spacing="16">
                 <TextBlock Classes="title" Text="Friends" />
-                <TextBlock Classes="muted" TextWrapping="Wrap" Text="Share your wallpaper, or show a friend's on your desktop. It follows every change." />
-            </StackPanel>
 
-            <!--  ============ Share your wallpaper ============  -->
-            <Border Padding="24" CornerRadius="20" Background="{DynamicResource OrielSurfaceBrush}">
-                <StackPanel Spacing="18">
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
-                        <Border Width="44" Height="44" CornerRadius="14" Background="{DynamicResource OrielPaperBrush}">
-                            <PathIcon Data="{StaticResource IconShare}" Width="18" Height="18" />
+                <!--  Following someone: their wallpaper is the card. Always dark underneath, so the white text reads in both themes.  -->
+                <Border Height="260" CornerRadius="20" ClipToBounds="True" Background="#1C1C1C" IsVisible="{Binding IsFollowing}">
+                    <Panel>
+                        <Border Width="80" Height="80" Margin="0,0,0,50" CornerRadius="40" Background="#33FFFFFF"
+                                HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding HasNoFriendWallpaper}">
+                            <Panel>
+                                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="32" FontWeight="SemiBold"
+                                           Foreground="White" Text="{Binding FollowingInitial}" />
+                                <Border CornerRadius="40" ClipToBounds="True">
+                                    <Image Source="{Binding FollowingPicture}" Stretch="UniformToFill" />
+                                </Border>
+                            </Panel>
                         </Border>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                            <TextBlock FontSize="18" FontWeight="SemiBold" Text="Share your wallpaper" />
-                            <TextBlock Classes="muted" TextWrapping="Wrap" Text="Friends with your code see the wallpaper on your desktop, every time it changes." />
-                        </StackPanel>
-                    </Grid>
-
-                    <Button Classes="primary" HorizontalAlignment="Left" Content="Create my code" Command="{Binding StartSharingCommand}"
-                            IsVisible="{Binding IsNotSharing}" />
-
-                    <Border Padding="20,16" CornerRadius="16" Background="{DynamicResource OrielPaperBrush}" IsVisible="{Binding IsSharing}">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <StackPanel VerticalAlignment="Center" Spacing="4">
-                                <SelectableTextBlock FontFamily="monospace" FontSize="30" FontWeight="SemiBold" LetterSpacing="3" Text="{Binding MyCode}" />
-                                <TextBlock Classes="muted small" Text="{Binding FollowersText}" />
+                        <Image Source="{Binding FriendWallpaper}" Stretch="UniformToFill" IsVisible="{Binding HasFriendWallpaper}" />
+                        <Border Background="{StaticResource OrielPhotoScrimBrush}" IsVisible="{Binding HasFriendWallpaper}" />
+                        <Grid Margin="24,20" VerticalAlignment="Bottom" ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                            <StackPanel VerticalAlignment="Bottom" Spacing="2">
+                                <TextBlock FontSize="24" FontWeight="SemiBold" Foreground="White" TextTrimming="CharacterEllipsis"
+                                           Text="{Binding FollowingTitle}" />
+                                <TextBlock Foreground="White" Opacity="0.8" TextTrimming="CharacterEllipsis" Text="{Binding FriendWallpaperDetail}" />
                             </StackPanel>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
-                                <Button Classes="primary" Click="CopyCode_Click">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Panel>
-                                            <PathIcon Data="{StaticResource IconCopy}" Width="14" Height="14" IsVisible="{Binding !IsCopied}" />
-                                            <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14" IsVisible="{Binding IsCopied}" />
-                                        </Panel>
-                                        <TextBlock VerticalAlignment="Center" Text="Copy" />
-                                    </StackPanel>
-                                </Button>
-                                <Button Content="Stop sharing" Command="{Binding StopSharingCommand}" />
-                            </StackPanel>
+                            <Button Grid.Column="1" Classes="onphoto" VerticalAlignment="Bottom" Content="Unfollow" Command="{Binding UnfollowCommand}" />
                         </Grid>
-                    </Border>
+                    </Panel>
+                </Border>
 
-                    <Border CornerRadius="12" Padding="16,10" Background="#33E0A100" IsVisible="{Binding HasSharingError}">
-                        <TextBlock Text="{Binding SharingError}" TextWrapping="Wrap" />
-                    </Border>
+                <!--  A friend's follow link is being followed right now  -->
+                <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsLinkFollowing}">
+                    <Arc Classes="spinner busy" Width="18" Height="18" />
+                    <TextBlock Classes="muted" VerticalAlignment="Center" Text="Following your friend…" />
                 </StackPanel>
-            </Border>
 
-            <!--  ============ Follow a friend ============  -->
-            <Border Padding="24" CornerRadius="20" Background="{DynamicResource OrielSurfaceBrush}">
-                <StackPanel Spacing="18">
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
-                        <Border Width="44" Height="44" CornerRadius="14" Background="{DynamicResource OrielPaperBrush}">
-                            <PathIcon Data="{StaticResource IconPeople}" Width="18" Height="18" />
-                        </Border>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                            <TextBlock FontSize="18" FontWeight="SemiBold" Text="Follow a friend" />
-                            <TextBlock Classes="muted" TextWrapping="Wrap"
-                                       Text="Enter their code and your desktop shows their wallpaper. Your own schedule pauses until you unfollow." />
-                        </StackPanel>
-                    </Grid>
-
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding IsNotFollowing}">
-                        <TextBox Height="40" FontFamily="monospace" FontSize="16" MaxLength="9" PlaceholderText="K7MQ-2XPA" Text="{Binding CodeInput}">
-                            <TextBox.KeyBindings>
-                                <KeyBinding Gesture="Enter" Command="{Binding FollowCommand}" />
-                            </TextBox.KeyBindings>
-                        </TextBox>
-                        <Button Grid.Column="1" Classes="primary" MinWidth="110" HorizontalContentAlignment="Center" Content="Follow"
-                                Command="{Binding FollowCommand}" />
-                    </Grid>
-
-                    <Border Padding="16" CornerRadius="16" Background="{DynamicResource OrielPaperBrush}" IsVisible="{Binding IsFollowing}">
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
-                            <Border Width="44" Height="44" CornerRadius="22" Background="{DynamicResource OrielInkBrush}">
-                                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="18" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource OrielPaperBrush}" Text="{Binding FollowingInitial}" />
+                <!--  The three things to do, as one list  -->
+                <Border CornerRadius="20" Background="{DynamicResource OrielSurfaceBrush}">
+                    <StackPanel>
+                        <Grid Margin="20,16" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                            <Border Width="40" Height="40" CornerRadius="12" Background="{DynamicResource OrielPaperBrush}">
+                                <PathIcon Data="{StaticResource IconShare}" Width="16" Height="16" />
                             </Border>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                <TextBlock FontWeight="SemiBold" Text="{Binding FollowingName, StringFormat='Following {0}'}" />
-                                <TextBlock Classes="muted small" TextWrapping="Wrap" Text="Your desktop shows their wallpaper as it changes." />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock FontWeight="SemiBold" Text="Share my wallpaper" />
+                                <TextBlock Classes="muted small" Text="{Binding ShareDetail}" />
                             </StackPanel>
-                            <Button Grid.Column="2" VerticalAlignment="Center" Content="Unfollow" Command="{Binding UnfollowCommand}" />
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                            <Button Height="36" VerticalContentAlignment="Center" Content="Turn off" Command="{Binding TurnOffSharingCommand}" IsVisible="{Binding IsSharing}" />
+                            <!--  Like Share on Home: copy the link or send it straight to a chat  -->
+                            <Button Classes="primary" Height="36" VerticalContentAlignment="Center" MinWidth="96" HorizontalContentAlignment="Center" Content="{Binding ShareText}">
+                                <Button.Flyout>
+                                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                        <MenuItem Header="Copy link" Click="CopyLink_Click" />
+                                        <MenuItem Header="Telegram" Click="ShareTelegram_Click" />
+                                        <MenuItem Header="WhatsApp" Click="ShareWhatsApp_Click" />
+                                        <MenuItem Header="Email" Click="ShareEmail_Click" />
+                                    </MenuFlyout>
+                                </Button.Flyout>
+                            </Button>
+                            </StackPanel>
                         </Grid>
-                    </Border>
 
-                    <Border CornerRadius="12" Padding="16,10" Background="#33E0A100" IsVisible="{Binding HasFollowError}">
-                        <TextBlock Text="{Binding FollowError}" TextWrapping="Wrap" />
-                    </Border>
-                    <Border CornerRadius="12" Padding="16,10" Background="{DynamicResource OrielPaperBrush}" IsVisible="{Binding HasFollowProblem}">
-                        <TextBlock Text="{Binding FollowProblem}" TextWrapping="Wrap" />
-                    </Border>
+                        <StackPanel IsVisible="{Binding IsNotFollowing}">
+                            <Border Height="1" Margin="76,0,20,0" Background="{DynamicResource OrielLineBrush}" />
+                            <Grid Margin="20,16" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                                <Border Width="40" Height="40" CornerRadius="12" Background="{DynamicResource OrielPaperBrush}">
+                                    <PathIcon Data="{StaticResource IconPlus}" Width="16" Height="16" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock FontWeight="SemiBold" Text="Follow a friend" />
+                                    <TextBlock Classes="muted small" Text="Use a friend's wallpaper." />
+                                </StackPanel>
+                                <Button Grid.Column="2" Height="36" VerticalContentAlignment="Center" MinWidth="96" HorizontalContentAlignment="Center" Content="Enter code" Click="EnterCode_Click" />
+                            </Grid>
+                        </StackPanel>
+
+                        <StackPanel IsVisible="{Binding HasFollowers}">
+                            <Border Height="1" Margin="76,0,20,0" Background="{DynamicResource OrielLineBrush}" />
+                            <Grid Margin="20,16" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                                <Border Width="40" Height="40" CornerRadius="12" Background="{DynamicResource OrielPaperBrush}">
+                                    <PathIcon Data="{StaticResource IconPeople}" Width="16" Height="16" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock FontWeight="SemiBold" Text="Followers" />
+                                    <TextBlock Classes="muted small" Text="{Binding FollowersDetail}" />
+                                </StackPanel>
+                                <Button Grid.Column="2" Height="36" VerticalContentAlignment="Center" MinWidth="96" HorizontalContentAlignment="Center" Content="See all" Command="{Binding OpenFollowersCommand}" />
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border CornerRadius="12" Padding="16,10" Background="#33E0A100" IsVisible="{Binding HasMessage}">
+                    <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!--  ============ Windows over the page ============  -->
+        <Panel IsVisible="{Binding IsDialogOpen}">
+            <Border Background="#80000000" PointerPressed="Backdrop_PointerPressed" />
+
+            <!--  Enter a friend's code  -->
+            <Border Width="380" Padding="24" CornerRadius="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{DynamicResource OrielPaperBrush}" IsVisible="{Binding IsCodeOpen}">
+                <StackPanel Spacing="14">
+                    <TextBlock FontSize="20" FontWeight="SemiBold" Text="Follow a friend" />
+                    <TextBox x:Name="CodeBox" Height="44" FontFamily="monospace" FontSize="18" LetterSpacing="2" MaxLength="9"
+                             VerticalContentAlignment="Center" PlaceholderText="K7MQ-2XPA" Text="{Binding CodeInput}">
+                        <TextBox.KeyBindings>
+                            <KeyBinding Gesture="Enter" Command="{Binding SubmitCodeCommand}" />
+                            <KeyBinding Gesture="Escape" Command="{Binding CloseDialogsCommand}" />
+                        </TextBox.KeyBindings>
+                    </TextBox>
+                    <TextBlock Foreground="#D32F2F" TextWrapping="Wrap" Text="{Binding CodeError}" IsVisible="{Binding HasCodeError}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                        <Button Height="36" VerticalContentAlignment="Center" Content="Cancel" Command="{Binding CloseDialogsCommand}" />
+                        <Button Classes="primary" Height="36" VerticalContentAlignment="Center" MinWidth="96" HorizontalContentAlignment="Center" Content="Follow"
+                                IsEnabled="{Binding CanFollowCode}" Command="{Binding SubmitCodeCommand}" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
-            <!--  ============ How it works ============  -->
-            <TextBlock Classes="section" Margin="2,8,0,0" Text="How it works" />
-            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
-                <Border Padding="18" CornerRadius="16" Background="{DynamicResource OrielSurfaceBrush}">
-                    <StackPanel Spacing="10">
-                        <Border Width="28" Height="28" HorizontalAlignment="Left" CornerRadius="14" Background="{DynamicResource OrielInkBrush}">
-                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource OrielPaperBrush}" Text="1" />
-                        </Border>
-                        <TextBlock Classes="muted small" TextWrapping="Wrap" Text="Create your code here." />
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="1" Padding="18" CornerRadius="16" Background="{DynamicResource OrielSurfaceBrush}">
-                    <StackPanel Spacing="10">
-                        <Border Width="28" Height="28" HorizontalAlignment="Left" CornerRadius="14" Background="{DynamicResource OrielInkBrush}">
-                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource OrielPaperBrush}" Text="2" />
-                        </Border>
-                        <TextBlock Classes="muted small" TextWrapping="Wrap" Text="Send it to a friend who has Oriel." />
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="2" Padding="18" CornerRadius="16" Background="{DynamicResource OrielSurfaceBrush}">
-                    <StackPanel Spacing="10">
-                        <Border Width="28" Height="28" HorizontalAlignment="Left" CornerRadius="14" Background="{DynamicResource OrielInkBrush}">
-                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource OrielPaperBrush}" Text="3" />
-                        </Border>
-                        <TextBlock Classes="muted small" TextWrapping="Wrap" Text="Their desktop follows yours. Stop sharing any time." />
-                    </StackPanel>
-                </Border>
-            </Grid>
-        </StackPanel>
-    </ScrollViewer>
+            <!--  Who follows you  -->
+            <Border Width="420" Padding="24" CornerRadius="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{DynamicResource OrielPaperBrush}" IsVisible="{Binding IsFollowersOpen}">
+                <StackPanel Spacing="12">
+                    <TextBlock FontSize="20" FontWeight="SemiBold" Text="Followers" />
+                    <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding HasNoFollowers}"
+                               Text="No one yet. Share your wallpaper and friends who follow show up here." />
+                    <ScrollViewer MaxHeight="320" IsVisible="{Binding HasFollowers}">
+                        <ItemsControl ItemsSource="{Binding FollowerRows}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Spacing="4" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FollowerRow">
+                                    <Grid Margin="0,6" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                        <Border Width="36" Height="36" CornerRadius="18" Background="{DynamicResource OrielInkBrush}">
+                                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource OrielPaperBrush}" Text="{Binding Initial}" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
+                                            <TextBlock Classes="muted small" Text="{Binding Since}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="2" VerticalAlignment="Center" Content="{Binding RemoveText}" Click="RemoveFollower_Click" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    <Button HorizontalAlignment="Right" Content="Done" Command="{Binding CloseDialogsCommand}" />
+                </StackPanel>
+            </Border>
+        </Panel>
+    </Panel>
 </UserControl>

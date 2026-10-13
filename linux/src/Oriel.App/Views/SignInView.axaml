@@ -27,6 +27,12 @@
             </StackPanel>
         </Button>
 
+        <!--  Accounts made with an email and password: the website opens with its email form ready.  -->
+        <Button HorizontalAlignment="Center" Background="Transparent" Padding="10,4" CornerRadius="14"
+                Command="{Binding OpenEmailCommand}" IsEnabled="{Binding IsIdle}">
+            <TextBlock FontSize="13" Text="Use email and password instead" />
+        </Button>
+
         <TextBlock Classes="muted" HorizontalAlignment="Center" Text="Waiting for you to finish in the browser…" IsVisible="{Binding IsWaiting}" />
 
         <Button Margin="0,12,0,0" HorizontalAlignment="Center" Background="Transparent" Padding="10,6" CornerRadius="16"

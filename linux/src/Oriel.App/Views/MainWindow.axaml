@@ -81,6 +81,14 @@
             <views:OnboardingView DataContext="{Binding Onboarding}" />
         </Panel>
 
+        <!--  Signing out: nothing can be clicked until it's done.  -->
+        <Panel Background="{DynamicResource OrielPaperBrush}" IsVisible="{Binding IsSigningOut}" ZIndex="10">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14">
+                <Arc Classes="spinner busy" Width="32" Height="32" HorizontalAlignment="Center" />
+                <TextBlock Classes="muted" HorizontalAlignment="Center" Text="Signing out…" />
+            </StackPanel>
+        </Panel>
+
         <!--  Covers the app until the account is signed in.  -->
         <Panel IsVisible="{Binding IsSignedOut}">
             <views:SignInView DataContext="{Binding SignIn}" />

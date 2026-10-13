@@ -2,8 +2,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Oriel.UI.ViewModels"
              xmlns:views="using:Oriel.UI.Views"
+             xmlns:controls="using:Oriel.UI.Controls"
              x:Class="Oriel.UI.Views.SearchView"
              x:DataType="vm:CollectionsViewModel">
+
     <ScrollViewer>
         <Panel>
             <!--  ============ Search ============  -->
@@ -38,28 +40,46 @@
 
                 <!--  Start: ideas to search for (gone once you search)  -->
                 <StackPanel Margin="0,22,0,0" IsVisible="{Binding ShowStart}">
-                    <TextBlock Classes="section" Margin="2,0,0,10" Text="Try searching for" />
-                    <ItemsControl ItemsSource="{Binding Suggestions}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="x:String">
-                                <Button Margin="0,0,8,8" Content="{Binding}"
-                                        Command="{Binding $parent[ItemsControl].((vm:CollectionsViewModel)DataContext).SearchForCommand}"
-                                        CommandParameter="{Binding}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <Border Padding="20" CornerRadius="20" Background="{DynamicResource OrielSurfaceBrush}">
+                        <StackPanel Spacing="14">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Need an idea?" />
+                                <Button Grid.Column="1" Command="{Binding ShuffleSuggestionsCommand}" ToolTip.Tip="Other ideas">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" />
+                                        <TextBlock VerticalAlignment="Center" Text="Shuffle" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                            <!--  Each idea as wide as its words  -->
+                            <ItemsControl ItemsSource="{Binding Suggestions}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <Button Margin="0,0,8,8" Background="{DynamicResource OrielPaperBrush}"
+                                                Command="{Binding $parent[ItemsControl].((vm:CollectionsViewModel)DataContext).SearchForCommand}"
+                                                CommandParameter="{Binding}">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <PathIcon Data="{StaticResource IconSearch}" Width="12" Height="12" Foreground="{DynamicResource OrielMutedBrush}" />
+                                                <TextBlock VerticalAlignment="Center" Text="{Binding}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <!--  Interests: a row that opens its own page, like a Settings category  -->
                 <Button MinHeight="68" Margin="0,22,0,0" Padding="20,14,16,14" HorizontalAlignment="Stretch" IsVisible="{Binding ShowStart}"
                         HorizontalContentAlignment="Stretch" CornerRadius="16" Command="{Binding OpenMixCommand}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
-                        <PathIcon Data="{StaticResource IconRefresh}" Width="18" Height="18" Foreground="{DynamicResource OrielMutedBrush}" />
+                        <PathIcon Data="{StaticResource IconHeart}" Width="18" Height="18" Foreground="{DynamicResource OrielMutedBrush}" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                             <TextBlock FontWeight="SemiBold" Text="Interests" />
                             <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding MixSummary}" />
@@ -109,55 +129,118 @@
             </StackPanel>
 
             <!--  ============ Interests ============  -->
-            <StackPanel MaxWidth="960" Margin="40,32,40,40" IsVisible="{Binding IsMixOpen}">
-                <Grid Margin="0,0,0,20" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <StackPanel MaxWidth="960" Margin="40,32,40,40" Spacing="20" IsVisible="{Binding IsMixOpen}">
+                <!--  Back, title, what's on, and the quick actions  -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                     <Button Classes="icon" VerticalAlignment="Center" Command="{Binding CloseMixCommand}" ToolTip.Tip="Back">
                         <PathIcon Data="{StaticResource IconBack}" Width="14" Height="14" />
                     </Button>
-                    <TextBlock Grid.Column="1" Classes="title" Margin="0" VerticalAlignment="Center" Text="Interests" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Classes="title" Margin="0" Text="Interests" />
+                        <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding MixSummary}" />
+                    </StackPanel>
                     <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal" Spacing="6">
-                        <Button Content="Select all" Command="{Binding SelectAllCommand}" CommandParameter="{x:True}"
-                                ToolTip.Tip="Turn on all built-in interests" />
-                        <Button Content="Clear" Command="{Binding SelectAllCommand}" CommandParameter="{x:False}"
-                                ToolTip.Tip="Turn off all built-in interests" />
+                        <Button Content="Select all" Command="{Binding SelectAllCommand}" CommandParameter="{x:True}" />
+                        <Button Content="Clear" Command="{Binding SelectAllCommand}" CommandParameter="{x:False}" />
                     </StackPanel>
                 </Grid>
 
-                <views:InfoBanner Margin="0,0,0,12" DataContext="{Binding NothingOnInfo}" />
+                <views:InfoBanner DataContext="{Binding NothingOnInfo}" />
 
-                <ItemsControl ItemsSource="{Binding BuiltInTopics}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:TopicViewModel">
-                            <ToggleButton Classes="chip" Margin="0,0,8,8" Content="{Binding ChipText}" IsChecked="{Binding IsEnabled}" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    <ItemsRepeater ItemsSource="{Binding BuiltInTopics}">
+                        <ItemsRepeater.Layout>
+                            <UniformGridLayout ItemsStretch="Fill" MinColumnSpacing="12" MinItemHeight="136" MinItemWidth="190" MinRowSpacing="12" />
+                        </ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TopicViewModel">
+                                    <!--  One interest: its photo, its name, and a check when it's on. A click turns it on or off.  -->
+                                    <Panel Height="136">
+                                        <Button Classes="phototile" CornerRadius="16" Background="#1C1C1C"
+                                                Command="{Binding ToggleCommand}" ToolTip.Tip="{Binding CoverCredit}">
+                                            <Panel>
+                                                <!--  The photo eases in like everywhere else; hovering zooms it a little (the wrapper scales)  -->
+                                                <Panel Classes="zoom">
+                                                    <!--  Until the photo is there: the Oriel mark (and, for your own, what's happening)  -->
+                                                    <StackPanel Margin="0,0,0,26" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
+                                                        <Image Width="30" Height="30" Opacity="0.35" Source="avares://Oriel/Assets/Logo-Dark.png" />
+                                                        <TextBlock HorizontalAlignment="Center" FontSize="12" Foreground="#99FFFFFF" Text="{Binding CoverNote}"
+                                                                   IsVisible="{Binding HasNoCover}" />
+                                                    </StackPanel>
+                                                    <Image controls:ImageReveal.Enabled="True" Source="{Binding Cover}" Stretch="UniformToFill" />
+                                                </Panel>
+                                                <Border Background="{StaticResource OrielPhotoScrimBrush}" />
+                                                <TextBlock Margin="14,0,14,12" VerticalAlignment="Bottom" FontWeight="SemiBold" Foreground="White"
+                                                           TextTrimming="CharacterEllipsis" Text="{Binding Label}" />
+                                                <!--  On: a white disc with a check. Off: an empty ring.  -->
+                                                <Border Width="24" Height="24" Margin="10" HorizontalAlignment="Right" VerticalAlignment="Top" CornerRadius="12"
+                                                        Background="White" IsVisible="{Binding IsEnabled}">
+                                                    <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14" Foreground="#141414" />
+                                                </Border>
+                                                <Border Width="24" Height="24" Margin="10" HorizontalAlignment="Right" VerticalAlignment="Top" CornerRadius="12"
+                                                        Background="#33000000" BorderBrush="#CCFFFFFF" BorderThickness="1.5" IsVisible="{Binding IsOff}" />
+                                            </Panel>
+                                        </Button>
+                                        <Border CornerRadius="16" BorderBrush="White" BorderThickness="2" IsHitTestVisible="False" IsVisible="{Binding IsEnabled}" />
+                                        <!--  Your own ones can be removed  -->
+                                        <Button Width="28" Height="28" Margin="8" Padding="0" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="14" Background="#66000000"
+                                                Command="{Binding RemoveCommand}" ToolTip.Tip="Remove" IsVisible="{Binding IsCustom}">
+                                            <PathIcon Data="{StaticResource IconClose}" Width="10" Height="10" Foreground="White" />
+                                        </Button>
+                                    </Panel>
+                                </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
 
-                <StackPanel Margin="0,14,0,0" IsVisible="{Binding HasCustomTopics}">
-                    <TextBlock Classes="section" Margin="2,0,0,10" Text="Your searches" />
-                    <ItemsControl ItemsSource="{Binding CustomTopics}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:TopicViewModel">
-                                <!--  The chip turns the search on or off; the small x removes it.  -->
-                                <StackPanel Orientation="Horizontal" Spacing="2" Margin="0,0,8,8">
-                                    <ToggleButton Classes="chip" Content="{Binding ChipText}" IsChecked="{Binding IsEnabled}" />
-                                    <Button Classes="icon small" VerticalAlignment="Center" Command="{Binding RemoveCommand}" ToolTip.Tip="Remove">
-                                        <PathIcon Data="{StaticResource IconClose}" Width="10" Height="10" />
-                                    </Button>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                <!--  Your own: added from Search (search first, then Add to Interests)  -->
+                <StackPanel Margin="0,8,0,0" Spacing="12">
+                    <TextBlock Margin="2,0,0,0" FontSize="15" FontWeight="SemiBold" Text="Your own" />
+                    <TextBlock Classes="muted" Margin="2,0,0,0" TextWrapping="Wrap"
+                               Text="Search for anything, then press Add to Interests to make it one of yours." />
+                    <ItemsRepeater ItemsSource="{Binding CustomTopics}" IsVisible="{Binding HasCustomTopics}">
+                        <ItemsRepeater.Layout>
+                            <UniformGridLayout ItemsStretch="Fill" MinColumnSpacing="12" MinItemHeight="136" MinItemWidth="190" MinRowSpacing="12" />
+                        </ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TopicViewModel">
+                                    <!--  One interest: its photo, its name, and a check when it's on. A click turns it on or off.  -->
+                                    <Panel Height="136">
+                                        <Button Classes="phototile" CornerRadius="16" Background="#1C1C1C"
+                                                Command="{Binding ToggleCommand}" ToolTip.Tip="{Binding CoverCredit}">
+                                            <Panel>
+                                                <!--  The photo eases in like everywhere else; hovering zooms it a little (the wrapper scales)  -->
+                                                <Panel Classes="zoom">
+                                                    <!--  Until the photo is there: the Oriel mark (and, for your own, what's happening)  -->
+                                                    <StackPanel Margin="0,0,0,26" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
+                                                        <Image Width="30" Height="30" Opacity="0.35" Source="avares://Oriel/Assets/Logo-Dark.png" />
+                                                        <TextBlock HorizontalAlignment="Center" FontSize="12" Foreground="#99FFFFFF" Text="{Binding CoverNote}"
+                                                                   IsVisible="{Binding HasNoCover}" />
+                                                    </StackPanel>
+                                                    <Image controls:ImageReveal.Enabled="True" Source="{Binding Cover}" Stretch="UniformToFill" />
+                                                </Panel>
+                                                <Border Background="{StaticResource OrielPhotoScrimBrush}" />
+                                                <TextBlock Margin="14,0,14,12" VerticalAlignment="Bottom" FontWeight="SemiBold" Foreground="White"
+                                                           TextTrimming="CharacterEllipsis" Text="{Binding Label}" />
+                                                <!--  On: a white disc with a check. Off: an empty ring.  -->
+                                                <Border Width="24" Height="24" Margin="10" HorizontalAlignment="Right" VerticalAlignment="Top" CornerRadius="12"
+                                                        Background="White" IsVisible="{Binding IsEnabled}">
+                                                    <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14" Foreground="#141414" />
+                                                </Border>
+                                                <Border Width="24" Height="24" Margin="10" HorizontalAlignment="Right" VerticalAlignment="Top" CornerRadius="12"
+                                                        Background="#33000000" BorderBrush="#CCFFFFFF" BorderThickness="1.5" IsVisible="{Binding IsOff}" />
+                                            </Panel>
+                                        </Button>
+                                        <Border CornerRadius="16" BorderBrush="White" BorderThickness="2" IsHitTestVisible="False" IsVisible="{Binding IsEnabled}" />
+                                        <!--  Your own ones can be removed  -->
+                                        <Button Width="28" Height="28" Margin="8" Padding="0" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="14" Background="#66000000"
+                                                Command="{Binding RemoveCommand}" ToolTip.Tip="Remove" IsVisible="{Binding IsCustom}">
+                                            <PathIcon Data="{StaticResource IconClose}" Width="10" Height="10" Foreground="White" />
+                                        </Button>
+                                    </Panel>
+                                </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
                 </StackPanel>
             </StackPanel>
         </Panel>

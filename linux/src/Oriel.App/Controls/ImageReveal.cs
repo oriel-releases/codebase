@@ -12,6 +12,8 @@ namespace Oriel.UI.Controls;
 public sealed class ImageReveal : AvaloniaObject
 {
     static readonly TimeSpan FadeTime = TimeSpan.FromMilliseconds(450);
+    /// <summary>Pictures already revealed once: shown again (back on a page, History <-> Favorites) they just appear.</summary>
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Avalonia.Media.IImage, object> Revealed = new();
 
     public static readonly AttachedProperty<bool> EnabledProperty =
         AvaloniaProperty.RegisterAttached<ImageReveal, Image, bool>("Enabled");
@@ -28,11 +30,12 @@ public sealed class ImageReveal : AvaloniaObject
     {
         if (!GetEnabled(image)) return;
         image.Transitions = null;
-        if (e.NewValue is null)
+        if (e.NewValue is null || (e.NewValue is Avalonia.Media.IImage known && Revealed.TryGetValue(known, out _)))
         {
             image.Opacity = 1;
             return;
         }
+        if (e.NewValue is Avalonia.Media.IImage shown) Revealed.AddOrUpdate(shown, Revealed);
         image.Opacity = 0;
         Dispatcher.UIThread.Post(() =>
         {

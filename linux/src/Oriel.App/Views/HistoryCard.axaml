@@ -36,7 +36,7 @@
                     <TextBlock FontSize="12" Foreground="#CCFFFFFF" TextTrimming="CharacterEllipsis" Text="{Binding Details}" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Classes="actions" VerticalAlignment="Center" Orientation="Horizontal" Spacing="4">
-                    <Button Classes="icon small onphoto-icon" Command="{Binding ReapplyCommand}" IsEnabled="{Binding FileExists}"
+                    <Button Classes="icon small onphoto-icon" Command="{Binding ReapplyCommand}" IsEnabled="{Binding CanReapply}"
                             ToolTip.Tip="Set as wallpaper again">
                         <PathIcon Data="{StaticResource IconImage}" Width="14" Height="14" />
                     </Button>

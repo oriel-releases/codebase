@@ -85,7 +85,7 @@ static class Cli
                 Out(result.Error!);
                 return 0;
             case ApplyStatus.SignInRequired:
-                Out("Sign in to Oriel first: open the app and continue with Google.");
+                Out("Sign in to Oriel first: open the app and sign in.");
                 return 3;
             default:
                 Out($"Failed: {result.Error} (current wallpaper kept)");
