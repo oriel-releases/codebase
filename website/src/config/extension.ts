@@ -5,7 +5,7 @@ export const extension = {
   stores: [
     { id: "chrome", name: "Chrome Web Store", browsers: "Chrome, Brave, Opera and Vivaldi", url: "https://chromewebstore.google.com/detail/oriel/jnpehcopmbingbgjedpbdeamkompbbol" as string | null },
     { id: "edge", name: "Microsoft Edge Add-ons", browsers: "Edge", url: "https://microsoftedge.microsoft.com/addons/detail/oriel/kndnegimfojlhmfjnfgccdphmbmdginh" as string | null },
-    { id: "firefox", name: "Firefox Add-ons", browsers: "Firefox", url: null as string | null },
+    { id: "firefox", name: "Firefox Add-ons", browsers: "Firefox", url: "https://addons.mozilla.org/addon/oriel" as string | null },
   ],
 } as const;
 

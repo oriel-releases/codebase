@@ -21,7 +21,7 @@ export const features: Feature[] = [
 ];
 
 export const steps: Step[] = [
-  { title: "Download", body: "Get Oriel for Windows or Linux. Sign in with Google, no key needed." },
+  { title: "Download", body: "Get Oriel for Windows or Linux. Sign in with Google or your email, no key needed." },
   { title: "Install", body: "Run Oriel-Setup.exe on Windows, or open Oriel.AppImage on Linux. It settles into your tray in seconds." },
   { title: "Enjoy", body: "Your first wallpaper arrives right away. A new one every day after that." },
 ];
@@ -29,7 +29,7 @@ export const steps: Step[] = [
 export const faq: FaqItem[] = [
   {
     question: "Is Oriel free?",
-    answer: "Yes. Oriel is free to download and use, with no ads. You just sign in with Google.",
+    answer: "Yes. Oriel is free to download and use, with no ads. You just sign in with Google or your email.",
   },
   {
     question: "Do I need an Unsplash account or API key?",

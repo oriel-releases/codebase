@@ -11,7 +11,7 @@ import { sharedElement } from "@/lib/transitions";
 export const metadata = {
   ...pageMetadata({
     title: "Sign in",
-    description: `Sign in to ${site.name} with Google.`,
+    description: `Sign in to ${site.name} with Google or your email.`,
     path: routes.login,
   }),
   robots: { index: false, follow: false },
@@ -19,9 +19,9 @@ export const metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="flex h-svh flex-col overflow-hidden">
+    <div className="flex min-h-svh flex-col">
       <PageTransition>
-        <section className="flex min-h-0 flex-1 items-center pt-16">
+        <section className="flex flex-1 items-center pt-24 pb-12">
           <Container className="flex max-w-sm flex-col items-center text-center">
             <SharedElement name={sharedElement.logo}>
               <Logo size={56} priority className="size-12 sm:size-14" />

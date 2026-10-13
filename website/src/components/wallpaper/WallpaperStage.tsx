@@ -91,6 +91,7 @@ export function WallpaperStage({
   onSet,
   again,
   phone,
+  button = "Set as my wallpaper",
 }: {
   photo: StagePhoto;
   label: string;
@@ -103,6 +104,8 @@ export function WallpaperStage({
   /** The end of the help line after clicking: "open this link again". */
   again: string;
   phone: boolean;
+  /** The button's words. */
+  button?: string;
 }) {
   const [tried, setTried] = useState(false);
   // The card keeps its size the whole time: the photo's shape when known (from the data, or once it has loaded),
@@ -171,7 +174,7 @@ export function WallpaperStage({
             }}
             className="w-full py-3.5 text-base"
           >
-            Set as my wallpaper
+            {button}
           </AnchorButton>
         )
       }
