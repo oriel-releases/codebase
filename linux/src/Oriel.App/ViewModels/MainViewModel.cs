@@ -22,6 +22,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         Shared = shared;
         Shared.Changed += OnSharedChanged;
         _auth.Changed += OnAuthChanged;
+        _auth.SigningOutChanged += OnSigningOut;
         UpdateSignInGate();
         Navigate("home");
     }
@@ -34,6 +35,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSignedOut), nameof(ShowApp))]
     public partial bool IsSignedIn { get; set; }
+
+    /// <summary>Signing out: the window waits, nothing can be clicked.</summary>
+    [ObservableProperty] public partial bool IsSigningOut { get; set; }
+
+    void OnSigningOut(object? sender, EventArgs e) =>
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => IsSigningOut = _auth.IsSigningOut);
     public bool IsSignedOut => !IsSignedIn;
 
     /// <summary>The first-run tour covers the app until it is finished or skipped.</summary>
@@ -110,6 +117,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _auth.Changed -= OnAuthChanged;
+        _auth.SigningOutChanged -= OnSigningOut;
         Onboarding.Finished -= OnOnboardingFinished;
         Shared.Changed -= OnSharedChanged;
         if (CurrentPage is SettingsViewModel or FriendsViewModel) (CurrentPage as IDisposable)?.Dispose();

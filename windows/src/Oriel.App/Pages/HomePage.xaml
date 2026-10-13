@@ -31,8 +31,9 @@
                 Message="{x:Bind ViewModel.InfoMessage, Mode=OneWay}"
                 Severity="{x:Bind ViewModel.InfoSeverity, Mode=OneWay}" />
 
-            <!--  Today's wallpaper  -->
+            <!--  Today's wallpaper. Click it twice (and keep clicking) to favorite it: stars burst up (HomePage.xaml.cs).  -->
             <Grid
+                PointerPressed="Preview_PointerPressed"
                 Height="440"
                 Background="{ThemeResource OrielSurfaceBrush}"
                 CornerRadius="{StaticResource OrielLargeRadius}">
@@ -56,6 +57,7 @@
                     AutomationProperties.Name="Current wallpaper"
                     Source="{x:Bind ViewModel.Preview, Mode=OneWay}"
                     Stretch="UniformToFill" />
+                <Canvas x:Name="StarLayer" IsHitTestVisible="False" />
             </Grid>
 
             <!--  Credit (required by Unsplash guidelines) and actions  -->
@@ -145,7 +147,12 @@
                                 FontSize="14"
                                 Glyph="&#xE121;"
                                 Visibility="{x:Bind ViewModel.ShowLimitIcon, Mode=OneWay}" />
-                            <TextBlock Text="{x:Bind ViewModel.ChangeLabel, Mode=OneWay}" />
+                            <!--  The label slides when it changes ("Downloading…" → "Changing…"): HomePage.xaml.cs  -->
+                            <TextBlock x:Name="ChangeText">
+                                <TextBlock.RenderTransform>
+                                    <TranslateTransform x:Name="ChangeTextShift" />
+                                </TextBlock.RenderTransform>
+                            </TextBlock>
                         </StackPanel>
                     </Button>
                 </StackPanel>

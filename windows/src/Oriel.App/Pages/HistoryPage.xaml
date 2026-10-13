@@ -28,6 +28,18 @@
                     VerticalAlignment="Center"
                     Orientation="Horizontal"
                     Spacing="10">
+                    <!--  "Set again": what it's doing now, the same words as on Home and Search.  -->
+                    <StackPanel
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.IsChanging, Mode=OneWay}">
+                        <ProgressRing
+                            Width="14"
+                            Height="14"
+                            IsActive="{x:Bind ViewModel.IsChanging, Mode=OneWay}" />
+                        <TextBlock Style="{StaticResource MutedTextStyle}" Text="{x:Bind ViewModel.Stage, Mode=OneWay}" />
+                    </StackPanel>
                     <Grid
                         Padding="3"
                         Background="{ThemeResource OrielSurfaceBrush}"
@@ -84,7 +96,7 @@
             </StackPanel>
 
             <!--  ItemsRepeater: a plain responsive grid, no list selection chrome  -->
-            <ItemsRepeater ItemsSource="{x:Bind ViewModel.Items}" Visibility="{x:Bind ViewModel.IsGrid, Mode=OneWay}">
+            <ItemsRepeater ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsGrid, Mode=OneWay}">
                 <ItemsRepeater.Layout>
                     <UniformGridLayout
                         ItemsStretch="Fill"
@@ -159,7 +171,7 @@
                                     <Button
                                         AutomationProperties.Name="Set as wallpaper again"
                                         Command="{x:Bind ReapplyCommand}"
-                                        IsEnabled="{x:Bind FileExists}"
+                                        IsEnabled="{x:Bind CanReapply}"
                                         Style="{StaticResource IconButtonStyle}"
                                         ToolTipService.ToolTip="Set as wallpaper again">
                                         <FontIcon FontSize="14" Glyph="&#xE7A7;" />
@@ -196,7 +208,7 @@
             </ItemsRepeater>
 
             <!--  List: one compact row per wallpaper  -->
-            <ItemsRepeater ItemsSource="{x:Bind ViewModel.Items}" Visibility="{x:Bind ViewModel.IsList, Mode=OneWay}">
+            <ItemsRepeater ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsList, Mode=OneWay}">
                 <ItemsRepeater.Layout>
                     <StackLayout Spacing="8" />
                 </ItemsRepeater.Layout>
@@ -255,7 +267,7 @@
                                 <Button
                                     AutomationProperties.Name="Set as wallpaper again"
                                     Command="{x:Bind ReapplyCommand}"
-                                    IsEnabled="{x:Bind FileExists}"
+                                    IsEnabled="{x:Bind CanReapply}"
                                     Style="{StaticResource IconButtonStyle}"
                                     ToolTipService.ToolTip="Set as wallpaper again">
                                     <FontIcon FontSize="14" Glyph="&#xE7A7;" />

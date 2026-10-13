@@ -4,7 +4,8 @@ using Microsoft.Extensions.Logging;
 namespace Oriel.Core.Auth;
 
 /// <summary>
-/// The app's sign-in. Signing in happens on the website; it hands over a Google ID token that this turns into
+/// The app's sign-in. Signing in happens on the website; it hands over a Google ID token (or, for an account
+/// without Google, the Firebase session the website made with the email and password) that this turns into
 /// the app's own Firebase session (a refresh token kept encrypted on this PC) plus a session document in
 /// <c>users/{uid}/sessions</c>. After that the app stays signed in, even offline. It signs out only when
 /// Google rejects the account or the session document was deleted (revoked from somewhere else).
@@ -27,12 +28,19 @@ public sealed class AuthService(IAccountStore store, FirebaseClient firebase, IL
     /// <summary>Checks the account now and then every few hours, without ever blocking the app.</summary>
     public void Start() => _timer ??= new Timer(_ => _ = ValidateAsync(), null, TimeSpan.FromSeconds(5), CheckInterval);
 
-    public async Task SignInAsync(string googleIdToken, CancellationToken ct = default)
+    public Task SignInAsync(string googleIdToken, CancellationToken ct = default) =>
+        SignInAsync(c => firebase.SignInWithGoogleAsync(googleIdToken, c), ct);
+
+    /// <summary>Signs in with the Firebase session the website made for an email and password account.</summary>
+    public Task SignInWithSessionAsync(string refreshToken, CancellationToken ct = default) =>
+        SignInAsync(c => firebase.SignInWithRefreshTokenAsync(refreshToken, c), ct);
+
+    async Task SignInAsync(Func<CancellationToken, Task<FirebaseProfile>> signIn, CancellationToken ct)
     {
         await _gate.WaitAsync(ct);
         try
         {
-            var profile = await firebase.SignInWithGoogleAsync(googleIdToken, ct);
+            var profile = await signIn(ct);
             var account = new Account
             {
                 Uid = profile.Uid,
@@ -74,30 +82,47 @@ public sealed class AuthService(IAccountStore store, FirebaseClient firebase, IL
         }
     }
 
+    /// <summary>True while signing out (removing this session takes a moment): the app covers itself until it's done.</summary>
+    public bool IsSigningOut { get; private set; }
+    /// <summary>Raised when <see cref="IsSigningOut"/> changes, on whatever thread is signing out.</summary>
+    public event EventHandler? SigningOutChanged;
+
     public async Task SignOutAsync()
     {
         var account = _account;
-        if (account is null) return;
-        await _gate.WaitAsync();
+        if (account is null || IsSigningOut) return;
+        IsSigningOut = true;
+        SigningOutChanged?.Invoke(this, EventArgs.Empty);
         try
         {
+            await _gate.WaitAsync();
             try
             {
-                var tokens = await EnsureTokensAsync(account, default);
-                await firebase.DeleteSessionAsync(tokens, account.SessionId);
+                // Never longer than a few seconds: on a bad connection, signing out here is what matters.
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                try
+                {
+                    var tokens = await EnsureTokensAsync(account, timeout.Token);
+                    await firebase.DeleteSessionAsync(tokens, account.SessionId, timeout.Token);
+                }
+                catch (Exception ex) when (ex is FirebaseException or OperationCanceledException)
+                {
+                    // Offline or already revoked: signing out locally is what matters.
+                    log.LogInformation("Couldn't remove the session document: {Reason}", ex.Message);
+                }
+                Forget();
             }
-            catch (FirebaseException ex)
+            finally
             {
-                // Offline or already revoked: signing out locally is what matters.
-                log.LogInformation("Couldn't remove the session document: {Reason}", ex.Message);
+                _gate.Release();
             }
-            Forget();
+            Changed?.Invoke(this, EventArgs.Empty);
         }
         finally
         {
-            _gate.Release();
+            IsSigningOut = false;
+            SigningOutChanged?.Invoke(this, EventArgs.Empty);
         }
-        Changed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Refreshes the token and records activity. Signs out if the account or this session no longer exists.</summary>

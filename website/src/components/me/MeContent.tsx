@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { GlobeIcon, LinuxIcon, MonitorIcon, PuzzleIcon, WindowsIcon } from "@/components/ui/icons";
 import { Logo } from "@/components/ui/Logo";
 import { platformNames, shortDate, timeAgo, type SessionRow } from "@/lib/sessions";
+import { SignInMethods, type MethodActions, type MethodsView } from "@/components/me/SignInMethods";
 
 export type Wallpaper = {
   imageUrl: string;
@@ -30,6 +31,8 @@ const wallpaperShape = "aspect-[4/3] sm:aspect-[2/1]";
 
 type ContentProps = {
   profile: Profile;
+  methods: MethodsView;
+  methodActions: MethodActions;
   wallpaper: Wallpaper | null | undefined;
   sessions: SessionRow[] | null;
   currentId: string | null;
@@ -42,7 +45,7 @@ type ContentProps = {
 };
 
 /** Everything on the page, from plain data (no Firebase). */
-export function MeContent({ profile, wallpaper, sessions, currentId, asking, busy, onAsk, onEnd, onEndOthers, onSignOut }: ContentProps) {
+export function MeContent({ profile, methods, methodActions, wallpaper, sessions, currentId, asking, busy, onAsk, onEnd, onEndOthers, onSignOut }: ContentProps) {
   const others = sessions?.filter((s) => s.id !== currentId) ?? [];
   const initial = (profile.name || profile.email).trim().charAt(0).toUpperCase();
   const target = asking && asking !== "signout" && asking !== "others" ? sessions?.find((s) => s.id === asking) : undefined;
@@ -119,7 +122,8 @@ export function MeContent({ profile, wallpaper, sessions, currentId, asking, bus
           {profile.name && <p className="truncate text-sm text-muted sm:text-base">{profile.email}</p>}
 
           <ul className="mt-5 flex flex-wrap gap-2">
-            <Chip icon={<Image src="/google-g-logo.webp" alt="" width={14} height={14} />}>Google account</Chip>
+            {methods.google && <Chip icon={<Image src="/google-g-logo.webp" alt="" width={14} height={14} />}>Google</Chip>}
+            {methods.password && <Chip>Email and password</Chip>}
             {profile.memberSince && <Chip>Member since {shortDate(profile.memberSince)}</Chip>}
             {sessions && sessions.length > 0 && (
               <Chip>
@@ -132,6 +136,9 @@ export function MeContent({ profile, wallpaper, sessions, currentId, asking, bus
 
       {/* Current wallpaper */}
       <WallpaperCard wallpaper={wallpaper} />
+
+      {/* Sign-in methods: Google, password, or both */}
+      <SignInMethods methods={methods} email={profile.email} actions={methodActions} />
 
       {/* Sessions */}
       <section aria-labelledby="sessions-title" className={`${card} p-5 sm:p-6`}>

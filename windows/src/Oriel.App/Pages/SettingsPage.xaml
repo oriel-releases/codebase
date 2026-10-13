@@ -223,8 +223,10 @@
                         AutomationProperties.Name="Minimum likes"
                         Maximum="1000"
                         Minimum="0"
-                        SmallChange="10"
-                        StepFrequency="10"
+                        SmallChange="50"
+                        StepFrequency="50"
+                        TickFrequency="50"
+                        TickPlacement="Outside"
                         Value="{x:Bind ViewModel.MinLikes, Mode=TwoWay}" />
                     <TextBlock
                         MinWidth="36"

@@ -17,12 +17,19 @@ public sealed partial class CollectionsPage : Page
         InitializeComponent();
     }
 
+    /// <summary>Coming back to Search from elsewhere: new ideas (not when returning from Interests, its own sub page).</summary>
+    protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        if (e.NavigationMode != Microsoft.UI.Xaml.Navigation.NavigationMode.Back) ViewModel.ShuffleSuggestions();
+    }
+
     void Interests_Click(object sender, RoutedEventArgs e) =>
         Frame.Navigate(typeof(InterestsPage), null, new SlideNavigationTransitionInfo { Effect = SlideNavigationTransitionEffect.FromRight });
 
     void Suggestion_Click(object sender, RoutedEventArgs e)
     {
-        if (((Button)sender).Content is string words) ViewModel.SearchForCommand.Execute(words);
+        if (((Button)sender).Tag is string words) ViewModel.SearchForCommand.Execute(words);
     }
 
     /// <summary>Our own ✕ is in the bar; hide the text box's built-in one so there aren't two.</summary>

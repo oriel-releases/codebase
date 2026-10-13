@@ -1,6 +1,6 @@
 namespace Oriel.Core.Auth;
 
-/// <summary>The signed-in Google account, as kept on this PC.</summary>
+/// <summary>The signed-in account (Google or email and password), as kept on this PC.</summary>
 public sealed class Account
 {
     public string Uid { get; set; } = "";

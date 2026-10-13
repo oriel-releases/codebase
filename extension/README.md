@@ -4,13 +4,13 @@ A new tab page with an Unsplash photo, a clock, a quote and an optional search b
 
 Two ways to pick the photo, chosen in the extension's own settings (the gear on the new tab):
 
-- **Match my desktop** (needs an Oriel account): follows the wallpaper that Oriel for Windows / Linux set last, live while the tab is open.
+- **Same as my devices** (needs an Oriel account): shows the wallpaper any device of the account (Windows, Linux, Android) set last, live while the tab is open. The shuffle button here changes it on every device: it publishes a pool photo to `sync/current` (`source: "extension"`) and rings the Realtime Database doorbell `pulse/{uid}`.
 - **Its own**: picks from `src/data/pool.json` (396 curated photos, 14 topics) by topic and frequency (every tab / hourly / daily). Works signed out, with no API key and no API calls.
 
 ## How the sync works
 
 ```
-Oriel desktop ──applies wallpaper──▶ users/{uid}/sync/current (Firestore, owner-only)
+Any Oriel device ──sets wallpaper──▶ users/{uid}/sync/current (Firestore, owner-only) + pulse/{uid} (RTDB doorbell)
                                               │ onSnapshot (live while a new tab is open)
 Extension new tab ◀───────────────────────────┘
 ```
@@ -21,9 +21,13 @@ Extension new tab ◀───────────────────�
 
 ## Sign-in
 
-Reuses the website's Google sign-in, like the desktop apps do:
+Two ways, both under Settings → Account:
 
-1. Settings → *Connect Oriel account* opens `https://oriel.akbarjon.uz/login?for=extension`.
+- **Email and password** (accounts made on the website with email): signed in right in the panel with
+  `signInWithEmailAndPassword`, plus "Forgot password?" (`sendPasswordResetEmail`). The password never leaves the panel.
+- **Google** reuses the website's Google sign-in, like the desktop apps do:
+
+1. *Continue with Google* opens `https://oriel.akbarjon.uz/login?for=extension`.
 2. After Google sign-in, the page `postMessage`s the credential; `src/content/bridge.ts` (a content script that only runs on `/login`) puts it in `chrome.storage.local`.
 3. The new tab page signs in to Firebase with it (`firebase/auth/web-extension`) and creates a `users/{uid}/sessions/{id}` document with `platform: "extension"`. Deleting that session from anywhere signs the browser out within 6 hours.
 
@@ -43,4 +47,4 @@ npm run typecheck
 
 ## Publishing
 
-`npm run package` makes a store build (no localhost permission) and writes the folders `release/oriel-chrome-<version>` (Chrome Web Store and Edge Add-ons), `release/oriel-firefox-<version>` (addons.mozilla.org) and `release/oriel-source-<version>` (the source Mozilla asks for); zip the contents of each yourself. Listing text, permission justifications and the privacy answers are in [STORE.md](STORE.md); the policy lives at `/privacy` on the website. Bump `version` in `package.json` for every submission. The Firebase web config in `src/lib/config.ts` is public by design; access is enforced by Firebase Auth and `website/firestore.rules`.
+`npm run package` makes a store build (no localhost permission) and writes the folders `release/oriel-chrome-<version>` (Chrome Web Store), `release/oriel-edge-<version>` (Edge Add-ons, the same build), `release/oriel-firefox-<version>` (addons.mozilla.org) and `release/oriel-source-<version>` (the source Mozilla asks for); zip the contents of each yourself. Only the newest version stays in `release/`: earlier folders and their zips move to `release/old/<version>/`. Listing text, permission justifications and the privacy answers are in [STORE.md](STORE.md); the policy lives at `/privacy` on the website. Bump `version` in `package.json` for every submission. The Firebase web config in `src/lib/config.ts` is public by design; access is enforced by Firebase Auth and `website/firestore.rules`.

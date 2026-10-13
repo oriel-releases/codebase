@@ -279,6 +279,37 @@ dialog.confirm[open]::backdrop {
 }
 
 /* Content that was swapped in (the install steps after switching system) rises in softly. */
+/* The download page's switches (components/download/SwitchMotion.tsx): the new label slides in from the side that
+   was picked, and its icon turns in (clockwise moving right, the other way moving left). */
+@keyframes swap-in-next {
+  from {
+    opacity: 0;
+    translate: 14px 0;
+    filter: blur(2px);
+  }
+}
+@keyframes swap-in-prev {
+  from {
+    opacity: 0;
+    translate: -14px 0;
+    filter: blur(2px);
+  }
+}
+@keyframes spin-in-next {
+  from {
+    opacity: 0;
+    rotate: -180deg;
+    scale: 0.6;
+  }
+}
+@keyframes spin-in-prev {
+  from {
+    opacity: 0;
+    rotate: 180deg;
+    scale: 0.6;
+  }
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;

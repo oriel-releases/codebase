@@ -19,7 +19,7 @@ public abstract class HistoryItemControl : UserControl
     void Show(HistoryItemViewModel? item)
     {
         if (ReferenceEquals(_shown, item)) return;
-        _shown?.UnloadThumbnail();
+        _shown?.Hide();
         _shown = item;
         if (item is not null) _ = item.LoadThumbnailAsync();
     }

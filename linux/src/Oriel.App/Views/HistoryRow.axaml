@@ -30,7 +30,7 @@
                 <TextBlock Classes="muted small" TextTrimming="CharacterEllipsis" Text="{Binding Details}" />
             </StackPanel>
             <StackPanel Grid.Column="2" Classes="actions" VerticalAlignment="Center" Orientation="Horizontal" Spacing="2">
-                <Button Classes="icon small" Background="Transparent" Command="{Binding ReapplyCommand}" IsEnabled="{Binding FileExists}"
+                <Button Classes="icon small" Background="Transparent" Command="{Binding ReapplyCommand}" IsEnabled="{Binding CanReapply}"
                         ToolTip.Tip="Set as wallpaper again">
                     <PathIcon Data="{StaticResource IconImage}" Width="14" Height="14" />
                 </Button>

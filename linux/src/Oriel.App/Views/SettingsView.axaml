@@ -79,8 +79,8 @@
             </controls:SettingRow>
             <controls:SettingRow Header="Minimum likes" IsVisible="{Binding SkipLowLikes}">
                 <StackPanel Orientation="Horizontal" Spacing="12">
-                    <Slider Width="200" VerticalAlignment="Center" Minimum="0" Maximum="1000" SmallChange="10" TickFrequency="10"
-                            IsSnapToTickEnabled="True" Value="{Binding MinLikes}" />
+                    <Slider Width="200" VerticalAlignment="Center" Minimum="0" Maximum="1000" SmallChange="50" LargeChange="100" TickFrequency="50"
+                            IsSnapToTickEnabled="True" TickPlacement="BottomRight" Value="{Binding MinLikes}" />
                     <TextBlock MinWidth="36" VerticalAlignment="Center" Text="{Binding MinLikes}" />
                 </StackPanel>
             </controls:SettingRow>

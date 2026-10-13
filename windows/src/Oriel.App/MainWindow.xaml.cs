@@ -42,11 +42,18 @@ public sealed partial class MainWindow : Window
         var auth = App.Get<AuthService>();
         void OnAuthChanged(object? s, EventArgs e) => App.Dispatcher.TryEnqueue(UpdateSignInGate);
         auth.Changed += OnAuthChanged;
+        void OnSigningOut(object? s, EventArgs e) => App.Dispatcher.TryEnqueue(() =>
+        {
+            SigningOut.Visibility = auth.IsSigningOut ? Visibility.Visible : Visibility.Collapsed;
+            SigningOutRing.IsActive = auth.IsSigningOut;
+        });
+        auth.SigningOutChanged += OnSigningOut;
         Onboarding.ViewModel.Finished += OnOnboardingFinished;
         Shared.ViewModel.Changed += OnSharedChanged;
         Closed += (_, _) =>
         {
             auth.Changed -= OnAuthChanged;
+            auth.SigningOutChanged -= OnSigningOut;
             Onboarding.ViewModel.Finished -= OnOnboardingFinished;
             Shared.ViewModel.Changed -= OnSharedChanged;
         };
@@ -129,6 +136,13 @@ public sealed partial class MainWindow : Window
         Storyboard.SetTarget(animation, target);
         Storyboard.SetTargetProperty(animation, property);
         return animation;
+    }
+
+    /// <summary>Opens the Friends page (after a friend's follow link).</summary>
+    public void ShowFriends()
+    {
+        if (Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => i.Tag as string == "friends") is { } item)
+            Nav.SelectedItem = item;
     }
 
     void Show(bool settings, string? tag)

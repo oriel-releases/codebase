@@ -14,9 +14,24 @@ public sealed partial class InterestChip(string query, bool selected, Action cha
     public string Label => char.ToUpper(Query[0]) + Query[1..];
     public string ChipText => $"{TopicViewModel.EmojiFor(Query)}  {Label}";
 
-    [ObservableProperty] public partial bool IsSelected { get; set; } = selected;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNotSelected))]
+    public partial bool IsSelected { get; set; } = selected;
+    public bool IsNotSelected => !IsSelected;
 
     partial void OnIsSelectedChanged(bool value) => changed();
+
+    /// <summary>The tile was clicked: picked becomes unpicked and back.</summary>
+    [RelayCommand]
+    void Toggle() => IsSelected = !IsSelected;
+
+    /// <summary>The tile's photo (the same as on the Interests page).</summary>
+    public string? CoverUrl => InterestCovers.Url(Query, 400);
+
+    Microsoft.UI.Xaml.Media.ImageSource? _cover;
+    public Microsoft.UI.Xaml.Media.ImageSource? Cover => _cover ??= CoverUrl is { } url
+        ? new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(url)) { DecodePixelWidth = 280, DecodePixelType = Microsoft.UI.Xaml.Media.Imaging.DecodePixelType.Logical }
+        : null;
 }
 
 /// <summary>One "how often" choice. Behaves like a radio button made of chips: exactly one is always on.</summary>
@@ -25,9 +40,28 @@ public sealed partial class ScheduleChoice(string label, int minutes, Action<Sch
     public string Label { get; } = label;
     public int Minutes { get; } = minutes;
 
-    [ObservableProperty] public partial bool IsSelected { get; set; }
+    /// <summary>One line under the choice, so the difference is clear at a glance.</summary>
+    public string Description => Minutes switch
+    {
+        0 => "A new photo every day, at the time you pick.",
+        60 => "Something new all day long.",
+        180 => "Morning, afternoon and evening.",
+        360 => "A few times a day.",
+        _ => "Day and night.",
+    };
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNotSelected), nameof(ShowsTime))]
+    public partial bool IsSelected { get; set; }
+    public bool IsNotSelected => !IsSelected;
+    /// <summary>"Once a day", chosen: its card opens a second row with the time.</summary>
+    public bool ShowsTime => IsSelected && Minutes == 0;
 
     partial void OnIsSelectedChanged(bool value) => changed(this, value);
+
+    /// <summary>The card was clicked: this becomes the choice.</summary>
+    [RelayCommand]
+    void Select() => IsSelected = true;
 }
 
 /// <summary>
@@ -99,7 +133,8 @@ public sealed partial class OnboardingViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsWelcome), nameof(IsInterests), nameof(IsSchedule), nameof(IsPreferences), nameof(IsDone),
-        nameof(ShowBack), nameof(ShowSkip), nameof(ShowNext), nameof(ShowProgress), nameof(NextText), nameof(StepText), nameof(StepNumber))]
+        nameof(ShowBack), nameof(ShowSkip), nameof(ShowNext), nameof(ShowProgress), nameof(NextText), nameof(StepText), nameof(StepNumber),
+        nameof(Progress), nameof(StepShort))]
     [NotifyCanExecuteChangedFor(nameof(NextCommand), nameof(BackCommand))]
     public partial int Step { get; set; }
 
@@ -115,6 +150,23 @@ public sealed partial class OnboardingViewModel : ObservableObject
     public string NextText => Step == 0 ? "Get started" : "Next";
     public int StepNumber => Step;
     public string StepText => $"Step {Step} of 3";
+    /// <summary>"1/3", beside the progress line.</summary>
+    public string StepShort => $"{Step}/3";
+    /// <summary>How full the progress line is: 1/3, 2/3, 1 on the question steps.</summary>
+    public double Progress => Math.Clamp(Step / 3.0, 0, 1);
+
+    /// <summary>The photos across the top of the welcome step.</summary>
+    public static readonly string[] HeroInterests = ["mountains", "northern lights", "ocean"];
+    public IReadOnlyList<Microsoft.UI.Xaml.Media.ImageSource> HeroPhotos { get; } = HeroInterests
+        .Select(i => (Microsoft.UI.Xaml.Media.ImageSource)new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(InterestCovers.Url(i, 600)!))
+        {
+            DecodePixelWidth = 360,
+            DecodePixelType = Microsoft.UI.Xaml.Media.Imaging.DecodePixelType.Logical,
+        })
+        .ToList();
+    public Microsoft.UI.Xaml.Media.ImageSource Hero1 => HeroPhotos[0];
+    public Microsoft.UI.Xaml.Media.ImageSource Hero2 => HeroPhotos[1];
+    public Microsoft.UI.Xaml.Media.ImageSource Hero3 => HeroPhotos[2];
 
     // ---- Interests ----
 

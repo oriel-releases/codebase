@@ -19,7 +19,8 @@ public static class ServiceCollectionExtensions
         paths.EnsureCreated();
 
         services.AddSingleton(paths);
-        services.AddSingleton(_ => new HttpClient
+        // Connections race IPv6 against IPv4 like a browser does, so a broken IPv6 network never stalls Oriel (see FastConnect).
+        services.AddSingleton(_ => new HttpClient(FastConnect.Handler())
         {
             Timeout = TimeSpan.FromSeconds(60),
             DefaultRequestHeaders = { { "User-Agent", "Oriel/1.0 (+desktop wallpaper app)" } },
@@ -37,10 +38,15 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<UnsplashProvider>();
         services.AddSingleton<IImageProvider>(sp => sp.GetRequiredService<UnsplashProvider>());
         services.AddSingleton<SyncPublisher>();
+        services.AddSingleton<ShareService>();
         services.AddSingleton<ISyncPublisher>(sp => sp.GetRequiredService<SyncPublisher>());
         services.AddSingleton<ISystemTheme, WindowsSystemTheme>();
         services.AddSingleton<WallpaperService>();
         services.AddSingleton<FollowService>();
+        services.AddSingleton<PulseListener>();
+        services.AddSingleton<SettingsSync>();
+        services.AddSingleton<FavoritesSync>();
+        services.AddSingleton<ISlotClaimer, SlotClaimer>();
         services.AddSingleton<TodayService>();
         services.AddSingleton<StatsReporter>();
         services.AddSingleton<IStats>(sp => sp.GetRequiredService<StatsReporter>());

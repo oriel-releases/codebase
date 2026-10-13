@@ -35,12 +35,12 @@
                         </Border>
 
                         <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
-                            <Button Content="Not now" Command="{Binding DismissCommand}" IsVisible="{Binding ShowActions}" />
+                            <Button Height="36" VerticalContentAlignment="Center" Content="Not now" Command="{Binding DismissCommand}" IsVisible="{Binding ShowActions}" />
                             <Button Classes="primary" MinWidth="150" HorizontalContentAlignment="Center" Command="{Binding SetCommand}"
                                     IsEnabled="{Binding CanSet}" IsVisible="{Binding ShowActions}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <Arc Classes="spinner" Classes.busy="{Binding IsSetting}" Stroke="{DynamicResource OrielPaperBrush}" />
-                                    <TextBlock VerticalAlignment="Center" Text="Set as wallpaper" />
+                                    <TextBlock VerticalAlignment="Center" Text="{Binding SetText}" />
                                 </StackPanel>
                             </Button>
                             <Button Classes="primary" MinWidth="120" HorizontalContentAlignment="Center" Content="Done"

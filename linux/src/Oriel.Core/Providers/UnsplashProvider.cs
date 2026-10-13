@@ -72,19 +72,34 @@ public sealed class UnsplashProvider(HttpClient http, IApiKeyStore keys, ILogger
         }
     }
 
+    /// <summary>How long one try at downloading a photo may take; a slow connection gets a second try.</summary>
+    static readonly TimeSpan DownloadTimeout = TimeSpan.FromSeconds(25);
+
     public async Task<byte[]> DownloadAsync(PhotoCandidate photo, PixelSize size, CancellationToken ct)
     {
         var url = BuildDownloadUrl(photo.RawUrl, size);
-        try
+        for (var attempt = 1; ; attempt++)
         {
-            // Image CDN (images.unsplash.com) doesn't count against the API rate limit and needs no key.
-            using var resp = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
-            resp.EnsureSuccessStatusCode();
-            return await resp.Content.ReadAsByteArrayAsync(ct);
-        }
-        catch (HttpRequestException ex)
-        {
-            throw new ProviderException(ProviderErrorKind.Network, "Couldn't download the photo.", ex);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(DownloadTimeout);
+            try
+            {
+                // Image CDN (images.unsplash.com) doesn't count against the API rate limit and needs no key.
+                using var resp = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+                resp.EnsureSuccessStatusCode();
+                return await resp.Content.ReadAsByteArrayAsync(timeout.Token);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException && !ct.IsCancellationRequested)
+            {
+                if (attempt < 2)
+                {
+                    log.LogInformation("Downloading {PhotoId} failed ({Reason}); trying once more", photo.Id, ex.Message);
+                    continue;
+                }
+                throw new ProviderException(ProviderErrorKind.Network, ex is OperationCanceledException
+                    ? "The photo is taking too long to download. Check your connection and try again."
+                    : "Couldn't download the photo. Check your connection and try again.", ex);
+            }
         }
     }
 

@@ -152,7 +152,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         ApplyAtLogin = s.ApplyAtLogin;
         FitIndex = (int)s.Fit;
         SkipLowLikes = s.SkipLowLikes;
-        MinLikes = s.MinLikes;
+        MinLikes = Math.Round(s.MinLikes / 50.0) * 50;
         StartAtLogin = s.StartAtLogin;
         PicturesFolder = _paths.WallpaperFolder(s);
         ApplyToIndex = s.ChangeLockScreen ? 1 : 0;

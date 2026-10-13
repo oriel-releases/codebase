@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Oriel.Core;
+using Oriel.Core.Models;
 using Oriel.Core.Providers;
 using Oriel.Core.Services;
 using Oriel.Core.Settings;
@@ -29,8 +30,9 @@ public sealed partial class HomeViewModel : ObservableObject
     DateOnly? _todayLoadedFor;
 
     public HomeViewModel(WallpaperService wallpapers, IHistoryStore history, ISettingsStore settings,
-        AppPaths paths, Oriel.Core.Auth.AuthService auth, IStats stats, TodayService today)
+        AppPaths paths, Oriel.Core.Auth.AuthService auth, IStats stats, TodayService today, ShareService shares)
     {
+        _shares = shares;
         _stats = stats;
         _today = today;
         _auth = auth;
@@ -39,6 +41,8 @@ public sealed partial class HomeViewModel : ObservableObject
         _settings = settings;
         _paths = paths;
         _settings.SettingsChanged += (_, _) => App.Dispatcher.TryEnqueue(() => _ = RefreshAsync());
+        // Whatever is changing the wallpaper (this button, the schedule, the tray, another device), the button says so.
+        _wallpapers.PhaseChanged += (_, p) => App.Dispatcher.TryEnqueue(() => OnPhase(p));
     }
 
     [ObservableProperty] public partial ImageSource? Preview { get; set; }
@@ -51,11 +55,28 @@ public sealed partial class HomeViewModel : ObservableObject
     [ObservableProperty] public partial Uri? PhotoPageUri { get; set; }
     [ObservableProperty] public partial string Caption { get; set; } = "";
 
-    /// <summary>A link that opens Oriel on a friend's computer and sets this photo as their wallpaper. Null when it can't be shared.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasShareLink))]
-    public partial string? ShareLink { get; set; }
-    public bool HasShareLink => ShareLink is not null;
+    readonly ShareService _shares;
+    /// <summary>The photo on Home, when it can be shared (only Unsplash photos have a page to show).</summary>
+    HistoryEntry? _shareEntry;
+    [ObservableProperty] public partial bool HasShareLink { get; set; }
+
+    /// <summary>
+    /// The short link that opens Oriel on a friend's computer and sets this photo (made on the first share). Null when
+    /// it couldn't be made: Home says why.
+    /// </summary>
+    public async Task<string?> CreateShareLinkAsync()
+    {
+        if (_shareEntry is not { } entry) return null;
+        try
+        {
+            return await _shares.LinkAsync(entry);
+        }
+        catch (ShareException ex)
+        {
+            ShowInfo(InfoBarSeverity.Warning, "Couldn't share", ex.Message);
+            return null;
+        }
+    }
     [ObservableProperty] public partial bool IsLinkCopied { get; set; }
 
     /// <summary>The share link went out (share sheet, copied, or a messenger): one more for the daily count.</summary>
@@ -73,8 +94,26 @@ public sealed partial class HomeViewModel : ObservableObject
     [ObservableProperty] public partial string NextChangeText { get; set; } = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsIdle), nameof(CanChange), nameof(ShowChangeIcon), nameof(ShowLimitIcon))]
+    [NotifyPropertyChangedFor(nameof(IsIdle), nameof(CanChange), nameof(ShowChangeIcon), nameof(ShowLimitIcon), nameof(ChangeLabel))]
     public partial bool IsBusy { get; set; }
+
+    /// <summary>What the change under way is doing: "Finding a photo…", "Downloading…", "Changing…", "Syncing…", "Receiving…".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ChangeLabel))]
+    public partial string? StageText { get; set; }
+
+    void OnPhase(ApplyPhase phase)
+    {
+        if (phase == ApplyPhase.Done)
+        {
+            // No refresh here: the Applied event already updates Home (one preview decode per change, not three).
+            StageText = null;
+            IsBusy = false;
+            return;
+        }
+        StageText = PhaseText.For(phase);
+        IsBusy = true;
+    }
     public bool IsIdle => !IsBusy;
 
     // "Change now" is limited per hour: until it works again the button counts down, e.g. "Try after 20 min".
@@ -85,7 +124,7 @@ public sealed partial class HomeViewModel : ObservableObject
     public bool CanChange => IsIdle && !IsLimited;
     public bool ShowChangeIcon => IsIdle && !IsLimited;
     public bool ShowLimitIcon => IsIdle && IsLimited;
-    public string ChangeLabel => IsLimited ? $"Try after {LimitMinutes} min" : "Change now";
+    public string ChangeLabel => IsBusy && StageText is { } stage ? stage : IsLimited ? $"Try after {LimitMinutes} min" : "Change now";
     Microsoft.UI.Dispatching.DispatcherQueueTimer? _limitTimer;
 
     /// <summary>Shows the minutes left and re-checks every 15 s while limited, so the button comes back by itself.</summary>
@@ -133,7 +172,8 @@ public sealed partial class HomeViewModel : ObservableObject
                 PhotographerName = latest.PhotographerName;
                 PhotographerUri = new Uri(latest.PhotographerUrl);
                 PhotoPageUri = new Uri(latest.PhotoPageUrl);
-                ShareLink = Oriel.Core.Models.ShareLink.Build(latest, _auth.Current?.DisplayName);
+                _shareEntry = ShareService.CanShare(latest) ? latest : null;
+                HasShareLink = _shareEntry is not null;
                 Caption = $"{Cap(latest.Description ?? latest.Topic ?? "")}  ·  {latest.AppliedAt.LocalDateTime:ddd, d MMM HH:mm}";
                 if (_previewWanted && (latest.Id != _currentId || latest.FilePath != _currentFile))
                 {
@@ -178,7 +218,12 @@ public sealed partial class HomeViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(SetTodayCommand))]
     public partial bool IsTodayCurrent { get; set; }
     public bool CanSetToday => !IsTodaySetting && !IsTodayCurrent;
-    public string TodayButtonText => IsTodaySetting ? "Setting…" : IsTodayCurrent ? "On your desktop ✓" : "Set as wallpaper";
+    /// <summary>What setting the Wallpaper of the day is doing now: "Downloading…", "Changing…", "Syncing…".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TodayButtonText))]
+    public partial string? TodayStage { get; set; }
+
+    public string TodayButtonText => IsTodaySetting ? TodayStage ?? "Finding it…" : IsTodayCurrent ? "On your desktop ✓" : "Set as wallpaper";
 
     /// <summary>Today's photo from the website, once a day (the thumbnail is small: 240 px wide).</summary>
     async Task LoadTodayAsync()
@@ -210,11 +255,11 @@ public sealed partial class HomeViewModel : ObservableObject
         IsTodaySetting = true;
         try
         {
-            var result = await Task.Run(async () =>
+            var result = await PhaseWatch.RunAsync(_wallpapers, () => Task.Run(async () =>
             {
                 var photo = await _wallpapers.GetSharedPhotoAsync(today.Id);
                 return await _wallpapers.ApplyPhotoAsync(photo, "wallpaper of the day");
-            });
+            }), stage => App.Dispatcher.TryEnqueue(() => TodayStage = stage));
             ShowResult(result);
         }
         catch (Oriel.Core.Providers.ProviderException ex)
@@ -250,7 +295,8 @@ public sealed partial class HomeViewModel : ObservableObject
         }
         finally
         {
-            IsBusy = false;
+            // Still sharing it with the other devices: "Syncing…" stays until that's done (OnPhase).
+            if (StageText is null) IsBusy = false;
             await RefreshAsync();
         }
     }

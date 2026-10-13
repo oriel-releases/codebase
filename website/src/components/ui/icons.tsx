@@ -79,6 +79,19 @@ export function LinuxIcon(props: IconProps) {
   );
 }
 
+/** Android's robot head (antennae, eyes cut out); takes its colour from the text colour. */
+export function AndroidIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...defaults} {...props}>
+      <path
+        fillRule="evenodd"
+        d="M3.5 19.5a8.5 8.5 0 0 1 17 0zM8.5 14.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zm7 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5z"
+      />
+      <path d="M7.4 12.2 5.6 9M16.6 12.2 18.4 9" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /* Browser logos: Bootstrap Icons (MIT), single-colour so they follow the text colour. */
 export function ChromeIcon(props: IconProps) {
   return (

@@ -55,6 +55,32 @@ public sealed class WindowsWallpaperSetter : IWallpaperSetter
             key?.SetValue("TileWallpaper", tile);
         }
 
+        // Through IDesktopWallpaper, like Windows Settings: Explorer changes the picture and nobody else is disturbed.
+        // SystemParametersInfo(SPIF_SENDCHANGE) also sends WM_SETTINGCHANGE to every window on the PC, so every open app
+        // re-read its settings at the same moment, a visible hitch on a busy machine. It stays as the fallback for when
+        // Explorer's interface isn't available.
+        try
+        {
+            Sta.Run(() =>
+            {
+                var dw = Native.CreateDesktopWallpaper();
+                try
+                {
+                    dw.SetPosition(ToPosition(fit));
+                    dw.SetWallpaper(null, imagePath); // null: every monitor
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(dw);
+                }
+                return 0;
+            });
+            return;
+        }
+        catch (Exception ex) when (ex is COMException or InvalidCastException)
+        {
+        }
+
         if (!Native.SystemParametersInfo(Native.SPI_SETDESKWALLPAPER, 0, imagePath,
                 Native.SPIF_UPDATEINIFILE | Native.SPIF_SENDCHANGE))
             throw new Win32Exception(Marshal.GetLastWin32Error(), "SystemParametersInfo failed to set the wallpaper.");

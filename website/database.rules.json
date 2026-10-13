@@ -1,0 +1,28 @@
+{
+  "rules": {
+    // Realtime Database holds one tiny 'doorbell' per account: pulse/{uid} = {photoId, source, device, at, settingsAt, settingsDevice}.
+    // Rings are PATCHes: a photo ring sets the first four, a settings ring the last two.
+    // A device writes it right after publishing users/{uid}/sync/current in Firestore; the account's other devices keep a live (SSE) connection to it and fetch the new photo at once.
+    // Owner only.
+    // Nothing else lives here.
+    ".read": false,
+    ".write": false,
+    "pulse": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "photoId": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64" },
+        "source": { ".validate": "newData.isString() && newData.val().matches(/^(windows|linux|android|extension)$/)" },
+        "device": { ".validate": "newData.isString() && newData.val().length <= 64" },
+        "at": { ".validate": "newData.isNumber()" },
+        // A "settings changed" ring (sync/settings in Firestore was updated), patched next to the photo fields.
+        "settingsAt": { ".validate": "newData.isNumber()" },
+        "settingsDevice": { ".validate": "newData.isString() && newData.val().length <= 64" },
+        // A "favorites changed" ring (users/{uid}/favorites in Firestore).
+        "favoritesAt": { ".validate": "newData.isNumber()" },
+        "favoritesDevice": { ".validate": "newData.isString() && newData.val().length <= 64" },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}

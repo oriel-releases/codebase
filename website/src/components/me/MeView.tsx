@@ -6,7 +6,20 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { firebaseApp, firebaseAuth, firestore } from "@/lib/firebase";
 import { endSession, ensureWebSession, forgetWebSession, localSessionId, toSessionRow, type SessionRow } from "@/lib/sessions";
+import {
+  addPassword,
+  changePassword,
+  confirmIdentity,
+  connectGoogle,
+  disconnect,
+  methodError,
+  methodsOf,
+  needsRecentLogin,
+  sendVerification,
+  type Methods,
+} from "@/lib/sign-in-methods";
 import { MeContent, Spinner, type Asking, type Wallpaper as WallpaperData } from "@/components/me/MeContent";
+import type { MethodActions, Outcome } from "@/components/me/SignInMethods";
 
 /** Loads the signed-in account's data and wires the buttons. Signed-out visitors are sent to /login and come back here. */
 export function MeView() {
@@ -21,6 +34,8 @@ export function MeView() {
     };
   }, []);
   const [user, setUser] = useState<User | null | undefined>(undefined);
+  // How the account signs in. Kept as state: the Firebase user object changes in place when a method is added or removed.
+  const [methods, setMethods] = useState<Methods | null>(null);
   const [memberSince, setMemberSince] = useState<Date | null>(null);
   const [wallpaper, setWallpaper] = useState<WallpaperData | null | undefined>(undefined);
   const [sessions, setSessions] = useState<SessionRow[] | null>(null);
@@ -43,6 +58,7 @@ export function MeView() {
       if (cancelled) return;
       off = onAuthStateChanged(auth, (next) => {
         setUser(next);
+        setMethods(next ? methodsOf(next) : null);
         if (!next) router.replace("/login?next=me");
       });
     });
@@ -146,15 +162,45 @@ export function MeView() {
     }
   }
 
+  /**
+   * Runs a change to how the account signs in and reports it to the card in plain terms. Firebase may want a fresh
+   * sign-in first: then the card asks the person to prove it's them (with Google if the account has it) and retries.
+   */
+  async function attempt(change: (user: User) => Promise<void>): Promise<Outcome> {
+    const current = auth().currentUser;
+    if (!current) return { ok: false, error: "You're signed out. Sign in again." };
+    try {
+      // No await before this: connecting Google opens a window, which browsers only allow straight after a click.
+      await change(current);
+      await current.reload().catch(() => {});
+      setMethods(methodsOf(current));
+      return { ok: true };
+    } catch (e) {
+      if (needsRecentLogin(e)) return { ok: false, confirm: methodsOf(current).google ? "google" : "password" };
+      return { ok: false, error: methodError(e) };
+    }
+  }
+
+  const methodActions: MethodActions = {
+    addPassword: (password) => attempt((u) => addPassword(u, password)),
+    changePassword: (current, next) => attempt((u) => changePassword(u, current, next)),
+    connectGoogle: () => attempt(connectGoogle),
+    disconnect: (method) => attempt((u) => disconnect(u, method)),
+    confirm: (password) => attempt((u) => confirmIdentity(u, password)),
+    sendVerification: () => attempt(sendVerification),
+  };
+
   // Nothing but the spinner shows until the account, wallpaper and sessions have all arrived; then the page appears
   // whole (a soft fade, nothing moves) while the spinner fades out in place.
   const spinner = spinnerGone ? null : <Spinner leaving={ready} />;
   return (
     <div className="relative min-h-[60svh]">
-      {user && ready && (
+      {user && ready && methods && (
         <div className="me-enter">
           <MeContent
             profile={{ name: user.displayName ?? "", email: user.email ?? "", photo: user.photoURL ?? "", memberSince }}
+            methods={methods}
+            methodActions={methodActions}
             wallpaper={wallpaper}
             sessions={sessions}
             currentId={currentId}

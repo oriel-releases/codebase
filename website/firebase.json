@@ -2,6 +2,9 @@
   "firestore": {
     "rules": "firestore.rules"
   },
+  "database": {
+    "rules": "database.rules.json"
+  },
   "hosting": {
     "public": "out",
     "cleanUrls": true,
@@ -73,6 +76,18 @@
       {
         "source": "/share",
         "destination": "/share.html"
+      },
+      {
+        "source": "/follow",
+        "destination": "/follow.html"
+      },
+      {
+        "source": "/share/**",
+        "destination": "/share.html"
+      },
+      {
+        "source": "/follow/**",
+        "destination": "/follow.html"
       },
       {
         "source": "/today",

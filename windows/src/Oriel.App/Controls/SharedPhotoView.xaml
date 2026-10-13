@@ -62,6 +62,7 @@
                             Spacing="8">
                             <Button
                                 Command="{x:Bind ViewModel.DismissCommand}"
+                                Height="38"
                                 Content="Not now"
                                 Style="{StaticResource PillButtonStyle}"
                                 Visibility="{x:Bind ViewModel.ShowActions, Mode=OneWay}" />
@@ -79,7 +80,7 @@
                                         Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
                                         IsActive="{x:Bind ViewModel.IsSetting, Mode=OneWay}"
                                         Visibility="{x:Bind ViewModel.IsSetting, Mode=OneWay}" />
-                                    <TextBlock Text="Set as wallpaper" />
+                                    <TextBlock Text="{x:Bind ViewModel.SetText, Mode=OneWay}" />
                                 </StackPanel>
                             </Button>
                             <Button

@@ -66,6 +66,14 @@
                 </StackPanel>
             </Button>
 
+            <!--  Accounts made with an email and password: the website opens with its email form ready.  -->
+            <HyperlinkButton
+                HorizontalAlignment="Center"
+                Command="{x:Bind ViewModel.OpenEmailCommand}"
+                Content="Use email and password instead"
+                FontSize="13"
+                IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}" />
+
             <TextBlock
                 HorizontalAlignment="Center"
                 Style="{StaticResource MutedTextStyle}"

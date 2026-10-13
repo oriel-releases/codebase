@@ -12,16 +12,22 @@ import { firebaseAuth } from "@/lib/firebase";
 import { looksSignedIn, subscribeSignedIn } from "@/lib/sessions";
 import { navigation } from "@/lib/transitions";
 import { forgetShare } from "@/lib/pending-share";
-import { appLink, handToExtension, isFresh, signInWithGoogle, type SignedIn } from "@/lib/sign-in";
+import { appLink, continueAsCurrent, handToExtension, hasGoogle, isFresh, signInError, signInWithGoogle, type SignedIn } from "@/lib/sign-in";
+import { EmailForm, type EmailMode } from "@/components/login/EmailForm";
+import { returnPath } from "@/lib/use-user";
 
 type State =
   | { step: "idle"; error?: string }
   | { step: "working" }
   | { step: "done"; result: SignedIn; link: string; opened: boolean }
   | { step: "extension"; email: string }
-  | { step: "extension-failed" };
+  | { step: "extension-failed" }
+  /** Signed in with email, for the extension: the website can only hand it a Google sign-in, so email goes in the extension itself. */
+  | { step: "extension-google"; email: string; hasGoogle: boolean };
 
-export type Account = { name: string; email: string; photo: string };
+export type Account = { name: string; email: string; photo: string; google: boolean };
+
+const query = (name: string) => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get(name));
 
 const noSubscribe = () => () => {};
 
@@ -42,10 +48,15 @@ function LoginSlot({ kind, children }: { kind: string; children?: ReactNode }) {
 const buttonClass =
   "inline-flex items-center justify-center gap-3 rounded-full bg-ink px-6 py-3 text-sm font-medium text-paper transition-opacity  disabled:opacity-60";
 
-/** Google sign-in, then a prompt to open Oriel so the app picks up the account. */
+/** Google or email sign-in, then a prompt to open Oriel so the app picks up the account. */
 export function LoginCard() {
   const router = useRouter();
   const [state, setState] = useState<State>({ step: "idle" });
+  // The email form: which screen it is on, and the address (kept when switching between them).
+  const [emailMode, setEmailMode] = useState<EmailMode>("signin");
+  const [email, setEmail] = useState("");
+  // "Use a different account": show every way in, even though someone is signed in here.
+  const [choosing, setChoosing] = useState<false | "fresh" | "other">(false);
   const hydrated = useSyncExternalStore(noSubscribe, () => true, () => false);
 
   // Is somebody already signed in on this browser? Decided cheaply first (no Firebase), then confirmed.
@@ -58,7 +69,7 @@ export function LoginCard() {
     void firebaseAuth().then((auth) => {
       if (cancelled) return;
       off = onAuthStateChanged(auth, (user) =>
-        setAccount(user ? { name: user.displayName ?? "", email: user.email ?? "", photo: user.photoURL ?? "" } : null),
+        setAccount(user ? { name: user.displayName ?? "", email: user.email ?? "", photo: user.photoURL ?? "", google: hasGoogle(user) } : null),
       );
     });
     return () => {
@@ -68,11 +79,13 @@ export function LoginCard() {
   }, [maybeSignedIn]);
   const known = maybeSignedIn ? account : null; // undefined: still checking
 
-  // Coming from the account page while already signed in: nothing to ask, go straight back.
-  const toAccountPage = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("next") === "me";
+  // Sent here by a page that needs an account (/me, a share or follow link): once signed in, go straight back there
+  // instead of handing the account to an app.
+  const next = returnPath(query("next"));
+  const goingBack = next !== null;
   useEffect(() => {
-    if (known && toAccountPage) router.replace("/me");
-  }, [known, toAccountPage, router]);
+    if (known && next) router.replace(next);
+  }, [known, next, router]);
 
   // A tab opened by the extension can close itself once the hand-over worked.
   useEffect(() => {
@@ -81,32 +94,48 @@ export function LoginCard() {
     return () => clearTimeout(timer);
   }, [state.step]);
 
-  async function signIn(options?: { hint?: string; chooser?: boolean }) {
+  /** Where a finished sign-in goes, however it was made. */
+  async function afterSignIn(result: SignedIn) {
+    // /login?next=... comes from a page that needs an account: go back there instead of handing the account to an app.
+    const back = returnPath(query("next"));
+    if (back) {
+      router.push(back);
+      return;
+    }
+    // /login?for=extension is opened by the browser extension: the credential goes to it instead of the desktop app.
+    if (query("for") === "extension") {
+      if (result.handover.kind !== "google") {
+        setState({ step: "extension-google", email: result.email, hasGoogle: result.hasGoogle });
+        return;
+      }
+      const handed = await handToExtension({ ...result, handover: result.handover });
+      setState(handed ? { step: "extension", email: result.email } : { step: "extension-failed" });
+      return;
+    }
+    // Open the app right away. If the browser blocks it, the "Open Oriel" button is the fallback. The link is made
+    // once: a shared wallpaper waiting in this browser goes along with it and is then forgotten.
+    const link = appLink(result);
+    forgetShare();
+    window.location.href = link;
+    setState({ step: "done", result, link, opened: true });
+  }
+
+  async function run(signIn: () => Promise<SignedIn>) {
     setState({ step: "working" });
     try {
-      const result = await signInWithGoogle(options);
-      // /login?next=me comes from the account page: go back there instead of handing the account to an app.
-      if (new URLSearchParams(window.location.search).get("next") === "me") {
-        router.push("/me");
-        return;
-      }
-      // /login?for=extension is opened by the browser extension: the credential goes to it instead of the desktop app.
-      if (new URLSearchParams(window.location.search).get("for") === "extension") {
-        const handed = await handToExtension(result);
-        setState(handed ? { step: "extension", email: result.email } : { step: "extension-failed" });
-        return;
-      }
-      // Open the app right away. If the browser blocks it, the "Open Oriel" button is the fallback. The link is made
-      // once: a shared wallpaper waiting in this browser goes along with it and is then forgotten.
-      const link = appLink(result);
-      forgetShare();
-      window.location.href = link;
-      setState({ step: "done", result, link, opened: true });
+      await afterSignIn(await signIn());
     } catch (e) {
-      const code = (e as { code?: string }).code;
-      const dismissed = code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request";
-      setState({ step: "idle", error: dismissed ? undefined : "Couldn't sign you in. Please try again." });
+      setState({ step: "idle", error: signInError(e) });
     }
+  }
+
+  const signIn = (options?: { hint?: string; chooser?: boolean }) => run(() => signInWithGoogle(options));
+
+  /** "Continue as" the account signed in here: through Google when it has it (every app version and the extension take that). */
+  function continueAs(known: Account) {
+    if (known.google) return signIn({ hint: known.email });
+    if (query("for") === "extension") return setState({ step: "extension-google", email: known.email, hasGoogle: false });
+    return run(continueAsCurrent);
   }
 
   if (state.step === "extension") {
@@ -124,6 +153,22 @@ export function LoginCard() {
         <button onClick={() => setState({ step: "idle" })} className={`${buttonClass} mt-6 w-full`}>
           Try again
         </button>
+      </StatusCard>
+    );
+  }
+
+  if (state.step === "extension-google") {
+    return (
+      <StatusCard tone="warning" title="Sign in from the extension" detail={state.email}>
+        <p className="text-sm text-balance text-muted">
+          Email accounts sign in right in the extension: open a new tab, then Settings, Account, and use your email and password there.
+        </p>
+        {state.hasGoogle && (
+          <button onClick={() => signIn({ hint: state.email })} className={`${buttonClass} mt-6 w-full`}>
+            <Image src="/google-g-logo.webp" alt="" width={18} height={18} />
+            Or continue with Google
+          </button>
+        )}
       </StatusCard>
     );
   }
@@ -174,8 +219,12 @@ export function LoginCard() {
       </p>
     ) : null;
 
+  // Nobody is signed in here: the ways in stay on screen from now on, even once a sign-in from them has gone through
+  // (otherwise the form would turn into the "continue as" row halfway).
+  if (known === null && !choosing) setChoosing("fresh");
+
   // Still checking, or already on its way back to the account page: a quiet placeholder the size of the account row.
-  if (known === undefined || (known && toAccountPage)) {
+  if (!choosing && (known === undefined || (known && goingBack))) {
     return (
       <LoginSlot kind="checking">
         <div aria-busy="true" className="flex h-[3.75rem] w-full items-center justify-center rounded-full border border-line bg-surface">
@@ -186,27 +235,54 @@ export function LoginCard() {
     );
   }
 
-  // An account is already signed in here: show it (one tap to continue as it), instead of the Google button.
-  if (known) {
+  // An account is already signed in here: show it (one tap to continue as it), instead of the sign-in options.
+  if (known && !choosing) {
     return (
       <LoginSlot kind="account">
-        <KnownAccount account={known} working={working} error={error} onContinue={() => signIn({ hint: known.email })} onOther={() => signIn({ chooser: true })} />
+        <KnownAccount
+          account={known}
+          working={working}
+          error={error}
+          onContinue={() => continueAs(known)}
+          onOther={() => {
+            setState({ step: "idle" });
+            setChoosing("other");
+          }}
+        />
       </LoginSlot>
     );
   }
 
+  // Every way in: Google first (one tap, nothing to remember), then email and password.
+  const autoFocusEmail = query("method") === "email";
   return (
-    <LoginSlot kind="google">
-      <div className="flex w-full flex-col items-center gap-4">
-      <button onClick={() => signIn()} disabled={working} className={buttonClass}>
-        <Image src="/google-g-logo.webp" alt="" width={18} height={18} />
-        {working ? "Waiting for Google…" : "Continue with Google"}
-      </button>
-      {error}
-      {/* Help is for people who are not in yet: it is not shown once an account is signed in. */}
-      <div className="mt-4">
-        <SupportHint>Trouble signing in?</SupportHint>
-      </div>
+    <LoginSlot kind="options">
+      <div className="flex w-full flex-col items-center gap-5">
+        <button onClick={() => signIn(known ? { chooser: true } : undefined)} disabled={working} className={`${buttonClass} w-full`}>
+          <Image src="/google-g-logo.webp" alt="" width={18} height={18} />
+          {working ? "Waiting for Google…" : "Continue with Google"}
+        </button>
+        {error}
+
+        <div className="flex w-full items-center gap-4 text-xs text-muted" role="separator" aria-label="or">
+          <span aria-hidden className="h-px flex-1 bg-line" />
+          <span aria-hidden>or</span>
+          <span aria-hidden className="h-px flex-1 bg-line" />
+        </div>
+
+        <EmailForm mode={emailMode} onMode={setEmailMode} email={email} onEmail={setEmail} autoFocus={autoFocusEmail} onSignedIn={afterSignIn} />
+
+        {known && choosing === "other" ? (
+          // Came here through "Use a different account": the way back.
+          <button type="button" onClick={() => setChoosing(false)} disabled={working} className="text-sm text-muted underline underline-offset-4 hover:text-ink disabled:opacity-60">
+            Back to {known.name || known.email}
+          </button>
+        ) : (
+          // Help is for people who are not in yet: it is not shown once an account is signed in.
+          <div className="mt-2">
+            <SupportHint>Trouble signing in?</SupportHint>
+          </div>
+        )}
       </div>
     </LoginSlot>
   );

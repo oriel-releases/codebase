@@ -9,7 +9,7 @@ export const privacyPage = {
     {
       title: "What Oriel stores",
       body: [
-        "When you sign in with Google, we receive your name, email address and profile picture from Google. They are saved in your account document so the website can show who is signed in.",
+        "When you sign in with Google, we receive your name, email address and profile picture from Google. When you sign up with your email instead, we keep the name and email address you enter; your password is handled by Google's Firebase Authentication and never stored by Oriel. They are saved in your account document so the website can show who is signed in.",
         "For every app or browser that is signed in, we keep a small session record: the platform (Windows, Linux or extension), a device name and the time of the last activity. This is what the Devices list on your account page shows.",
         "When a desktop app changes your wallpaper, it saves the Unsplash photo ID, its links, the photographer's name, the topic and a color picked from the photo, so the extension (and your other devices) can show the same photo. We never store the image itself.",
         "If you share your wallpaper with a code, the code and your first name are saved. People who follow you with it can see the photo on your desktop (the same Unsplash details as above, nothing else), and you can see how many follow you. Stop sharing and the code stops working for everyone. When you follow a friend, your first name is saved in their list of followers until you unfollow.",

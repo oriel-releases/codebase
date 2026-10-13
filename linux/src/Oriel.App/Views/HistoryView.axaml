@@ -8,7 +8,10 @@
         <StackPanel MaxWidth="960" Margin="40,8,40,40">
             <Grid>
                 <TextBlock Classes="title" Text="{Binding Title}" />
-                <Border HorizontalAlignment="Right" VerticalAlignment="Center" Padding="3" CornerRadius="12"
+                <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal" Spacing="10">
+                <!--  "Set again": what it's doing now, the same words as on Home and Search.  -->
+                <TextBlock Classes="muted" VerticalAlignment="Center" Text="{Binding Stage}" IsVisible="{Binding IsChanging}" />
+                <Border VerticalAlignment="Center" Padding="3" CornerRadius="12"
                         Background="{DynamicResource OrielSurfaceBrush}">
                     <StackPanel Orientation="Horizontal" Spacing="2">
                         <ToggleButton Classes="icon small seg" Width="34" Height="30" CornerRadius="9" Background="Transparent"
@@ -21,6 +24,7 @@
                         </ToggleButton>
                     </StackPanel>
                 </Border>
+                </StackPanel>
             </Grid>
 
             <views:InfoBanner Margin="0,0,0,12" DataContext="{Binding Info}" />

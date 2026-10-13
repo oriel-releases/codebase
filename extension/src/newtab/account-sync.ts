@@ -106,7 +106,23 @@ export function createAccountSync(host: AccountSyncHost) {
     });
   }
 
+  /** Email and password, typed in the panel. Throws the reason (in words) when it doesn't work. */
+  async function signInWithEmail(email: string, password: string): Promise<void> {
+    setBusy(true);
+    try {
+      await start();
+      await (await load()).signInWithEmail(email, password);
+      remember("linked-before", null); // a fresh connect follows the desktop again
+      // watchUser (above) reacts to the new user and finishes the job.
+    } catch (e) {
+      setBusy(false);
+      throw e;
+    }
+  }
+
   return {
+    signInWithEmail,
+    resetPassword: async (email: string) => (await load()).resetPassword(email),
     get profile() {
       return profile;
     },
@@ -120,6 +136,10 @@ export function createAccountSync(host: AccountSyncHost) {
     start,
     syncWatcher,
     consumeHandoff,
+    /** Shows this photo on every device of the account (see account.ts publishWallpaper). */
+    async publish(photo: import("../lib/photo").Photo): Promise<void> {
+      await (await load()).publishWallpaper(photo);
+    },
     async signOut(): Promise<void> {
       await (await load()).signOutAccount();
     },

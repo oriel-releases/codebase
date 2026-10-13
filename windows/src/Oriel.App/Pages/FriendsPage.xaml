@@ -3,297 +3,285 @@
     x:Class="Oriel.UI.Pages.FriendsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:Oriel.UI">
+    xmlns:vm="using:Oriel.UI.ViewModels">
 
-    <ScrollViewer>
-        <Grid>
+    <Grid>
+        <ScrollViewer>
             <StackPanel
                 MaxWidth="{StaticResource PageMaxWidth}"
                 Margin="{StaticResource PageContentMargin}"
                 Spacing="16">
-                <StackPanel Spacing="4">
-                    <TextBlock Style="{StaticResource PageTitleStyle}" Text="Friends" />
-                    <TextBlock
-                        Style="{StaticResource MutedTextStyle}"
-                        Text="Share your wallpaper, or show a friend's on your desktop. It follows every change."
-                        TextWrapping="Wrap" />
-                </StackPanel>
+                <TextBlock Style="{StaticResource PageTitleStyle}" Text="Friends" />
 
-                <!--  ============ Share your wallpaper ============  -->
-                <StackPanel
-                    Padding="24"
-                    Background="{ThemeResource OrielSurfaceBrush}"
+                <!--  Following someone: their wallpaper is the card. Always dark underneath, so the white text reads in both themes.  -->
+                <Grid
+                    Height="260"
+                    Background="#1C1C1C"
                     CornerRadius="{StaticResource OrielLargeRadius}"
-                    Spacing="18">
-                    <Grid ColumnSpacing="16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Border
-                            Width="44"
-                            Height="44"
-                            Background="{ThemeResource OrielPaperBrush}"
-                            CornerRadius="14">
-                            <FontIcon FontSize="18" Glyph="&#xE72D;" />
-                        </Border>
-                        <StackPanel
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            Spacing="2">
-                            <TextBlock
-                                FontSize="18"
-                                FontWeight="SemiBold"
-                                Text="Share your wallpaper" />
-                            <TextBlock
-                                Style="{StaticResource MutedTextStyle}"
-                                Text="Friends with your code see the wallpaper on your desktop, every time it changes."
-                                TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Grid>
-
-                    <!--  Not sharing yet  -->
-                    <Button
-                        Height="40"
-                        Command="{x:Bind ViewModel.StartSharingCommand}"
-                        Content="Create my code"
-                        Style="{StaticResource PrimaryPillButtonStyle}"
-                        Visibility="{x:Bind ViewModel.IsNotSharing, Mode=OneWay}" />
-
-                    <!--  Sharing: the code, big enough to read out loud  -->
-                    <Grid
-                        Padding="20,16"
-                        Background="{ThemeResource OrielPaperBrush}"
-                        ColumnSpacing="12"
-                        CornerRadius="{StaticResource OrielCardRadius}"
-                        Visibility="{x:Bind ViewModel.IsSharing, Mode=OneWay}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center" Spacing="4">
-                            <TextBlock
-                                CharacterSpacing="120"
-                                FontFamily="Consolas"
-                                FontSize="30"
-                                FontWeight="SemiBold"
-                                IsTextSelectionEnabled="True"
-                                Text="{x:Bind ViewModel.MyCode, Mode=OneWay}" />
-                            <TextBlock
-                                FontSize="13"
-                                Style="{StaticResource MutedTextStyle}"
-                                Text="{x:Bind ViewModel.FollowersText, Mode=OneWay}" />
-                        </StackPanel>
-                        <StackPanel
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            Orientation="Horizontal"
-                            Spacing="8">
-                            <Button
-                                Height="40"
-                                AutomationProperties.Name="Copy the code"
-                                Click="CopyCode_Click"
-                                Style="{StaticResource PrimaryPillButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon FontSize="14" Glyph="&#xE8C8;" Visibility="{x:Bind local:Star.Hidden(ViewModel.IsCopied), Mode=OneWay}" />
-                                    <FontIcon FontSize="14" Glyph="&#xE73E;" Visibility="{x:Bind local:Star.Shown(ViewModel.IsCopied), Mode=OneWay}" />
-                                    <TextBlock Text="Copy" />
-                                </StackPanel>
-                            </Button>
-                            <Button
-                                Height="40"
-                                Command="{x:Bind ViewModel.StopSharingCommand}"
-                                Content="Stop sharing"
-                                Style="{StaticResource PillButtonStyle}" />
-                        </StackPanel>
-                    </Grid>
-
-                    <InfoBar
-                        IsClosable="False"
-                        IsOpen="{x:Bind ViewModel.HasSharingError, Mode=OneWay}"
-                        Message="{x:Bind ViewModel.SharingError, Mode=OneWay}"
-                        Severity="Warning" />
-                </StackPanel>
-
-                <!--  ============ Follow a friend ============  -->
-                <StackPanel
-                    Padding="24"
-                    Background="{ThemeResource OrielSurfaceBrush}"
-                    CornerRadius="{StaticResource OrielLargeRadius}"
-                    Spacing="18">
-                    <Grid ColumnSpacing="16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Border
-                            Width="44"
-                            Height="44"
-                            Background="{ThemeResource OrielPaperBrush}"
-                            CornerRadius="14">
-                            <FontIcon FontSize="18" Glyph="&#xE716;" />
-                        </Border>
-                        <StackPanel
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            Spacing="2">
-                            <TextBlock
-                                FontSize="18"
-                                FontWeight="SemiBold"
-                                Text="Follow a friend" />
-                            <TextBlock
-                                Style="{StaticResource MutedTextStyle}"
-                                Text="Enter their code and your desktop shows their wallpaper. Your own schedule pauses until you unfollow."
-                                TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Grid>
-
-                    <!--  Not following: one field and one button  -->
-                    <Grid ColumnSpacing="8" Visibility="{x:Bind ViewModel.IsNotFollowing, Mode=OneWay}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox
-                            Height="40"
-                            AutomationProperties.Name="Friend's code"
-                            CharacterCasing="Upper"
-                            FontFamily="Consolas"
-                            FontSize="16"
-                            KeyDown="Code_KeyDown"
-                            MaxLength="9"
-                            PlaceholderText="K7MQ-2XPA"
-                            Style="{StaticResource PillTextBoxStyle}"
-                            Text="{x:Bind ViewModel.CodeInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                        <Button
-                            Grid.Column="1"
-                            Height="40"
-                            MinWidth="110"
-                            Command="{x:Bind ViewModel.FollowCommand}"
-                            Content="Follow"
-                            Style="{StaticResource PrimaryPillButtonStyle}" />
-                    </Grid>
-
-                    <!--  Following: who, and the way out  -->
-                    <Grid
-                        Padding="16"
-                        Background="{ThemeResource OrielPaperBrush}"
-                        ColumnSpacing="14"
-                        CornerRadius="{StaticResource OrielCardRadius}"
-                        Visibility="{x:Bind ViewModel.IsFollowing, Mode=OneWay}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Border
-                            Width="44"
-                            Height="44"
-                            Background="{ThemeResource OrielInkBrush}"
-                            CornerRadius="22">
+                    RequestedTheme="Dark"
+                    Visibility="{x:Bind ViewModel.IsFollowing, Mode=OneWay}">
+                    <Border
+                        Width="80"
+                        Height="80"
+                        Margin="0,0,0,50"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Background="#33FFFFFF"
+                        CornerRadius="40"
+                        Visibility="{x:Bind ViewModel.HasNoFriendWallpaper, Mode=OneWay}">
+                        <Grid>
                             <TextBlock
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
-                                FontSize="18"
+                                FontSize="32"
                                 FontWeight="SemiBold"
-                                Foreground="{ThemeResource OrielPaperBrush}"
+                                Foreground="White"
                                 Text="{x:Bind ViewModel.FollowingInitial, Mode=OneWay}" />
-                        </Border>
-                        <StackPanel
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            Spacing="2">
-                            <TextBlock FontWeight="SemiBold">
-                                <Run Text="Following" />
-                                <Run Text="{x:Bind ViewModel.FollowingName, Mode=OneWay}" />
-                            </TextBlock>
+                            <Ellipse>
+                                <Ellipse.Fill>
+                                    <ImageBrush ImageSource="{x:Bind ViewModel.FollowingPicture, Mode=OneWay}" Stretch="UniformToFill" />
+                                </Ellipse.Fill>
+                            </Ellipse>
+                        </Grid>
+                    </Border>
+                    <Image
+                        Source="{x:Bind ViewModel.FriendWallpaper, Mode=OneWay}"
+                        Stretch="UniformToFill"
+                        Visibility="{x:Bind ViewModel.HasFriendWallpaper, Mode=OneWay}" />
+                    <Border Background="{StaticResource OrielPhotoScrimBrush}" Visibility="{x:Bind ViewModel.HasFriendWallpaper, Mode=OneWay}" />
+                    <Grid
+                        Padding="24,20"
+                        VerticalAlignment="Bottom"
+                        ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Bottom" Spacing="2">
                             <TextBlock
-                                FontSize="13"
-                                Style="{StaticResource MutedTextStyle}"
-                                Text="Your desktop shows their wallpaper as it changes."
-                                TextWrapping="Wrap" />
+                                FontSize="24"
+                                FontWeight="SemiBold"
+                                Foreground="White"
+                                Text="{x:Bind ViewModel.FollowingTitle, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                Foreground="White"
+                                Opacity="0.8"
+                                Text="{x:Bind ViewModel.FriendWallpaperDetail, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                         <Button
-                            Grid.Column="2"
+                            Grid.Column="1"
                             Height="40"
-                            VerticalAlignment="Center"
+                            VerticalAlignment="Bottom"
                             Command="{x:Bind ViewModel.UnfollowCommand}"
                             Content="Unfollow"
                             Style="{StaticResource PillButtonStyle}" />
                     </Grid>
+                </Grid>
 
-                    <InfoBar
-                        IsClosable="False"
-                        IsOpen="{x:Bind ViewModel.HasFollowError, Mode=OneWay}"
-                        Message="{x:Bind ViewModel.FollowError, Mode=OneWay}"
-                        Severity="Warning" />
-                    <InfoBar
-                        IsClosable="False"
-                        IsOpen="{x:Bind ViewModel.HasFollowProblem, Mode=OneWay}"
-                        Message="{x:Bind ViewModel.FollowProblem, Mode=OneWay}"
-                        Severity="Informational" />
+                <!--  A friend's follow link is being followed right now  -->
+                <StackPanel
+                    Orientation="Horizontal"
+                    Spacing="10"
+                    Visibility="{x:Bind ViewModel.IsLinkFollowing, Mode=OneWay}">
+                    <ProgressRing
+                        Width="18"
+                        Height="18"
+                        IsActive="{x:Bind ViewModel.IsLinkFollowing, Mode=OneWay}" />
+                    <TextBlock Style="{StaticResource MutedTextStyle}" Text="Following your friend…" />
                 </StackPanel>
 
-                <!--  ============ How it works ============  -->
-                <TextBlock
-                    Margin="2,8,0,0"
-                    Style="{StaticResource SectionHeaderStyle}"
-                    Text="How it works" />
-                <Grid ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel
-                        Padding="18"
-                        Background="{ThemeResource OrielSurfaceBrush}"
-                        CornerRadius="{StaticResource OrielCardRadius}"
-                        Spacing="10">
+                <!--  The three things to do, as one list  -->
+                <StackPanel
+                    Background="{ThemeResource OrielSurfaceBrush}"
+                    CornerRadius="{StaticResource OrielLargeRadius}">
+                    <Grid Padding="20,16" ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                         <Border
-                            Width="28"
-                            Height="28"
-                            HorizontalAlignment="Left"
-                            Background="{ThemeResource OrielInkBrush}"
-                            CornerRadius="14">
-                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource OrielPaperBrush}" Text="1" />
+                            Width="40"
+                            Height="40"
+                            Background="{ThemeResource OrielPaperBrush}"
+                            CornerRadius="12">
+                            <FontIcon FontSize="16" Glyph="&#xE72D;" />
                         </Border>
-                        <TextBlock FontSize="13" Style="{StaticResource MutedTextStyle}" Text="Create your code here." TextWrapping="Wrap" />
-                    </StackPanel>
-                    <StackPanel
-                        Grid.Column="1"
-                        Padding="18"
-                        Background="{ThemeResource OrielSurfaceBrush}"
-                        CornerRadius="{StaticResource OrielCardRadius}"
-                        Spacing="10">
-                        <Border
-                            Width="28"
-                            Height="28"
-                            HorizontalAlignment="Left"
-                            Background="{ThemeResource OrielInkBrush}"
-                            CornerRadius="14">
-                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource OrielPaperBrush}" Text="2" />
-                        </Border>
-                        <TextBlock FontSize="13" Style="{StaticResource MutedTextStyle}" Text="Send it to a friend who has Oriel." TextWrapping="Wrap" />
-                    </StackPanel>
-                    <StackPanel
-                        Grid.Column="2"
-                        Padding="18"
-                        Background="{ThemeResource OrielSurfaceBrush}"
-                        CornerRadius="{StaticResource OrielCardRadius}"
-                        Spacing="10">
-                        <Border
-                            Width="28"
-                            Height="28"
-                            HorizontalAlignment="Left"
-                            Background="{ThemeResource OrielInkBrush}"
-                            CornerRadius="14">
-                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource OrielPaperBrush}" Text="3" />
-                        </Border>
-                        <TextBlock FontSize="13" Style="{StaticResource MutedTextStyle}" Text="Their desktop follows yours. Stop sharing any time." TextWrapping="Wrap" />
-                    </StackPanel>
-                </Grid>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock FontWeight="SemiBold" Text="Share my wallpaper" />
+                            <TextBlock FontSize="13" Style="{StaticResource MutedTextStyle}" Text="{x:Bind ViewModel.ShareDetail, Mode=OneWay}" />
+                        </StackPanel>
+                        <StackPanel
+                            Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <Button
+                                Height="36"
+                                Command="{x:Bind ViewModel.TurnOffSharingCommand}"
+                                Content="Turn off"
+                                Style="{StaticResource PillButtonStyle}"
+                                Visibility="{x:Bind ViewModel.IsSharing, Mode=OneWay}" />
+                            <Button
+                                Height="36"
+                                MinWidth="96"
+                                Click="Share_Click"
+                                Content="{x:Bind ViewModel.ShareText, Mode=OneWay}"
+                                Style="{StaticResource PrimaryPillButtonStyle}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Visibility="{x:Bind ViewModel.IsNotFollowing, Mode=OneWay}">
+                        <Rectangle Height="1" Margin="76,0,20,0" VerticalAlignment="Top" Fill="{ThemeResource OrielLineBrush}" />
+                        <Grid Padding="20,16" ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border
+                                Width="40"
+                                Height="40"
+                                Background="{ThemeResource OrielPaperBrush}"
+                                CornerRadius="12">
+                                <FontIcon FontSize="16" Glyph="&#xE8FA;" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock FontWeight="SemiBold" Text="Follow a friend" />
+                                <TextBlock FontSize="13" Style="{StaticResource MutedTextStyle}" Text="Use a friend's wallpaper." />
+                            </StackPanel>
+                            <Button
+                                Grid.Column="2"
+                                Height="36"
+                                MinWidth="96"
+                                Click="EnterCode_Click"
+                                Content="Enter code"
+                                Style="{StaticResource PillButtonStyle}" />
+                        </Grid>
+                    </Grid>
+
+                    <Grid Visibility="{x:Bind ViewModel.HasFollowers, Mode=OneWay}">
+                        <Rectangle Height="1" Margin="76,0,20,0" VerticalAlignment="Top" Fill="{ThemeResource OrielLineBrush}" />
+                        <Grid Padding="20,16" ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border
+                                Width="40"
+                                Height="40"
+                                Background="{ThemeResource OrielPaperBrush}"
+                                CornerRadius="12">
+                                <FontIcon FontSize="16" Glyph="&#xE716;" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock FontWeight="SemiBold" Text="Followers" />
+                                <TextBlock FontSize="13" Style="{StaticResource MutedTextStyle}" Text="{x:Bind ViewModel.FollowersDetail, Mode=OneWay}" />
+                            </StackPanel>
+                            <Button
+                                Grid.Column="2"
+                                Height="36"
+                                MinWidth="96"
+                                Click="Followers_Click"
+                                Content="See all"
+                                Style="{StaticResource PillButtonStyle}" />
+                        </Grid>
+                    </Grid>
+                </StackPanel>
+
+                <InfoBar
+                    Closed="Message_Closed"
+                    IsClosable="True"
+                    IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}"
+                    Message="{x:Bind ViewModel.Message, Mode=OneWay}"
+                    Severity="Warning" />
             </StackPanel>
-        </Grid>
-    </ScrollViewer>
+        </ScrollViewer>
+
+        <!--  Enter a friend's code  -->
+        <ContentDialog
+            x:Name="CodeDialog"
+            Title="Follow a friend"
+            CloseButtonText="Cancel"
+            DefaultButton="Primary"
+            IsPrimaryButtonEnabled="{x:Bind ViewModel.CanFollowCode, Mode=OneWay}"
+            PrimaryButtonClick="CodeDialog_PrimaryButtonClick"
+            PrimaryButtonText="Follow">
+            <StackPanel Width="320" Spacing="10">
+                <TextBox
+                    Height="44"
+                    AutomationProperties.Name="Your friend's code"
+                    CharacterSpacing="80"
+                    FontFamily="Consolas"
+                    FontSize="18"
+                    IsSpellCheckEnabled="False"
+                    MaxLength="9"
+                    PlaceholderText="K7MQ-2XPA"
+                    Text="{x:Bind ViewModel.CodeInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    TextChanging="Code_TextChanging" />
+                <TextBlock
+                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                    Text="{x:Bind ViewModel.CodeError, Mode=OneWay}"
+                    TextWrapping="Wrap"
+                    Visibility="{x:Bind ViewModel.HasCodeError, Mode=OneWay}" />
+            </StackPanel>
+        </ContentDialog>
+
+        <!--  Who follows you  -->
+        <ContentDialog
+            x:Name="FollowersDialog"
+            Title="Followers"
+            CloseButtonText="Done">
+            <StackPanel Width="360" Spacing="12">
+                <TextBlock
+                    Style="{StaticResource MutedTextStyle}"
+                    Text="No one yet. Share your wallpaper and friends who follow show up here."
+                    Visibility="{x:Bind ViewModel.HasNoFollowers, Mode=OneWay}" />
+                <ScrollViewer MaxHeight="320" Visibility="{x:Bind ViewModel.HasFollowers, Mode=OneWay}">
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.FollowerRows}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="4" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FollowerRow">
+                                <Grid Padding="0,6" ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border
+                                        Width="36"
+                                        Height="36"
+                                        Background="{ThemeResource OrielInkBrush}"
+                                        CornerRadius="18">
+                                        <TextBlock
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            FontWeight="SemiBold"
+                                            Foreground="{ThemeResource OrielPaperBrush}"
+                                            Text="{x:Bind Initial}" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock FontSize="12" Style="{StaticResource MutedTextStyle}" Text="{x:Bind Since}" />
+                                    </StackPanel>
+                                    <Button
+                                        Grid.Column="2"
+                                        VerticalAlignment="Center"
+                                        Click="RemoveFollower_Click"
+                                        Content="{x:Bind RemoveText, Mode=OneWay}"
+                                        Style="{StaticResource PillButtonStyle}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
+        </ContentDialog>
+    </Grid>
 </Page>

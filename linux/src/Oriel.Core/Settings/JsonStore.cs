@@ -25,7 +25,12 @@ public sealed class JsonSettingsStore(AppPaths paths) : ISettingsStore
 
     public event EventHandler? SettingsChanged;
 
-    public OrielSettings Load() => Read<OrielSettings>(paths.SettingsFile);
+    public OrielSettings Load()
+    {
+        var settings = Read<OrielSettings>(paths.SettingsFile);
+        settings.UpdateBuiltInTopics();
+        return settings;
+    }
 
     public void Save(OrielSettings settings)
     {
