@@ -32,15 +32,50 @@
 
 ## Built since (Firestore, all in `website/firestore.rules`; deploy rules after changing them)
 
-- **Follow a friend:** `codes/{code}` = {uid, name, createdAt} (8 chars, no 0/O/1/I; get only, never listed). Following writes
+- **Follow a friend:** `codes/{code}` = {uid, name, picture, createdAt, photoId, photoPath, photographer, photographerHandle}
+  (8 chars, no 0/O/1/I; get only and only when signed in, never listed; the apps keep the photo fields on the owner's current
+  wallpaper). Link: `/follow/{code}` (signed-in visitors only; opens `oriel://follow?code=`). Following writes
   `users/{friendUid}/followers/{myUid}` = {code, name, createdAt}, which lets the follower read the friend's `sync/current`
   (and nothing else). While following, the app's schedule is off and `FollowService` polls that one doc every ~10 min.
 - **Anonymous daily counts:** `stats/{YYYY-MM-DD}` (UTC), numbers only, written by the Windows/Linux apps (`StatsReporter`):
   `windows_new`, `linux_new`, `windows_active`, `linux_active`, `retained7`, `retained30`, `sharesSent`, `sharesOpened`,
   `sharesSet`. Rules allow only +1 on today's doc. Read them in the Firebase console. Last online = `sessions/{id}.lastSeenAt`.
   Keep it this small: no per-click events, no user IDs.
-- **Share links:** `/share?id=&i=&by=&u=&from=` (first name only). A share opened without the app is kept in localStorage and
-  rides along the sign-in link (`oriel://auth?...&share=ID&from=Name`), so it becomes the new user's first wallpaper.
+- **Share links:** `/share/{id}` → `shares/{id}` = {uid, from (first name), picture, photoId, photoPath, photographer,
+  photographerHandle, createdAt}, readable only when signed in (the page asks visitors to sign in first). Old `/share?id=&i=&by=&u=&from=`
+  links (apps 1.0.7 and older) still work. A share or follow opened without the app is kept in localStorage and rides along the
+  sign-in link (`oriel://auth?...&share=ID&from=Name&follow=CODE`), so it becomes the new user's first wallpaper / friend.
+  Hosting rewrites `/share/**` and `/follow/**` to their pages (production only; `next dev` doesn't).
+- **Same wallpaper on every device** (Windows, Linux, Android, extension): a change anywhere is published to
+  `users/{uid}/sync/current` (Firestore, the source of truth; `source` windows|linux|android|extension), then the
+  device rings a doorbell, `pulse/{uid}` = {photoId, source, device (session id), at} in the **Realtime Database**
+  (`oriel-gcp-default-rtdb`, rules in `website/database.rules.json`, deploy with `firebase deploy --only database`).
+  Desktops (`PulseListener`) and Android while on screen (`Pulse`) keep one SSE connection to it and apply the new
+  photo within seconds (`FollowService.CheckAsync` / `Following.check`); the extension listens to `sync/current` with
+  `onSnapshot`. Fallbacks: desktop polls every 3 min (10 while the SSE is up), Android checks on open, before each
+  scheduled change, and every 15 min in the background. Spark limit: 100 simultaneous RTDB connections; beyond that
+  devices fall back to polling. A photo from another device isn't republished (no echo); a followed friend's is.
+  In "Same as my devices" mode the extension's shuffle publishes a pool photo to every device.
+- **Shared settings** `users/{uid}/sync/settings` = {dailyTime, timeZone (IANA), intervalMinutes, paused, favoritesOnly,
+  skipLowLikes, minLikes, interests[{query, enabled, isCustom}], updatedAt, device}; last write wins. A change rings
+  `pulse/{uid}` with {settingsAt, settingsDevice} (rings are PATCHes, so photo and settings fields don't clobber each
+  other). First sign-in adopts the account's settings, or uploads its own if none (desktop `SettingsSync`, Android
+  `SettingsSync`). Device-only settings (lock screen, fit, hotkey, startup, folder) never sync. Desktop now has
+  `TimeZone` too (no picker yet; edit on the phone). `paused` (Lock) stops only the schedule: a photo set by hand on
+  any device still syncs to every other device, and setting one never unlocks.
+- **Favorites, the same everywhere:** `users/{uid}/favorites/{photoId}` = {photoId, imageUrl (raw Unsplash URL),
+  pageUrl, photographer, photographerUrl, description, favorite (bool; never deleted, so un-starring syncs), updatedAt,
+  device}. A change rings `pulse/{uid}` {favoritesAt, favoritesDevice}; devices fetch only docs with updatedAt newer
+  than their last sync (runQuery). A favorite of a photo a device never showed is added to its History, filed at its
+  own time (desktop: no file; "Set again" downloads it). First sync uploads the device's own favorites
+  (`FavoritesSync` on both). Double-tap / quick repeated taps on Home's preview favorite it with a star burst (all apps).
+- **One clock + first device wins:** ticks = daily time, then every interval, in the shared zone (desktop
+  `ScheduleRules`, Android `Schedule`, identical math). Before picking, a device claims the tick with a
+  compare-and-set on `users/{uid}/sync/slot` = {slotId "2026-10-14T09:00", device, at}; the loser marks the tick done
+  and shows the winner's photo from `sync/current`. A schedule edit (local or synced) sets `scheduleStartedAt` so the
+  moved moment isn't "missed".
+- **Change progress text** on every platform: Finding a photo… / Downloading… / Changing… / Syncing… / Receiving…
+  (desktop `ApplyPhase` + `PhaseText`, Android `Phase`, extension `setStatus`), with the words sliding on change.
 - **Wallpaper of the day:** `/today`, photos from `website/src/data/today.json` (`npm run today` rebuilds it from the
   extension's pool).
 - `sync/current.color` is the photo's accent color (#RRGGBB), set by the apps; the extension tints its UI with it.
