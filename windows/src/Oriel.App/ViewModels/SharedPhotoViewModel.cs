@@ -33,8 +33,15 @@ public sealed partial class SharedPhotoViewModel(WallpaperService wallpapers, IS
     [ObservableProperty] public partial bool HasSetError { get; set; }
     [ObservableProperty] public partial string SetError { get; set; } = "";
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanSet))]
+    [NotifyPropertyChangedFor(nameof(CanSet), nameof(SetText))]
     public partial bool IsSetting { get; set; }
+
+    /// <summary>What setting it is doing now: "Downloading…", "Changing…", "Syncing…".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SetText))]
+    public partial string? Stage { get; set; }
+
+    public string SetText => IsSetting ? Stage ?? "Downloading…" : "Set as wallpaper";
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSet), nameof(ShowActions))]
     public partial bool IsDone { get; set; }
@@ -97,7 +104,9 @@ public sealed partial class SharedPhotoViewModel(WallpaperService wallpapers, IS
         HasSetError = false;
         try
         {
-            var result = await Task.Run(() => wallpapers.ApplyPhotoAsync(_photo, "shared"));
+            var photo = _photo;
+            var result = await PhaseWatch.RunAsync(wallpapers, () => Task.Run(() => wallpapers.ApplyPhotoAsync(photo, "shared")),
+                stage => App.Dispatcher.TryEnqueue(() => Stage = stage));
             if (result.Status == ApplyStatus.Applied)
             {
                 IsDone = true;

@@ -86,5 +86,27 @@
 
         <!--  A photo a friend shared with a link: one button sets it as the wallpaper.  -->
         <controls:SharedPhotoView x:Name="Shared" Grid.Row="1" Visibility="Collapsed" />
+
+        <!--  Signing out: nothing can be clicked until it's done.  -->
+        <Grid
+            x:Name="SigningOut"
+            Grid.RowSpan="2"
+            Background="{ThemeResource OrielPaperBrush}"
+            Visibility="Collapsed">
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="14">
+                <ProgressRing
+                    x:Name="SigningOutRing"
+                    Width="32"
+                    Height="32"
+                    IsActive="False" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Style="{StaticResource MutedTextStyle}"
+                    Text="Signing out…" />
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

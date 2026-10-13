@@ -22,20 +22,56 @@ public sealed partial class TopicViewModel(CollectionsViewModel owner, string qu
 
     static readonly Dictionary<string, string> Emojis = new()
     {
-        ["nature"] = "🌿", ["mountains"] = "🏔️", ["ocean"] = "🌊", ["space"] = "🪐",
-        ["cities"] = "🏙️", ["architecture"] = "🏛️", ["minimal"] = "◽", ["dark"] = "🌑",
-        ["abstract"] = "🎨", ["forest"] = "🌲", ["desert"] = "🏜️", ["aerial"] = "🚁",
-        ["night sky"] = "🌃", ["snow"] = "❄️",
+        ["nature"] = "🌿", ["mountains"] = "🏔️", ["ocean"] = "🌊", ["beach"] = "🏖️", ["lakes"] = "🛶",
+        ["waterfalls"] = "💧", ["forest"] = "🌲", ["autumn"] = "🍂", ["flowers"] = "🌸", ["desert"] = "🏜️",
+        ["snow"] = "❄️", ["northern lights"] = "🌌", ["night sky"] = "🌃", ["space"] = "🪐", ["sunset"] = "🌅",
+        ["cities"] = "🏙️", ["city at night"] = "🌉", ["architecture"] = "🏛️", ["japan"] = "⛩️", ["islands"] = "🏝️",
+        ["wildlife"] = "🦊", ["countryside"] = "🌾", ["aerial"] = "🚁", ["fog"] = "🌫️",
     };
 
     public static string EmojiFor(string query) => Emojis.GetValueOrDefault(query, "✨");
 
-    [ObservableProperty] public partial bool IsEnabled { get; set; } = enabled;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOff))]
+    public partial bool IsEnabled { get; set; } = enabled;
+    public bool IsOff => !IsEnabled;
 
     partial void OnIsEnabledChanged(bool value) => owner.Save();
 
+    /// <summary>The tile was clicked: on becomes off and back.</summary>
+    [RelayCommand]
+    void Toggle() => IsEnabled = !IsEnabled;
+
     [RelayCommand]
     void Remove() => owner.RemoveTopic(this);
+
+    /// <summary>
+    /// The tile's photo: a fixed one for built-in interests, the last wallpaper found for one of your own (if any).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCover), nameof(HasNoCover), nameof(CoverNote))]
+    public partial string? CoverUrl { get; set; } = InterestCovers.Url(query);
+    public string CoverCredit => InterestCovers.Credit(Query);
+
+    /// <summary>Looking up a photo for one of your own interests (see <see cref="CollectionsViewModel.FindCoversAsync"/>).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CoverNote))]
+    public partial bool IsFindingCover { get; set; }
+    /// <summary>Under the logo while there's no photo yet.</summary>
+    public string CoverNote => IsFindingCover ? "Finding a photo…" : "Photo comes soon";
+    ImageSource? _cover;
+    /// <summary>Made when the tile first shows, sized for it.</summary>
+    public ImageSource? Cover => _cover ??= CoverUrl is { } url
+        ? new BitmapImage(new Uri(url)) { DecodePixelWidth = 320, DecodePixelType = DecodePixelType.Logical }
+        : null;
+    public bool HasCover => CoverUrl is not null;
+    public bool HasNoCover => CoverUrl is null;
+
+    partial void OnCoverUrlChanged(string? value)
+    {
+        _cover = null;
+        OnPropertyChanged(nameof(Cover));
+    }
 }
 
 /// <summary>One search result: a photo the user can set as the wallpaper.</summary>
@@ -64,7 +100,12 @@ public sealed partial class PhotoResultViewModel(CollectionsViewModel owner, Pho
     [NotifyPropertyChangedFor(nameof(ButtonText))]
     public partial bool IsApplied { get; set; }
 
-    public string ButtonText => IsBusy ? "Setting…" : IsApplied ? "Wallpaper set ✓" : "Set as wallpaper";
+    /// <summary>What setting it is doing now: "Downloading…", "Changing…", "Syncing…".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ButtonText))]
+    public partial string? Stage { get; set; }
+
+    public string ButtonText => IsBusy ? Stage ?? "Downloading…" : IsApplied ? "Wallpaper set ✓" : "Set as wallpaper";
 
     [RelayCommand]
     Task Set() => owner.SetAsync(this);
@@ -74,8 +115,6 @@ public sealed partial class CollectionsViewModel : ObservableObject
 {
     const int MinResultsPerSearch = 6;
     const int MaxPagesPerSearch = 3;
-    static readonly string[] SuggestionList =
-        ["northern lights", "tokyo night", "foggy forest", "desert dunes", "city skyline", "snowy mountains", "calm ocean", "milky way"];
     /// <summary>Least time between two requests to the photo service, so mashing Enter or Show more can't burn the hourly limit.</summary>
     static readonly TimeSpan MinRequestGap = TimeSpan.FromSeconds(1.5);
 
@@ -87,8 +126,11 @@ public sealed partial class CollectionsViewModel : ObservableObject
     int _version;
     DateTime _lastRequestAt = DateTime.MinValue;
 
-    public CollectionsViewModel(ISettingsStore settings, WallpaperService wallpapers)
+    readonly Oriel.Core.Storage.IHistoryStore _history;
+
+    public CollectionsViewModel(ISettingsStore settings, WallpaperService wallpapers, Oriel.Core.Storage.IHistoryStore history)
     {
+        _history = history;
         _settings = settings;
         _wallpapers = wallpapers;
         Load();
@@ -97,8 +139,16 @@ public sealed partial class CollectionsViewModel : ObservableObject
     public ObservableCollection<TopicViewModel> BuiltInTopics { get; } = [];
     public ObservableCollection<TopicViewModel> CustomTopics { get; } = [];
     public ObservableCollection<PhotoResultViewModel> Results { get; } = [];
-    /// <summary>Ideas shown before the first search, so the empty page isn't a blank wall.</summary>
-    public IReadOnlyList<string> Suggestions => SuggestionList;
+    /// <summary>Ideas shown before the first search, so the empty page isn't a blank wall. A new few each visit.</summary>
+    public ObservableCollection<string> Suggestions { get; } = new(SearchIdeas.Pick());
+
+    /// <summary>Other ideas: on every visit to Search, and the shuffle button.</summary>
+    [RelayCommand]
+    public void ShuffleSuggestions()
+    {
+        Suggestions.Clear();
+        foreach (var idea in SearchIdeas.Pick()) Suggestions.Add(idea);
+    }
 
     // Search
     [ObservableProperty]
@@ -140,7 +190,7 @@ public sealed partial class CollectionsViewModel : ObservableObject
         BuiltInTopics.Clear();
         CustomTopics.Clear();
         foreach (var t in s.Topics.Where(t => !string.IsNullOrWhiteSpace(t.Query)))
-            (t.IsCustom ? CustomTopics : BuiltInTopics).Add(new TopicViewModel(this, t.Query, t.Enabled, t.IsCustom));
+            (t.IsCustom ? CustomTopics : BuiltInTopics).Add(NewTopic(t.Query, t.Enabled, t.IsCustom, t.CoverUrl));
         _loading = false;
         UpdateSummary();
     }
@@ -159,7 +209,7 @@ public sealed partial class CollectionsViewModel : ObservableObject
         _settings.Update(s =>
         {
             s.Topics = BuiltInTopics.Concat(CustomTopics)
-                .Select(t => new TopicSetting { Query = t.Query, Enabled = t.IsEnabled, IsCustom = t.IsCustom })
+                .Select(t => new TopicSetting { Query = t.Query, Enabled = t.IsEnabled, IsCustom = t.IsCustom, CoverUrl = t.IsCustom ? t.CoverUrl : null })
                 .ToList();
         });
         UpdateSummary();
@@ -170,7 +220,7 @@ public sealed partial class CollectionsViewModel : ObservableObject
         NothingEnabled = !BuiltInTopics.Concat(CustomTopics).Any(t => t.IsEnabled);
         HasCustomTopics = CustomTopics.Count > 0;
         var all = BuiltInTopics.Concat(CustomTopics).ToList();
-        MixSummary = $"{all.Count(t => t.IsEnabled)} of {all.Count} interests on. Each day Oriel picks one at random.";
+        MixSummary = $"{all.Count(t => t.IsEnabled)} of {all.Count} on. Each new wallpaper comes from one of them.";
         CanAddToMix = HasSearched && !BuiltInTopics.Concat(CustomTopics)
             .Any(t => t.Query.Equals(_query, StringComparison.OrdinalIgnoreCase));
     }
@@ -264,7 +314,8 @@ public sealed partial class CollectionsViewModel : ObservableObject
         IsInfoOpen = false;
         try
         {
-            var result = await Task.Run(() => _wallpapers.ApplyPhotoAsync(item.Photo, _query));
+            var result = await PhaseWatch.RunAsync(_wallpapers, () => Task.Run(() => _wallpapers.ApplyPhotoAsync(item.Photo, _query)),
+                stage => App.Dispatcher.TryEnqueue(() => item.Stage = stage));
             if (result.Status != ApplyStatus.Applied)
                 ShowInfo(InfoBarSeverity.Warning, "Couldn't set the wallpaper", result.Error ?? "Try again.");
             else
@@ -290,9 +341,12 @@ public sealed partial class CollectionsViewModel : ObservableObject
     // ---- Topic mix ----
 
     [RelayCommand]
-    void AddToMix()
+    void AddToMix() => AddTopic(_query);
+
+    /// <summary>Turns an interest on, adding it as one of your own when it's new.</summary>
+    void AddTopic(string query)
     {
-        var q = _query.Trim().ToLowerInvariant();
+        var q = query.Trim().ToLowerInvariant();
         if (q.Length == 0) return;
         var existing = BuiltInTopics.Concat(CustomTopics).FirstOrDefault(t => t.Query.Equals(q, StringComparison.OrdinalIgnoreCase));
         if (existing is not null)
@@ -300,8 +354,53 @@ public sealed partial class CollectionsViewModel : ObservableObject
             existing.IsEnabled = true;
             return;
         }
-        CustomTopics.Add(new TopicViewModel(this, q, true, isCustom: true));
+        CustomTopics.Add(NewTopic(q, true, isCustom: true));
         Save();
+        _ = FindCoversAsync();
+    }
+
+    /// <summary>
+    /// One of your own interests shows its kept photo, else the last wallpaper Oriel found for it; without either, one is
+    /// looked up (<see cref="FindCoversAsync"/>).
+    /// </summary>
+    TopicViewModel NewTopic(string query, bool enabled, bool isCustom, string? keptCover = null) => isCustom
+        ? new TopicViewModel(this, query, enabled, true)
+        {
+            CoverUrl = keptCover
+                ?? _history.List().FirstOrDefault(e => string.Equals(e.Topic, query, StringComparison.OrdinalIgnoreCase))?.ThumbnailUrl,
+        }
+        : new TopicViewModel(this, query, enabled, false);
+
+    /// <summary>Interests already looked up this session (found or not), so a failure isn't retried on every visit.</summary>
+    readonly HashSet<string> _coverLookups = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Photos for your own interests that have none: one Unsplash search each, which counts toward the hourly limit,
+    /// so it's done once per interest (the photo is kept with it) and skipped while requests are scarce. One at a time.
+    /// </summary>
+    public async Task FindCoversAsync()
+    {
+        foreach (var topic in CustomTopics.Where(t => t.CoverUrl is null && _coverLookups.Add(t.Query)).ToList())
+        {
+            topic.IsFindingCover = true;
+            try
+            {
+                if (await _wallpapers.FindCoverAsync(topic.Query) is { } url)
+                {
+                    topic.CoverUrl = url;
+                    Save();
+                }
+                else _coverLookups.Remove(topic.Query); // no requests to spare: try again next time
+            }
+            catch (ProviderException)
+            {
+                _coverLookups.Remove(topic.Query); // offline or limited: try again next time
+            }
+            finally
+            {
+                topic.IsFindingCover = false;
+            }
+        }
     }
 
     internal void RemoveTopic(TopicViewModel topic)

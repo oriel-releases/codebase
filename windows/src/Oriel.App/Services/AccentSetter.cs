@@ -20,13 +20,28 @@ public sealed class AccentSetter(IAccentSampler sampler, ILogger<AccentSetter> l
         try
         {
             if (await sampler.SampleAsync(imagePath) is not { } hex) return;
-            SetColor((Convert.ToByte(hex[1..3], 16), Convert.ToByte(hex[3..5], 16), Convert.ToByte(hex[5..7], 16)));
+            var color = (R: Convert.ToByte(hex[1..3], 16), G: Convert.ToByte(hex[3..5], 16), B: Convert.ToByte(hex[5..7], 16));
+            // Telling Windows makes every open app redraw its colors: only worth it for a change you can see.
+            if (Current() is { } now && Math.Abs(now.R - color.R) + Math.Abs(now.G - color.G) + Math.Abs(now.B - color.B) < 24)
+            {
+                log.LogInformation("Accent color kept: the photo's is about the same");
+                return;
+            }
+            SetColor(color);
             Broadcast();
         }
         catch (Exception ex)
         {
             log.LogWarning(ex, "Couldn't change the accent color");
         }
+    }
+
+    /// <summary>The accent color Windows has now (as we last set it), or null.</summary>
+    static (byte R, byte G, byte B)? Current()
+    {
+        using var dwm = Registry.CurrentUser.OpenSubKey(DwmKey);
+        if (dwm?.GetValue("AccentColor") is not int abgr) return null;
+        return ((byte)(abgr & 0xFF), (byte)((abgr >> 8) & 0xFF), (byte)((abgr >> 16) & 0xFF));
     }
 
     void SetColor((byte R, byte G, byte B) c)

@@ -21,7 +21,7 @@ public sealed class ChangePopup : Window
 {
     const double PillHeight = 40, Gap = 20, SlideMs = 240, TextMs = 120, MinVisibleMs = 700;
 
-    static readonly string[] Words = ["Finding…", "Changing…"];
+    static readonly string[] Words = PhaseText.All;
 
     readonly TextBlock _label;
     readonly TranslateTransform _textShift = new();
@@ -118,7 +118,10 @@ public sealed class ChangePopup : Window
         SlideTo(_restY, easeOut: true, done: null);
     }
 
-    public void SetPhase(ApplyPhase phase) => SetWord(phase == ApplyPhase.Changing ? Words[1] : Words[0]);
+    public void SetPhase(ApplyPhase phase)
+    {
+        if (phase != ApplyPhase.Done) SetWord(PhaseText.For(phase));
+    }
 
     /// <summary>Switches the word with a small slide and fade.</summary>
     void SetWord(string word)

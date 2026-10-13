@@ -22,6 +22,8 @@ public static class ImageReveal
     /// <summary>Per image: true while a remote photo is still downloading, so the reveal waits for it.</summary>
     sealed class State { public bool WaitingForLoad; }
     static readonly ConditionalWeakTable<Image, State> Hooked = new();
+    /// <summary>Pictures already revealed once: shown again (back on a page, History <-> Favorites) they just appear.</summary>
+    static readonly ConditionalWeakTable<Microsoft.UI.Xaml.Media.ImageSource, object> Revealed = new();
 
     public static readonly DependencyProperty EnabledProperty =
         DependencyProperty.RegisterAttached("Enabled", typeof(bool), typeof(ImageReveal),
@@ -53,6 +55,16 @@ public static class ImageReveal
 
     static void OnSourceChanged(Image image, State state)
     {
+        if (image.Source is { } known && Revealed.TryGetValue(known, out _))
+        {
+            state.WaitingForLoad = false;
+            var visual = ElementCompositionPreview.GetElementVisual(image);
+            visual.StopAnimation("Opacity");
+            visual.StopAnimation("Scale");
+            visual.Opacity = 1;
+            visual.Scale = Vector3.One;
+            return;
+        }
         // A photo still downloading (search results) stays hidden until it opens; a decoded one reveals now.
         state.WaitingForLoad = image.Source is Microsoft.UI.Xaml.Media.Imaging.BitmapImage { PixelWidth: 0 };
         if (state.WaitingForLoad && Settings.AnimationsEnabled)
@@ -67,6 +79,7 @@ public static class ImageReveal
     static void Play(Image image)
     {
         var visual = ElementCompositionPreview.GetElementVisual(image);
+        if (image.Source is { } source) Revealed.AddOrUpdate(source, Revealed);
         if (image.Source is null || !Settings.AnimationsEnabled)
         {
             visual.Opacity = 1;

@@ -32,7 +32,8 @@ public partial class App : Application
         InitializeComponent();
         UnhandledException += (_, e) =>
         {
-            _log?.LogError(e.Exception, "Unhandled UI exception");
+            _log?.LogError("Unhandled UI exception: {Message} (HRESULT 0x{HResult:X8})\n{Details}",
+                e.Message, e.Exception.HResult, e.Exception.ToString());
             e.Handled = true; // a tray app should survive a bad click
         };
     }
@@ -113,7 +114,15 @@ public partial class App : Application
         var auth = Get<AuthService>();
         // Back from the browser after signing in: bring Oriel to the front, active (not dimmed).
         auth.Changed += (_, _) => { if (auth.IsSignedIn) Dispatcher.TryEnqueue(ShowWindow); };
+        // A follow link opened before signing in: follow once signed in.
+        auth.Changed += (_, _) => { if (auth.IsSignedIn) _ = Get<FollowService>().FollowWaitingLinkAsync(); };
         auth.Start();
+        // A wallpaper set on another device (phone, other computer, the extension) shows here within a second.
+        Get<PulseListener>().Start();
+        // The settings every device shares (schedule, time zone, interests, filters): pulled now, sent on every change.
+        Get<SettingsSync>().Start();
+        // Favorites too: starring on any device stars it everywhere.
+        Get<FavoritesSync>().Start();
         // Make sure a browser extension that gets linked later has a wallpaper to show right away.
         var sync = Get<SyncPublisher>();
         auth.Changed += (_, _) => { if (auth.IsSignedIn) _ = sync.PublishLatestIfMissingAsync(); };
@@ -146,13 +155,21 @@ public partial class App : Application
             _ = Get<SharedPhotoViewModel>().OpenAsync(photoId, sender);
             return true;
         }
-        _log?.LogInformation("Sign-in link received");
+        // A friend's follow link (or one carried through sign-in): follow, and show it on the Friends page.
+        var follows = DeepLink.TryGetFollowCode(list, out var followCode);
+        if (follows)
+        {
+            _log?.LogInformation("Follow link received");
+            _openFriends = true;
+            _ = Get<FollowService>().FollowFromLinkAsync(followCode);
+        }
         var signIn = Get<SignInViewModel>();
         if (DeepLink.TryGetGoogleToken(list, out var token)) _ = signIn.CompleteAsync(token);
+        else if (DeepLink.TryGetSessionToken(list, out var session)) _ = signIn.CompleteWithSessionAsync(session);
+        else if (!follows) signIn.Invalid();
         // Someone opened a share link, installed Oriel and signed in: the photo they wanted comes along.
         if (DeepLink.TryGetPendingShare(list, out var sharedId, out var sharedFrom))
             _ = Get<SharedPhotoViewModel>().OpenAsync(sharedId, sharedFrom);
-        else signIn.Invalid();
         return true;
     }
 
@@ -255,6 +272,9 @@ public partial class App : Application
         }
     }
 
+    /// <summary>A follow link arrived: the window opens on the Friends page.</summary>
+    bool _openFriends;
+
     public void ShowWindow()
     {
         if (_window is null)
@@ -270,6 +290,11 @@ public partial class App : Application
         if (_window.AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } p)
             p.Restore();
         _window.Activate();
+        if (_openFriends)
+        {
+            _openFriends = false;
+            _window.ShowFriends();
+        }
         // Windows only lets the foreground app take focus; a tap of Alt makes this process eligible.
         keybd_event(0x12, 0, 0, 0);
         keybd_event(0x12, 0, 2, 0);

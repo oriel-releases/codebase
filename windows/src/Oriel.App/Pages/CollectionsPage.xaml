@@ -88,24 +88,54 @@
                     Severity="{x:Bind ViewModel.InfoSeverity, Mode=OneWay}" />
 
                 <!--  ============ Start: ideas to search for (gone once you search) ============  -->
-                <StackPanel Margin="0,22,0,0" Visibility="{x:Bind ViewModel.ShowStart, Mode=OneWay}">
-                    <TextBlock
-                        Margin="2,0,0,10"
-                        Style="{StaticResource SectionHeaderStyle}"
-                        Text="Try searching for" />
-                    <ItemsRepeater ItemsSource="{x:Bind ViewModel.Suggestions}">
-                        <ItemsRepeater.Layout>
-                            <UniformGridLayout MinColumnSpacing="8" MinRowSpacing="8" />
-                        </ItemsRepeater.Layout>
-                        <ItemsRepeater.ItemTemplate>
+                <StackPanel
+                    Margin="0,22,0,0"
+                    Padding="20"
+                    Background="{ThemeResource OrielSurfaceBrush}"
+                    CornerRadius="{StaticResource OrielLargeRadius}"
+                    Spacing="14"
+                    Visibility="{x:Bind ViewModel.ShowStart, Mode=OneWay}">
+                    <Grid>
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            FontWeight="SemiBold"
+                            Text="Need an idea?" />
+                        <Button
+                            HorizontalAlignment="Right"
+                            AutomationProperties.Name="Other ideas"
+                            Command="{x:Bind ViewModel.ShuffleSuggestionsCommand}"
+                            Style="{StaticResource PillButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontSize="12" Glyph="&#xE8B1;" />
+                                <TextBlock Text="Shuffle" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                    <!--  Each idea as wide as its words  -->
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.Suggestions}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="x:String">
                                 <Button
+                                    Background="{ThemeResource OrielPaperBrush}"
                                     Click="Suggestion_Click"
-                                    Content="{x:Bind}"
-                                    Style="{StaticResource PillButtonStyle}" />
+                                    Style="{StaticResource PillButtonStyle}"
+                                    Tag="{x:Bind}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon
+                                            FontSize="12"
+                                            Foreground="{ThemeResource OrielMutedBrush}"
+                                            Glyph="&#xE721;" />
+                                        <TextBlock Text="{x:Bind}" />
+                                    </StackPanel>
+                                </Button>
                             </DataTemplate>
-                        </ItemsRepeater.ItemTemplate>
-                    </ItemsRepeater>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
 
                 <!--  ============ Interests: a row that opens its own page, like a Settings category ============  -->
@@ -129,7 +159,7 @@
                             VerticalAlignment="Center"
                             FontSize="18"
                             Foreground="{ThemeResource OrielMutedBrush}"
-                            Glyph="&#xE8B3;" />
+                            Glyph="&#xEB51;" />
                         <StackPanel
                             Grid.Column="1"
                             VerticalAlignment="Center"
