@@ -39,6 +39,7 @@ const sync = createAccountSync({
   settings: () => settings,
   update: updateSettings,
   changed() {
+    noticeIncoming();
     renderLayout();
     refreshPhoto();
     drawPanel();
@@ -75,6 +76,75 @@ function applyAccent(photo: Photo): void {
   document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", accent ?? "#000000");
 }
 
+// ---------------------------------------------------------------- sync status
+
+/** The photo this tab is publishing right now: its own echo from Firestore isn't "received". */
+let publishing: string | null = null;
+let lastDesktopId: string | null | undefined;
+let statusTimer: number | undefined;
+/** Called once the photo now on screen has loaded (for "Receiving…" → "From your phone"). */
+let onPainted: (() => void) | null = null;
+
+/** Shows (or, with null, hides) the sync pill. The words slide: old ones up and out, new ones in from below. */
+function setStatus(text: string | null, done = false): void {
+  const el = $("status");
+  clearTimeout(statusTimer);
+  if (!text) {
+    el.classList.remove("show");
+    return;
+  }
+  el.classList.toggle("done", done);
+  const words = el.querySelector(".words")!;
+  const current = words.querySelector("span:not(.leave)");
+  if (current?.textContent !== text) {
+    const next = document.createElement("span");
+    next.textContent = text;
+    next.className = el.classList.contains("show") ? "enter" : "";
+    words.appendChild(next);
+    if (current) {
+      current.classList.add("leave");
+      window.setTimeout(() => current.remove(), 320);
+    }
+    requestAnimationFrame(() => requestAnimationFrame(() => next.classList.remove("enter")));
+  }
+  el.classList.add("show");
+  if (done) statusTimer = window.setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+const deviceName = (source: string) =>
+  source === "android" ? "your phone" : source === "windows" || source === "linux" ? "your PC" : source === "extension" ? "another browser" : "your other device";
+
+/** Another device changed the wallpaper while this tab is open: "Receiving…", then where it came from. */
+function noticeIncoming(): void {
+  const current = sync.desktop;
+  const id = followsDesktop() ? current?.photo.id ?? null : null;
+  const before = lastDesktopId;
+  lastDesktopId = id;
+  if (before === undefined || !id || !current || id === before) return; // first look, or nothing new
+  if (id === publishing) return; // our own photo coming back
+  setStatus("Receiving…");
+  onPainted = () => setStatus(`From ${deviceName(current.source)}`, true);
+}
+
+/** The shuffle button while following the account: a new photo here, then on every device. */
+async function shuffleEverywhere(): Promise<void> {
+  const photo = pick(settings.topics, "tab", 0);
+  publishing = photo.id;
+  setStatus("Downloading…");
+  onPainted = () => setStatus("Syncing…");
+  showPhoto(photo);
+  try {
+    await sync.publish(photo);
+    lastDesktopId = photo.id;
+    setStatus("Synced to your devices", true);
+  } catch {
+    setStatus(null);
+    toast("Couldn't sync this photo. Check your connection.");
+  } finally {
+    onPainted = null;
+  }
+}
+
 function showPhoto(photo: Photo): void {
   const same = shown?.id === photo.id && shown.url === photo.url;
   shown = photo;
@@ -105,6 +175,9 @@ function showPhoto(photo: Photo): void {
     .then((img) => {
       if (token !== paintToken || !img) return;
       fadeIn(img);
+      const painted = onPainted;
+      onPainted = null;
+      painted?.();
       if (img.crossOrigin) measure(img);
       applyTone(settings.dim / 100);
     })
@@ -245,7 +318,9 @@ function renderLayout(): void {
   $("search").style.display = settings.search ? "" : "none";
   infoBtn.hidden = !settings.photoInfo || !shown?.photographer;
   if (!settings.photoInfo) closeInfo();
-  $("shuffle").hidden = followsDesktop();
+  // Following the account, the shuffle changes the wallpaper on every device; otherwise only here.
+  $("shuffle").hidden = false;
+  $("shuffle").title = followsDesktop() ? "Another photo, on all your devices" : "Another photo";
   renderClock();
   renderQuote();
   renderSync();
@@ -347,6 +422,8 @@ const actions: PanelActions = {
       if (!sync.profile && sync.busy) sync.setBusy(false);
     }, 3 * 60_000);
   },
+  signInEmail: (email, password) => sync.signInWithEmail(email, password),
+  resetPassword: (email) => sync.resetPassword(email),
   openApp() {
     toast("Opening Oriel…");
   },
@@ -384,11 +461,16 @@ $("avatar").addEventListener("keydown", (e) => {
 });
 backdrop.addEventListener("click", closePanel);
 document.addEventListener("oriel:close-panel", closePanel);
+document.addEventListener("oriel:redraw-panel", () => drawPanel());
 $("shuffle").addEventListener("click", (e) => {
   const button = e.currentTarget as HTMLElement;
   button.classList.remove("spin");
   void button.offsetWidth; // restart the animation
   button.classList.add("spin");
+  if (followsDesktop()) {
+    void shuffleEverywhere();
+    return;
+  }
   updateSettings({ bump: settings.bump + 1 });
   const photo = currentPhoto();
   showPhoto(photo);

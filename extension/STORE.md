@@ -1,6 +1,6 @@
 # Store submission notes
 
-Zip the contents of each `release/` folder, then upload `oriel-chrome-<version>` to the Chrome Web Store and Edge Add-ons, `oriel-firefox-<version>` to addons.mozilla.org (plus `oriel-source-<version>` when it asks for source; build with `npm install && npm run build:firefox`).
+Zip the contents of each `release/` folder, then upload `oriel-chrome-<version>` to the Chrome Web Store, `oriel-edge-<version>` to Edge Add-ons, `oriel-firefox-<version>` to addons.mozilla.org (plus `oriel-source-<version>` when it asks for source; build with `npm install && npm run build:firefox`).
 
 - **Privacy policy URL:** https://oriel.akbarjon.uz/privacy
 - **Homepage / support:** https://oriel.akbarjon.uz and https://t.me/oriel_support_bot

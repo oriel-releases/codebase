@@ -20,7 +20,11 @@ export interface PanelActions {
   change(patch: Partial<Settings>): void;
   /** A slider is being dragged: show the effect on the photo right away, without saving or redrawing the dialog. */
   preview(patch: Partial<Settings>): void;
+  /** Google: finished on the Oriel website, which hands the sign-in back. */
   connect(): void;
+  /** An Oriel account's email and password, right here. Throws the reason (in words) when it doesn't work. */
+  signInEmail(email: string, password: string): Promise<void>;
+  resetPassword(email: string): Promise<void>;
   disconnect(): void;
   openApp(): void;
 }
@@ -65,10 +69,20 @@ let page: Page = "wallpaper";
 let confirmingDisconnect = false;
 let renderedPage: Page | null = null;
 
+/** The email sign-in form: what's typed (kept across redraws), and how the last try went. */
+const emailForm = { email: "", password: "", busy: false, error: "", note: "" };
+/** Asks main.ts to draw the panel again with the current state. */
+const redraw = (): void => void document.dispatchEvent(new CustomEvent("oriel:redraw-panel"));
+
+/** Google's "G", in its colors. */
+const googleG =
+  '<svg class="g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+
 const escapes: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => escapes[c]);
 const label = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
-const device = (source: string) => (source === "linux" ? "Linux PC" : source === "windows" ? "Windows PC" : "computer");
+const device = (source: string) =>
+  source === "linux" ? "Linux PC" : source === "windows" ? "Windows PC" : source === "android" ? "phone" : source === "extension" ? "browser" : "computer";
 
 const changeOptions: [Change, string][] = [
   ["tab", "Every tab"],
@@ -97,10 +111,10 @@ function wallpaperPage(s: PanelState): string {
   const status = !desktopOn
     ? ""
     : s.desktop
-      ? `<div class="status"><span class="tile-ico xs">${ico("monitor")}</span><div class="t min-w-0 flex-1 truncate">Following your ${device(s.desktop.source)}</div><span class="pill"><i class="live"></i>Live</span></div>`
-      : `<div class="status"><span class="tile-ico xs">${ico("monitor")}</span><div class="t min-w-0 flex-1 truncate">Waiting for Oriel on your PC</div><a class="pill warn" href="https://oriel.akbarjon.uz/download" target="_blank" rel="noopener">Get Oriel</a></div>`;
+      ? `<div class="status"><span class="tile-ico xs">${ico("monitor")}</span><div class="t min-w-0 flex-1 truncate">Last changed on your ${device(s.desktop.source)}</div><span class="pill"><i class="live"></i>Live</span></div>`
+      : `<div class="status"><span class="tile-ico xs">${ico("monitor")}</span><div class="t min-w-0 flex-1 truncate">Waiting for your other devices</div><a class="pill warn" href="https://oriel.akbarjon.uz/download" target="_blank" rel="noopener">Get Oriel</a></div>`;
   const source = `<div class="card stack">
-      ${seg("source", "Wallpaper source", [{ value: "desktop", text: "Match my desktop", disabled: !p, title: p ? "" : "Connect your account first" }, { value: "own", text: "Its own" }], desktopOn ? "desktop" : "own", "mode")}
+      ${seg("source", "Wallpaper source", [{ value: "desktop", text: "Same as my devices", disabled: !p, title: p ? "" : "Connect your account first" }, { value: "own", text: "Its own" }], desktopOn ? "desktop" : "own", "mode")}
       ${status}
     </div>`;
   if (desktopOn) return source;
@@ -154,7 +168,7 @@ function accountPage(s: PanelState): string {
   const p = s.profile;
   if (p) {
     const following = s.settings.mode === "desktop";
-    const desk = s.desktop ? `${device(s.desktop.source)} · ${ago(s.desktop.updatedAt) || "recently"}` : "Waiting for your desktop";
+    const desk = s.desktop ? `${device(s.desktop.source)} · ${ago(s.desktop.updatedAt) || "recently"}` : "Waiting for your other devices";
     return `<div class="acct">
         <div class="acct-banner" aria-hidden="true">
           ${s.banner ? `<img src="${esc(s.banner)}" alt="" />` : ""}
@@ -182,7 +196,9 @@ function accountPage(s: PanelState): string {
         <a class="row-link" href="${siteUrl()}/me" target="_blank" rel="noopener"><span>Manage account</span>${ico("external")}</a>
       </div>`;
   }
-  const perks = ["The same photo on your PC and in your browser", "Updates the moment your desktop wallpaper changes", "Free, with one Google sign-in"];
+  const perks = ["The same photo on your PC and in your browser", "Updates the moment your desktop wallpaper changes", "Free, with Google or email"];
+  const f = emailForm;
+  const waiting = s.busy && !f.busy;
   return `<div class="hero">
       <div class="link-art" aria-hidden="true">
         <span class="tile-ico">${ico("monitor")}</span>
@@ -191,8 +207,58 @@ function accountPage(s: PanelState): string {
       </div>
       <h3>Same wallpaper, everywhere</h3>
       <ul class="perks">${perks.map((t) => `<li>${ico("check")}${t}</li>`).join("")}</ul>
-      <button class="btn btn-primary btn-lg" data-act="connect" ${s.busy ? "disabled" : ""}>${s.busy ? "Waiting for you to sign in…" : "Connect Oriel account"}</button>
+      <button class="btn btn-primary btn-lg" data-act="connect" ${s.busy ? "disabled" : ""}>${waiting ? "Waiting for you to sign in…" : `${googleG}Continue with Google`}</button>
+      <div class="or"><span>or</span></div>
+      <form class="email-form" data-form="email" novalidate>
+        <input class="field" type="email" data-field="email" placeholder="Email" autocomplete="email" aria-label="Email" value="${esc(f.email)}" />
+        <input class="field" type="password" data-field="password" placeholder="Password" autocomplete="current-password" aria-label="Password" value="${esc(f.password)}" />
+        <button class="btn btn-ghost btn-lg" type="submit" ${s.busy ? "disabled" : ""}>${f.busy ? '<i class="spin"></i>Signing in…' : "Sign in with email"}</button>
+        ${f.error ? `<p class="form-msg err" role="alert">${esc(f.error)}</p>` : f.note ? `<p class="form-msg">${esc(f.note)}</p>` : ""}
+        <div class="form-links">
+          <button type="button" class="link" data-act="reset-password">Forgot password?</button>
+          <a class="link" href="${siteUrl()}/login" target="_blank" rel="noopener">Create an account</a>
+        </div>
+      </form>
     </div>`;
+}
+
+async function submitEmail(actions: PanelActions): Promise<void> {
+  const f = emailForm;
+  if (f.busy) return;
+  f.note = "";
+  if (!f.email.trim() || !f.password) {
+    f.error = "Enter your email and password.";
+    return redraw();
+  }
+  f.busy = true;
+  f.error = "";
+  redraw();
+  try {
+    await actions.signInEmail(f.email, f.password);
+    f.password = "";
+  } catch (e) {
+    f.error = e instanceof Error ? e.message : "Couldn't sign in. Please try again.";
+  } finally {
+    f.busy = false;
+    redraw();
+  }
+}
+
+async function forgotPassword(actions: PanelActions): Promise<void> {
+  const f = emailForm;
+  f.error = "";
+  f.note = "";
+  if (!f.email.trim()) {
+    f.error = "Enter your email first, then tap Forgot password.";
+    return redraw();
+  }
+  try {
+    await actions.resetPassword(f.email);
+    f.note = "Check your inbox for a link to set a new password.";
+  } catch (e) {
+    f.error = e instanceof Error ? e.message : "Couldn't send the email. Please try again.";
+  }
+  redraw();
 }
 
 function helpPage(): string {
@@ -370,6 +436,8 @@ function bind(root: HTMLElement, state: PanelState, actions: PanelActions): void
         return actions.openApp(); // the link itself launches Oriel; this only tells the person
       case "connect":
         return actions.connect();
+      case "reset-password":
+        return void forgotPassword(actions);
       case "disconnect":
         confirmingDisconnect = true;
         return renderPanel(root, state, actions);
@@ -411,8 +479,14 @@ function bind(root: HTMLElement, state: PanelState, actions: PanelActions): void
     for (const type of ["pointerup", "pointercancel", "blur"]) window.addEventListener(type, () => stopAdjusting(root));
   }
 
+  root.onsubmit = (e) => {
+    if (!(e.target instanceof HTMLFormElement) || e.target.dataset.form !== "email") return;
+    e.preventDefault();
+    void submitEmail(actions);
+  };
   root.oninput = (e) => {
     const el = e.target as HTMLInputElement;
+    if (el.dataset.field === "email" || el.dataset.field === "password") emailForm[el.dataset.field] = el.value;
     if (el.dataset.act === "range") actions.preview({ [el.dataset.v!]: Number(el.value) } as Partial<Settings>);
   };
 }

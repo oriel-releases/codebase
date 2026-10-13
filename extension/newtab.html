@@ -48,13 +48,15 @@
       </div>
       <blockquote id="quote" role="button" tabindex="0" title="Click to copy" class="rise max-w-[min(34rem,46vw)] text-center text-xs italic" style="animation-delay:300ms" data-adapt></blockquote>
       <div class="col-start-3 flex justify-end">
-        <button id="shuffle" title="Another photo" aria-label="Another photo" class="icon-btn soft" data-adapt hidden>
+        <button id="shuffle" title="Another photo" aria-label="Another photo" class="icon-btn soft" data-adapt>
           <svg viewBox="0 0 24 24" class="size-[1.15rem]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path fill="currentColor" stroke="none" d="M12,6V9L16,5L12,1V4A8,8 0 0,0 4,12C4,13.57 4.46,15.03 5.24,16.26L6.7,14.8C6.25,13.97 6,13 6,12A6,6 0 0,1 12,6M18.76,7.74L17.3,9.2C17.74,10.04 18,11 18,12A6,6 0 0,1 12,18V15L8,19L12,23V20A8,8 0 0,0 20,12C20,10.43 19.54,8.97 18.76,7.74Z" /></svg>
         </button>
       </div>
     </footer>
 
     <div id="toast" class="toast glass"></div>
+    <!-- What sync is doing ("Syncing…", "Receiving…"): the words slide when they change (main.ts setStatus). -->
+    <div id="status" class="sync-status glass" role="status" aria-live="polite"><i class="sync-dot"></i><span class="words"></span></div>
 
     <!-- Settings: a centered dialog with a menu on the left, like the desktop apps -->
     <div id="backdrop" class="backdrop"></div>
