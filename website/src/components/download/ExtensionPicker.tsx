@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import { extension } from "@/config/extension";
 import { ChromeIcon, EdgeIcon, FirefoxIcon } from "@/components/ui/icons";
 import { SegmentedSwitch } from "@/components/download/SegmentedSwitch";
+import { SmoothWidth, useSwitchMotion } from "@/components/download/SwitchMotion";
 import { detectBrowser, type Browser } from "@/lib/platform";
 
 const subscribe = () => () => {};
@@ -23,41 +24,49 @@ export function ExtensionPicker() {
   const [picked, setPicked] = useState<StoreId | null>(null);
   const chosen: StoreId = picked ?? (detected === "unknown" ? "chrome" : detected);
   const store = extension.stores.find((s) => s.id === chosen)!;
+  const motion = useSwitchMotion(extension.stores.map((s) => s.id));
   const Icon = icons[chosen];
-  const button = "mt-7 inline-flex items-center justify-center gap-2.5 rounded-full px-8 py-4 text-base font-medium whitespace-nowrap";
+  const button = "mt-7 inline-flex items-center justify-center rounded-full px-8 py-4 text-base font-medium whitespace-nowrap";
 
   return (
     <div className="flex w-full flex-col items-center">
       <SegmentedSwitch
         label="Your browser"
         value={chosen}
-        onChange={setPicked}
+        onChange={(next) => motion.change(chosen, next, setPicked)}
         options={extension.stores.map((s) => ({ key: s.id, label: names[s.id], Icon: icons[s.id] }))}
       />
 
-      {store.url ? (
-        <a
-          href={store.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${button} bg-ink text-paper active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent`}
-        >
-          <Icon width={18} height={18} />
-          Add to {names[chosen]}
-        </a>
-      ) : (
-        <span aria-disabled className={`${button} cursor-default bg-surface text-muted`}>
-          <Icon width={18} height={18} />
-          Coming soon to {names[chosen]}
-        </span>
-      )}
+      {/* One element whether the store is live or not, so its width can glide between the two labels. */}
+      <a
+        href={store.url || undefined}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-disabled={!store.url}
+        className={`${button} transition-colors duration-300 ${
+          store.url
+            ? "bg-ink text-paper active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+            : "cursor-default bg-surface text-muted"
+        }`}
+      >
+        <SmoothWidth>
+          <span key={`icon-${chosen}`} className={`inline-flex ${motion.iconIn}`}>
+            <Icon width={18} height={18} />
+          </span>
+          <span key={chosen} className={`inline-block ${motion.textIn}`}>
+            {store.url ? "Add to" : "Coming soon to"} {names[chosen]}
+          </span>
+        </SmoothWidth>
+      </a>
 
-      <p className="mt-4 text-sm text-muted">
-        Free · {store.name}
-      </p>
-      <p className="mt-1 text-xs text-pretty text-muted">
-        {store.url ? `Works in ${store.browsers}` : "Waiting for the store to approve it. Check back soon."}
-      </p>
+      <div key={chosen} className={`flex flex-col items-center ${motion.textIn}`}>
+        <p className="mt-4 text-sm text-muted">
+          Free · {store.name}
+        </p>
+        <p className="mt-1 text-xs text-pretty text-muted">
+          {store.url ? `Works in ${store.browsers}` : "Waiting for the store to approve it. Check back soon."}
+        </p>
+      </div>
     </div>
   );
 }

@@ -1,18 +1,19 @@
-export type Platform = "windows" | "mac" | "linux" | "mobile" | "unknown";
+export type Platform = "windows" | "mac" | "linux" | "android" | "mobile" | "unknown";
 
 /** Best-effort OS detection from a user agent string. */
 export function detectPlatform(userAgent: string): Platform {
   const ua = userAgent.toLowerCase();
-  if (/android|iphone|ipad|ipod|mobile/.test(ua)) return "mobile";
+  if (ua.includes("android")) return "android";
+  if (/iphone|ipad|ipod|mobile/.test(ua)) return "mobile";
   if (ua.includes("windows")) return "windows";
   if (ua.includes("mac os")) return "mac";
   if (ua.includes("linux") || ua.includes("cros")) return "linux";
   return "unknown";
 }
 
-/** Oriel runs on Windows and Linux; "unknown" gets the benefit of the doubt. */
+/** Oriel runs on Windows, Linux and Android; "unknown" gets the benefit of the doubt. */
 export function canRunOriel(platform: Platform): boolean {
-  return platform === "windows" || platform === "linux" || platform === "unknown";
+  return platform === "windows" || platform === "linux" || platform === "android" || platform === "unknown";
 }
 
 export type Browser = "chrome" | "edge" | "firefox" | "unknown";

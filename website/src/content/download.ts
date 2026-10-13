@@ -3,12 +3,17 @@
 export const downloadPage = {
   title: "Download Oriel",
   /** Small facts under the download button. */
-  promises: ["Free, no ads", "Updates itself", "Sign in with Google"],
+  promises: ["Free, no ads", "Updates itself", "Sign in with Google or email"],
   installSteps: {
     windows: [
       "Open Oriel-Setup.exe. It installs in seconds, no admin needed.",
       "If Windows says it protected your PC, click More info, then Run anyway.",
       "Oriel starts in your tray and keeps itself up to date.",
+    ],
+    android: [
+      "Open Oriel.apk. If Android asks, allow your browser to install apps.",
+      "Sign in with Google or email: your phone shows the same wallpaper as your computer.",
+      "Oriel changes your wallpaper on schedule and keeps itself up to date.",
     ],
     linux: [
       "Make Oriel.AppImage executable (right-click, Properties, Allow executing) and open it.",
@@ -16,7 +21,7 @@ export const downloadPage = {
       "It keeps itself up to date, and the AppImage updates in place.",
     ],
   },
-  unsupportedNotice: "Oriel runs on Windows and Linux. Open this page on your computer to download it.",
+  unsupportedNotice: "Oriel runs on Windows, Linux and Android. Open this page on one of them to download it.",
   extension: {
     title: "Also for your browser",
   },

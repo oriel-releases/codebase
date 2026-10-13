@@ -12,7 +12,7 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { PageTransition } from "@/components/motion/PageTransition";
 
 export const metadata = pageMetadata({
-  title: `${site.name}: Daily Wallpaper Changer for Windows and Linux`,
+  title: `${site.name}: Daily Wallpaper Changer for Windows, Linux and Android`,
   description: site.description,
   path: routes.home,
   absoluteTitle: true,

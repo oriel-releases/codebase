@@ -3,10 +3,11 @@
 import { useState, useSyncExternalStore } from "react";
 import type { Releases } from "@/config/release";
 import { downloadPage } from "@/content/download";
-import { DownloadIcon, LinuxIcon, WindowsIcon } from "@/components/ui/icons";
+import { AndroidIcon, DownloadIcon, LinuxIcon, WindowsIcon } from "@/components/ui/icons";
 import { LatestVersion } from "@/components/download/LatestVersion";
 import { PlatformNotice } from "@/components/download/PlatformNotice";
 import { SegmentedSwitch } from "@/components/download/SegmentedSwitch";
+import { SmoothWidth, useSwitchMotion } from "@/components/download/SwitchMotion";
 import { SharedElement } from "@/components/motion/SharedElement";
 import type { AppPlatform } from "@/lib/latest-version";
 import { detectPlatform, type Platform } from "@/lib/platform";
@@ -15,27 +16,32 @@ import { sharedElement } from "@/lib/transitions";
 const subscribe = () => () => {};
 const getPlatform = (): Platform => detectPlatform(navigator.userAgent);
 const getServerPlatform = (): Platform => "unknown";
+const order: readonly AppPlatform[] = ["windows", "linux", "android"];
 
 /**
- * One decision instead of two cards: a Windows / Linux switch that starts on the visitor's own system and one big
- * download button for it. The install steps appear once the download has started, when they are what you need next.
+ * One decision instead of three cards: a Windows / Linux / Android switch that starts on the visitor's own system and
+ * one big download button for it. Switching grows or shrinks the button to its new label and slides the new words in
+ * from the side that was picked (the download icon stays still); the install
+ * steps appear once the download has started, when they are what you need next.
  */
 export function DownloadPicker({ releases }: { releases: Releases }) {
   const detected = useSyncExternalStore(subscribe, getPlatform, getServerPlatform);
   const [picked, setPicked] = useState<AppPlatform | null>(null);
   const [downloaded, setDownloaded] = useState(false);
-  const chosen: AppPlatform = picked ?? (detected === "linux" ? "linux" : "windows");
+  const chosen: AppPlatform = picked ?? (detected === "linux" || detected === "android" ? detected : "windows");
   const release = releases[chosen];
+  const motion = useSwitchMotion(order);
 
   return (
     <div className="flex w-full flex-col items-center">
       <SegmentedSwitch
         label="Your system"
         value={chosen}
-        onChange={setPicked}
+        onChange={(next) => motion.change(chosen, next, setPicked)}
         options={[
           { key: "windows", label: releases.windows.name, Icon: WindowsIcon },
           { key: "linux", label: releases.linux.name, Icon: LinuxIcon },
+          { key: "android", label: releases.android.name, Icon: AndroidIcon },
         ]}
       />
 
@@ -44,17 +50,23 @@ export function DownloadPicker({ releases }: { releases: Releases }) {
           href={release.url}
           download={release.fileName}
           onClick={() => setDownloaded(true)}
-          className="mt-7 inline-flex items-center justify-center gap-2.5 rounded-full bg-ink px-8 py-4 text-base font-medium whitespace-nowrap text-paper active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+          className="mt-7 inline-flex items-center justify-center rounded-full bg-ink px-8 py-4 text-base font-medium whitespace-nowrap text-paper active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
         >
-          <DownloadIcon width={18} height={18} />
-          Download for {release.name}
+          <SmoothWidth>
+            <DownloadIcon width={18} height={18} className="shrink-0" />
+            <span key={chosen} className={`inline-block ${motion.textIn}`}>
+              Download for {release.name}
+            </span>
+          </SmoothWidth>
         </a>
       </SharedElement>
 
-      <p className="mt-4 text-sm text-muted">
-        Version <LatestVersion key={chosen} platform={chosen} initial={release.version} /> · {release.fileName}
-      </p>
-      <p className="mt-1 text-xs text-pretty text-muted">{release.requirements}</p>
+      <div key={chosen} className={`flex flex-col items-center ${motion.textIn}`}>
+        <p className="mt-4 text-sm text-muted">
+          Version <LatestVersion platform={chosen} initial={release.version} /> · {release.fileName}
+        </p>
+        <p className="mt-1 text-xs text-pretty text-muted">{release.requirements}</p>
+      </div>
 
       <ul className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-muted">
         {downloadPage.promises.map((p) => (
