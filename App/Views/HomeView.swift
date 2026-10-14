@@ -25,11 +25,13 @@ struct HomeView: View {
     }
 }
 
-/// The current wallpaper, 440 high. Double-click (or keep clicking quickly) to favorite it, with a star burst.
+/// The current wallpaper, 440 high. A click within 350 ms of the previous one is a "like": it becomes a favorite (never
+/// un-favorites) and a gold star bursts up where you clicked. Keep clicking: a star every time, as many as you like.
 private struct Preview: View {
     @Environment(AppModel.self) private var app
     @State private var stars: [Star] = []
-    @State private var lastClick = Date.distantPast
+    @State private var lastPress = Date.distantPast
+    @State private var pressing = false
 
     struct Star: Identifiable {
         let id = UUID()
@@ -49,6 +51,12 @@ private struct Preview: View {
                     Text("No wallpaper yet. Press Change now.").foregroundStyle(Color.muted)
                 }
             }
+        }
+        .frame(height: 440)
+        .frame(maxWidth: .infinity)
+        // The stars may fly above the photo's top edge, so they're drawn over it, not clipped with it.
+        .clipShape(.rounded(Radius.large))
+        .overlay {
             ZStack {
                 ForEach(stars) { star in
                     BurstStar(rotation: star.rotation) { stars.removeAll { $0.id == star.id } }
@@ -57,62 +65,82 @@ private struct Preview: View {
             }
             .allowsHitTesting(false)
         }
-        .frame(height: 440)
-        .clipShape(.rounded(Radius.large))
         .contentShape(.rounded(Radius.large))
-        .onTapGesture(coordinateSpace: .local) { point in
-            // A click within 350 ms of the previous one is a like; every further quick click is another.
-            let now = Date()
-            defer { lastClick = now }
-            guard now.timeIntervalSince(lastClick) <= 0.35, app.current != nil else { return }
-            stars.append(Star(at: point, rotation: Double(Int.random(in: -15...15))))
-            app.like()
-        }
+        // On press, not release (like Windows), so quick clicks feel immediate.
+        .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .local)
+            .onChanged { drag in
+                guard !pressing else { return }
+                pressing = true
+                pressed(at: drag.startLocation)
+            }
+            .onEnded { _ in pressing = false })
+    }
+
+    private func pressed(at point: CGPoint) {
+        let now = Date()
+        let quick = now.timeIntervalSince(lastPress) < 0.35
+        lastPress = now
+        guard quick, app.current != nil else { return }
+        stars.append(Star(at: point, rotation: Double(Int.random(in: -15...15))))
+        app.like()
     }
 }
 
-/// One gold star: grows from 0.3 to 1.25 (170 ms) to 2.0, rises 150 pt after 110 ms, fades after 55%, 950 ms in all.
+/// One gold star, exactly like Windows: 72 pt, pops from 0.3 to 1.25 (170 ms) and keeps growing to 2.0, stays put for
+/// 110 ms then rises 150 pt, turns from its random tilt to straight, and fades over the last 45%, all in 950 ms. Every
+/// step eases out (cubic).
 private struct BurstStar: View {
     var rotation: Double
     var done: () -> Void
 
-    var body: some View {
-        Image(systemName: "star.fill")
-            .font(.system(size: 72))
-            .foregroundStyle(Color.star)
-            .keyframeAnimator(initialValue: Frame(rotation: rotation), trigger: true) { content, f in
-                content
-                    .scaleEffect(f.scale)
-                    .rotationEffect(.degrees(f.rotation))
-                    .offset(y: f.y)
-                    .opacity(f.opacity)
-            } keyframes: { _ in
-                KeyframeTrack(\.scale) {
-                    CubicKeyframe(0.3, duration: 0.001)
-                    CubicKeyframe(1.25, duration: 0.169)
-                    CubicKeyframe(2.0, duration: 0.78)
-                }
-                KeyframeTrack(\.rotation) { CubicKeyframe(0, duration: 0.95) }
-                KeyframeTrack(\.y) {
-                    LinearKeyframe(0, duration: 0.11)
-                    CubicKeyframe(-150, duration: 0.84)
-                }
-                KeyframeTrack(\.opacity) {
-                    LinearKeyframe(1, duration: 0.522)
-                    CubicKeyframe(0, duration: 0.428)
-                }
-            }
-            .task {
-                try? await Task.sleep(for: .seconds(0.95))
-                done()
-            }
-    }
+    @State private var play = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Cubic ease-out, cubic-bezier(0.215, 0.61, 0.355, 1).
+    private static let easeOut = UnitCurve.bezier(startControlPoint: UnitPoint(x: 0.215, y: 0.61),
+                                                  endControlPoint: UnitPoint(x: 0.355, y: 1))
 
     struct Frame {
         var scale = 0.3
         var rotation: Double
         var y: Double = 0
         var opacity = 1.0
+    }
+
+    var body: some View {
+        let still = reduceMotion
+        return Image(systemName: "star.fill")
+            .font(.system(size: 72))
+            .foregroundStyle(Color.star)
+            .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
+            .keyframeAnimator(initialValue: Frame(rotation: rotation), trigger: play) { content, f in
+                content
+                    .scaleEffect(still ? 1 : f.scale)
+                    .rotationEffect(.degrees(still ? 0 : f.rotation))
+                    .offset(y: still ? 0 : f.y)
+                    .opacity(f.opacity)
+            } keyframes: { _ in
+                KeyframeTrack(\.scale) {
+                    LinearKeyframe(1.25, duration: 0.17, timingCurve: Self.easeOut)
+                    LinearKeyframe(2.0, duration: 0.78, timingCurve: Self.easeOut)
+                }
+                KeyframeTrack(\.y) {
+                    LinearKeyframe(0, duration: 0.11)
+                    LinearKeyframe(-150, duration: 0.84, timingCurve: Self.easeOut)
+                }
+                KeyframeTrack(\.rotation) {
+                    LinearKeyframe(0, duration: 0.95, timingCurve: Self.easeOut)
+                }
+                KeyframeTrack(\.opacity) {
+                    LinearKeyframe(1, duration: 0.5225)
+                    LinearKeyframe(0, duration: 0.4275, timingCurve: Self.easeOut)
+                }
+            }
+            .onAppear { play = true } // the animator runs when its trigger changes
+            .task {
+                try? await Task.sleep(for: .seconds(0.95))
+                done()
+            }
     }
 }
 
