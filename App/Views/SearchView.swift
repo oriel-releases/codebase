@@ -17,10 +17,8 @@ struct SearchView: View {
             }
             .pageColumn(top: 32)
         }
-        .onAppear {
-            focused = true
-            Task { await search.findCovers() }
-        }
+        // The field doesn't take the keyboard by itself: arrowing through the sidebar must pass Search.
+        .onAppear { Task { await search.findCovers() } }
     }
 }
 

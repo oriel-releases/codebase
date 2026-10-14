@@ -28,21 +28,39 @@ struct RootView: View {
 struct MainView: View {
     @Environment(AppModel.self) private var app
     @State private var pulse: [Page: Int] = [:]
+    @FocusState private var focus: SidebarPart?
+
+    /// The sidebar is two lists (Settings is pinned at the bottom); arrow keys move across the gap.
+    enum SidebarPart { case pages, settings }
 
     var body: some View {
         @Bindable var app = app
+        let selection = Binding<Page?>(get: { app.page }, set: { if let p = $0 { select(p) } })
         NavigationSplitView {
             VStack(spacing: 0) {
-                List(selection: Binding(get: { app.page }, set: { if let p = $0 { select(p) } })) {
+                List(selection: selection) {
                     ForEach(Page.allCases.filter { $0 != .settings }) { page in
                         SidebarItem(page: page, pulse: pulse[page] ?? 0).tag(page)
                     }
                 }
-                List(selection: Binding(get: { app.page }, set: { if let p = $0 { select(p) } })) {
+                .focused($focus, equals: .pages)
+                .onKeyPress(.downArrow) {
+                    guard app.page == .friends else { return .ignored }
+                    select(.settings)
+                    focus = .settings
+                    return .handled
+                }
+                List(selection: selection) {
                     SidebarItem(page: .settings, pulse: pulse[.settings] ?? 0).tag(Page.settings)
                 }
                 .frame(height: 52)
                 .scrollDisabled(true)
+                .focused($focus, equals: .settings)
+                .onKeyPress(.upArrow) {
+                    select(.friends)
+                    focus = .pages
+                    return .handled
+                }
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
         } detail: {
