@@ -47,7 +47,7 @@ if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
   printf '%s' "$SPARKLE_PRIVATE_KEY" > "$key_file"
   key_args=(--ed-key-file "$key_file")
 fi
-"$sparkle_bin/generate_appcast" "${key_args[@]}" --download-url-prefix "https://github.com/$repo/releases/download/v$version/" \
+"$sparkle_bin/generate_appcast" ${key_args[@]+"${key_args[@]}"} --download-url-prefix "https://github.com/$repo/releases/download/v$version/" \
   -o "$out/appcast.xml" "$out" >/dev/null
 rm -f "$stage/sparkle.key"
 echo "Built $out: $(ls "$out" | tr '\n' ' ')"
