@@ -28,10 +28,9 @@ struct RootView: View {
 struct MainView: View {
     @Environment(AppModel.self) private var app
     @State private var pulse: [Page: Int] = [:]
-    @FocusState private var focus: SidebarPart?
-
-    /// The sidebar is two lists (Settings is pinned at the bottom); arrow keys move across the gap.
-    enum SidebarPart { case pages, settings }
+    /// The sidebar is two lists (Settings is pinned at the bottom); arrow keys move across the gap, and → goes into
+    /// the page (← from a page's left edge comes back).
+    @FocusState private var focus: WindowFocus?
 
     var body: some View {
         @Bindable var app = app
@@ -44,6 +43,10 @@ struct MainView: View {
                     }
                 }
                 .focused($focus, equals: .pages)
+                .onKeyPress(.rightArrow) {
+                    focus = .content
+                    return .handled
+                }
                 .onKeyPress(.downArrow) {
                     guard app.page == .friends else { return .ignored }
                     select(.settings)
@@ -56,6 +59,10 @@ struct MainView: View {
                 .frame(height: 52)
                 .scrollDisabled(true)
                 .focused($focus, equals: .settings)
+                .onKeyPress(.rightArrow) {
+                    focus = .content
+                    return .handled
+                }
                 .onKeyPress(.upArrow) {
                     select(.friends)
                     focus = .pages
@@ -67,8 +74,8 @@ struct MainView: View {
             Group {
                 switch app.page {
                 case .home: HomeView()
-                case .search: if app.showingInterests { InterestsView() } else { SearchView() }
-                case .history, .favorites: HistoryView(favorites: app.page == .favorites)
+                case .search: if app.showingInterests { InterestsView(focus: $focus) } else { SearchView(focus: $focus) }
+                case .history, .favorites: HistoryView(favorites: app.page == .favorites, focus: $focus)
                 case .friends: FriendsView()
                 case .settings: SettingsView()
                 }

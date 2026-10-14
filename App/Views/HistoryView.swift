@@ -4,8 +4,10 @@ import SwiftUI
 /// History (everything) and Favorites (starred only): one page with a mode, as a grid or a list.
 struct HistoryView: View {
     var favorites: Bool
+    var focus: FocusState<WindowFocus?>.Binding
 
     @Environment(AppModel.self) private var app
+    @State private var keyed: Int64?
     /// Shared by both modes for the app run.
     @AppStorage("historyAsList") private var asList = false
     @State private var setWords: String?
@@ -15,6 +17,7 @@ struct HistoryView: View {
     private var shown: [HistoryEntry] { favorites ? app.entries.filter(\.isFavorite) : app.entries }
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 10) {
@@ -38,15 +41,26 @@ struct HistoryView: View {
                     .padding(.top, 80)
                 } else if asList {
                     LazyVStack(spacing: 8) {
-                        ForEach(shown) { entry in ListRow(entry: entry, actions: actions(entry)) }
+                        ForEach(shown) { entry in
+                            ListRow(entry: entry, actions: actions(entry)).id(entry.id)
+                                .keyboardRing(keyed == entry.id && focus.wrappedValue == .content, radius: Radius.medium)
+                        }
                     }
+                    .keyboardGrid(shown.map(\.id), minItemWidth: .infinity, spacing: 8, selected: $keyed, focus: focus,
+                                  proxy: proxy, actions: keyActions)
                 } else {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 12)], spacing: 12) {
-                        ForEach(shown) { entry in GridCard(entry: entry, actions: actions(entry)) }
+                        ForEach(shown) { entry in
+                            GridCard(entry: entry, actions: actions(entry), keyed: keyed == entry.id && focus.wrappedValue == .content)
+                                .id(entry.id)
+                        }
                     }
+                    .keyboardGrid(shown.map(\.id), minItemWidth: 300, spacing: 12, selected: $keyed, focus: focus,
+                                  proxy: proxy, actions: keyActions)
                 }
             }
             .pageColumn()
+        }
         }
         .alert(confirmDelete?.isFavorite == true ? "Delete this wallpaper?" : "Delete this wallpaper?",
                isPresented: Binding(get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } }), presenting: confirmDelete) { entry in
@@ -58,6 +72,18 @@ struct HistoryView: View {
                  : "The file will be deleted, and Oriel won't pick this photo again.")
         }
         .onAppear { app.reload() }
+    }
+
+    /// Return sets the highlighted photo again, F stars it, Delete deletes it (after asking).
+    private var keyActions: [KeyEquivalent: (Int64) -> Void] {
+        func entry(_ id: Int64) -> HistoryEntry? { shown.first { $0.id == id } }
+        let remove: (Int64) -> Void = { id in confirmDelete = entry(id) }
+        return [
+            .return: { id in if let e = entry(id) { actions(e).setAgain() } },
+            "f": { id in if let e = entry(id) { app.toggleFavorite(e) } },
+            .delete: remove,
+            .deleteForward: remove,
+        ]
     }
 
     private func actions(_ entry: HistoryEntry) -> EntryActions {
@@ -109,6 +135,7 @@ private func meta(_ entry: HistoryEntry) -> String {
 private struct GridCard: View {
     var entry: HistoryEntry
     var actions: EntryActions
+    var keyed = false
     @State private var hover = false
 
     var body: some View {
@@ -125,7 +152,7 @@ private struct GridCard: View {
                     Text(meta(entry)).font(.system(size: 12)).foregroundStyle(.white.opacity(0.8)).lineLimit(1)
                 }
                 Spacer(minLength: 0)
-                if hover {
+                if hover || keyed {
                     HStack(spacing: 4) { ActionButtons(entry: entry, actions: actions, onPhoto: true) }
                 }
             }
@@ -140,7 +167,7 @@ private struct GridCard: View {
         .clipShape(.rounded(Radius.card))
         .contentShape(.rounded(Radius.card))
         .onHover { hover = $0 }
-        .focusable()
+        .keyboardRing(keyed, radius: Radius.card)
     }
 }
 

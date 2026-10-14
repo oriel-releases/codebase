@@ -2,6 +2,8 @@ import OrielKit
 import SwiftUI
 
 struct SearchView: View {
+    var focus: FocusState<WindowFocus?>.Binding
+
     @Environment(AppModel.self) private var app
     @FocusState private var focused: Bool
 
@@ -13,7 +15,7 @@ struct SearchView: View {
                 if let banner = search.banner {
                     InfoBar(banner: banner) { search.banner = nil }.padding(.top, 12)
                 }
-                if search.isStart { StartContent().padding(.top, 22) } else { Results().padding(.top, 22) }
+                if search.isStart { StartContent().padding(.top, 22) } else { Results(focus: focus).padding(.top, 22) }
             }
             .pageColumn(top: 32)
         }
@@ -128,10 +130,14 @@ private struct StartContent: View {
 }
 
 private struct Results: View {
+    var focus: FocusState<WindowFocus?>.Binding
+
     @Environment(AppModel.self) private var app
+    @State private var keyed: String?
 
     var body: some View {
         let search = app.search
+        ScrollViewReader { proxy in
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("Results for “\(search.query ?? "")”").sectionHeader()
@@ -159,8 +165,16 @@ private struct Results: View {
                 .background(Color.surface, in: .rounded(Radius.large))
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 14)], spacing: 14) {
-                    ForEach(search.results) { ResultCard(result: $0) }
+                    ForEach(search.results) { result in
+                        ResultCard(result: result).id(result.id)
+                            .keyboardRing(keyed == result.id && focus.wrappedValue == .content, radius: Radius.card)
+                    }
                 }
+                // Return sets the highlighted photo.
+                .keyboardGrid(search.results.map(\.id), minItemWidth: 280, spacing: 14, selected: $keyed, focus: focus, proxy: proxy,
+                              actions: [.return: { id in
+                                  if let r = search.results.first(where: { $0.id == id }) { Task { await search.set(r) } }
+                              }])
                 if search.hasMore {
                     Button {
                         Task { await search.loadMore() }
@@ -178,6 +192,7 @@ private struct Results: View {
                     ProgressView().frame(maxWidth: .infinity).padding(.top, 16)
                 }
             }
+        }
         }
     }
 }
@@ -226,12 +241,17 @@ private struct ResultCard: View {
 }
 
 struct InterestsView: View {
+    var focus: FocusState<WindowFocus?>.Binding
+
     @Environment(AppModel.self) private var app
+    @State private var keyed: String?
 
     var body: some View {
         @Bindable var app = app
         let builtIn = app.settings.topics.indices.filter { !app.settings.topics[$0].isCustom }
         let custom = app.settings.topics.indices.filter { app.settings.topics[$0].isCustom }
+        let all = builtIn + custom
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 HStack(spacing: 12) {
@@ -256,14 +276,20 @@ struct InterestsView: View {
                 }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 12)], spacing: 12) {
                     ForEach(builtIn, id: \.self) { i in
+                        let ringed = keyed == app.settings.topics[i].query && focus.wrappedValue == .content
                         let topic = app.settings.topics[i]
                         InterestTile(label: topic.query.capitalizedFirst, cover: InterestCovers.all[topic.query].map { $0.url().absoluteString },
                                      credit: InterestCovers.all[topic.query].map { "Photo by \($0.by) on Unsplash" },
                                      on: topic.enabled, height: 136, radius: Radius.card) {
                             app.settings.topics[i].enabled.toggle()
                         }
+                        .id(topic.query)
+                        .keyboardRing(ringed, radius: Radius.card)
                     }
                 }
+                // Return or Space turns the highlighted interest on or off (your own ones are reached with → at the end).
+                .keyboardGrid(all.map { app.settings.topics[$0].query }, minItemWidth: 190, spacing: 12, selected: $keyed,
+                              focus: focus, proxy: proxy, actions: [.return: toggle, .space: toggle])
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Your own").sectionHeader()
                     Text("Search for anything, then press Add to Interests to make it one of yours.")
@@ -278,6 +304,8 @@ struct InterestsView: View {
                                              onRemove: { app.settings.topics.removeAll { $0.query == topic.query && $0.isCustom } }) {
                                     app.settings.topics[i].enabled.toggle()
                                 }
+                                .id(topic.query)
+                                .keyboardRing(keyed == topic.query && focus.wrappedValue == .content, radius: Radius.card)
                             }
                         }
                     }
@@ -286,7 +314,12 @@ struct InterestsView: View {
             }
             .pageColumn(top: 32)
         }
+        }
         .onAppear { Task { await app.search.findCovers() } }
+    }
+
+    private func toggle(_ query: String) {
+        if let i = app.settings.topics.firstIndex(where: { $0.query == query }) { app.settings.topics[i].enabled.toggle() }
     }
 
     /// Select all and Clear affect the built-in interests only.
