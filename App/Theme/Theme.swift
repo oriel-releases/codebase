@@ -373,17 +373,19 @@ struct Photo: View {
     private var key: String { "\(file ?? url ?? "")#\(maxPixels)" }
 
     var body: some View {
-        ZStack {
-            placeholder
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .opacity(shown ? 1 : 0)
-                    .scaleEffect(scaled || reduceMotion ? 1 : 1.1)
+        // The placeholder sets the size (exactly what the card gives); the photo fills it as an overlay. A fill-scaled
+        // image in a ZStack would report its own, bigger size and push the card's text out of view.
+        placeholder
+            .overlay {
+                if let image {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .opacity(shown ? 1 : 0)
+                        .scaleEffect(scaled || reduceMotion ? 1 : 1.1)
+                }
             }
-        }
-        .clipped()
+            .clipped()
         .task(id: key) {
             let instant = ImageCache.revealed.contains(key)
             if instant, let hit = ImageCache.cached(key) {
