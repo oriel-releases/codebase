@@ -41,15 +41,20 @@ ln -s /Applications "$stage/Applications"
 hdiutil create -volname "Oriel" -srcfolder "$stage" -ov -format UDZO -quiet "$out/Oriel.dmg"
 
 # The feed: generate_appcast signs the zip with the private key (from SPARKLE_PRIVATE_KEY, else this Mac's Keychain).
+# It looks at the zip alone (with the DMG beside it, it refuses two archives of the same version), and it can exit 0
+# on errors, so the result is checked.
+feed="$stage/feed"
+mkdir -p "$feed"
+cp "$out/Oriel.zip" "$feed/"
 key_args=()
 if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
-  key_file="$stage/sparkle.key"
-  printf '%s' "$SPARKLE_PRIVATE_KEY" > "$key_file"
-  key_args=(--ed-key-file "$key_file")
+  printf '%s' "$SPARKLE_PRIVATE_KEY" > "$stage/sparkle.key"
+  key_args=(--ed-key-file "$stage/sparkle.key")
 fi
-"$sparkle_bin/generate_appcast" ${key_args[@]+"${key_args[@]}"} --download-url-prefix "https://github.com/$repo/releases/download/v$version/" \
-  -o "$out/appcast.xml" "$out" >/dev/null
+"$sparkle_bin/generate_appcast" ${key_args[@]+"${key_args[@]}"} \
+  --download-url-prefix "https://github.com/$repo/releases/download/v$version/" -o "$out/appcast.xml" "$feed"
 rm -f "$stage/sparkle.key"
+grep -q 'sparkle:edSignature=' "$out/appcast.xml" 2>/dev/null || { echo "error: appcast.xml wasn't made or isn't signed" >&2; exit 1; }
 echo "Built $out: $(ls "$out" | tr '\n' ' ')"
 
 if [[ $upload == 1 ]]; then
