@@ -11,6 +11,9 @@ public protocol WallpaperSetter: Sendable {
     /// One photo on one screen.
     func set(_ file: URL, on screenID: String, fit: WallpaperFit) throws
 
+    /// One photo across every screen (Span): each screen shows its part of it.
+    func setSpanning(_ file: URL) throws
+
     /// The photo on a screen now, or the one on every screen when `screenID` is nil (nil when they differ).
     func current(on screenID: String?) -> URL?
 }

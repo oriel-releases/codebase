@@ -59,6 +59,14 @@ final class FakeSetter: WallpaperSetter {
         state.withLock { $0.calls.append(Call(screen: screenID, file: file, fit: fit)) }
     }
 
+    func setSpanning(_ file: URL) throws {
+        state.withLock { $0.calls.append(Call(screen: "span", file: file, fit: .span)) }
+    }
+
+    func addScreen(_ id: String, x: Int, width: Int = 1920, height: Int = 1080) {
+        state.withLock { $0.screens.append(ScreenInfo(id: id, frame: PixelRect(x: x, y: 0, width: width, height: height), isMain: false)) }
+    }
+
     func current(on screenID: String?) -> URL? {
         state.withLock { $0.calls.last { $0.screen == screenID }?.file }
     }
@@ -123,4 +131,43 @@ extension Date {
         c.timeZone = .gmt
         return c.date(from: DateComponents(year: year, month: month, day: day, hour: hour))!
     }
+}
+
+/// Hands out queued search results; downloads return a tiny valid JPEG header.
+actor FakeProvider: ImageProvider {
+    private var responses: [[PhotoCandidate]]
+    private(set) var queries: [String] = []
+    private(set) var tracked: [String] = []
+    var failWith: ProviderError?
+
+    init(_ responses: [[PhotoCandidate]] = []) {
+        self.responses = responses
+    }
+
+    nonisolated var name: String { "unsplash" }
+    nonisolated var isConfigured: Bool { true }
+    var remainingRequests: Int? { 40 }
+
+    func fail(with error: ProviderError?) { failWith = error }
+
+    func random(_ query: ImageQuery) async throws -> [PhotoCandidate] {
+        queries.append(query.query)
+        if let failWith { throw failWith }
+        return responses.isEmpty ? [] : responses.removeFirst()
+    }
+
+    func search(_ query: String, page: Int) async throws -> SearchPage {
+        SearchPage(photos: try await random(ImageQuery(query, targetSize: PixelSize(width: 1, height: 1))), totalPages: 1)
+    }
+
+    func photo(id: String) async throws -> PhotoCandidate { Fixtures.photo(id) }
+
+    func download(_ photo: PhotoCandidate, size: PixelSize) async throws -> Data {
+        var bytes = Data(count: 4096)
+        bytes[0] = 0xFF
+        bytes[1] = 0xD8
+        return bytes
+    }
+
+    func trackUsage(_ photo: PhotoCandidate) async { tracked.append(photo.id) }
 }
