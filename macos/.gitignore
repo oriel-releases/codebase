@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Xcode (the project is generated from project.yml by XcodeGen)
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Local secrets: the Unsplash key is read from .env at build time (scripts/configure.sh)
+.env
+Config/Secrets.xcconfig
+
+# Release output (scripts/release.sh)
+releases/
