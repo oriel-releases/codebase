@@ -1,0 +1,68 @@
+name: Oriel
+
+options:
+  bundleIdPrefix: uz.akbarjon.oriel
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+packages:
+  OrielKit:
+    path: OrielKit
+
+targets:
+  Oriel:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+    dependencies:
+      - package: OrielKit
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Oriel
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.utilities
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        # A menu bar app: no Dock icon until the window opens (see AppDelegate).
+        LSUIElement: true
+        NSHumanReadableCopyright: Photos by Unsplash photographers.
+        # Embedded at build time from .env / the environment (scripts/configure.sh -> Config/Secrets.xcconfig).
+        OrielUnsplashAccessKey: $(UNSPLASH_ACCESS_KEY)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: uz.akbarjon.oriel
+        PRODUCT_NAME: Oriel
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        # Distributed as a DMG, outside the App Store: no sandbox. Signed ad hoc for now (self-signed cert in M5).
+        ENABLE_APP_SANDBOX: NO
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        ENABLE_HARDENED_RUNTIME: NO
+        DEVELOPMENT_TEAM: ""
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_STRICT_CONCURRENCY: complete
+
+schemes:
+  Oriel:
+    build:
+      targets:
+        Oriel: all
+    run:
+      config: Debug
+    archive:
+      config: Release
