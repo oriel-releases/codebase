@@ -5,6 +5,7 @@
 #   appcast.xml   the update feed, signed with Sparkle's EdDSA key (kept in this Mac's Keychain by generate_keys)
 #
 # Usage: GITHUB_TOKEN=... scripts/release.sh [--no-upload]
+# In CI (.github/workflows/release.yml) the Sparkle private key comes from SPARKLE_PRIVATE_KEY instead of the Keychain.
 # Before: bump MARKETING_VERSION and CURRENT_PROJECT_VERSION in project.yml.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -39,9 +40,16 @@ cp -R "$app" "$stage/"
 ln -s /Applications "$stage/Applications"
 hdiutil create -volname "Oriel" -srcfolder "$stage" -ov -format UDZO -quiet "$out/Oriel.dmg"
 
-# The feed: generate_appcast signs the zip with the private key from the Keychain.
-"$sparkle_bin/generate_appcast" --download-url-prefix "https://github.com/$repo/releases/download/v$version/" \
+# The feed: generate_appcast signs the zip with the private key (from SPARKLE_PRIVATE_KEY, else this Mac's Keychain).
+key_args=()
+if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
+  key_file="$stage/sparkle.key"
+  printf '%s' "$SPARKLE_PRIVATE_KEY" > "$key_file"
+  key_args=(--ed-key-file "$key_file")
+fi
+"$sparkle_bin/generate_appcast" "${key_args[@]}" --download-url-prefix "https://github.com/$repo/releases/download/v$version/" \
   -o "$out/appcast.xml" "$out" >/dev/null
+rm -f "$stage/sparkle.key"
 echo "Built $out: $(ls "$out" | tr '\n' ' ')"
 
 if [[ $upload == 1 ]]; then

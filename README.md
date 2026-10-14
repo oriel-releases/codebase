@@ -46,6 +46,13 @@ Exit codes: `0` ok, `1` failed (wallpaper kept), `2` bad usage, `3` not signed i
 
 ## Release
 
+**From GitHub Actions (normal way):** bump `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`, commit,
+then push a matching tag: `git tag v1.0.1 && git push origin v1.0.1`. `.github/workflows/release.yml` runs the tests,
+builds and publishes; the secrets it needs are listed at the top of that file. "Run workflow" by hand builds without
+publishing (the files are kept with the run).
+
+**From this Mac:**
+
 1. Once: `build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys` makes the EdDSA key pair. The private key
    stays in this Mac's Keychain (back it up: losing it means installed copies can never update again); put the
    printed public key in `.env` as `SPARKLE_PUBLIC_KEY=`.
