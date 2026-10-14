@@ -20,7 +20,17 @@ public struct AppPaths: Sendable {
     /// The next wallpaper, downloaded ahead of time so the change is instant and works offline.
     public var prefetchDir: URL { dataRoot.appending(path: "next", directoryHint: .isDirectory) }
     public var databaseFile: URL { dataRoot.appending(path: "oriel.db") }
+    /// Held while a wallpaper change or folder move is under way (see ApplyLock).
+    public var lockFile: URL { dataRoot.appending(path: "apply.lock") }
     public var logsDir: URL { dataRoot.appending(path: "logs", directoryHint: .isDirectory) }
+
+    /// Where photos are saved: the folder the user picked, else the default.
+    public func wallpaperFolder(_ settings: OrielSettings) -> URL {
+        guard let custom = settings.wallpaperFolder, !custom.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return picturesRoot
+        }
+        return URL(filePath: custom, directoryHint: .isDirectory)
+    }
 
     public func ensureCreated() throws {
         let fm = FileManager.default
