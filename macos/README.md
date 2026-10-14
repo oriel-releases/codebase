@@ -2,7 +2,7 @@
 
 A native macOS app that gives you a fresh, high-quality Unsplash photo as your desktop wallpaper on a schedule, the
 same photo on every device of your account. Swift 6, SwiftUI + AppKit, lives in the menu bar. The macOS twin of
-Oriel for Windows: [docs/mac-task.md](docs/mac-task.md) is the full specification.
+Oriel for Windows (`../windows`): [docs/mac-task.md](docs/mac-task.md) is the full specification.
 
 ## Requirements
 
@@ -46,9 +46,10 @@ Exit codes: `0` ok, `1` failed (wallpaper kept), `2` bad usage, `3` not signed i
 
 ## Release
 
-**From GitHub Actions (normal way):** bump `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`, commit,
-then push a matching tag: `git tag v1.0.1 && git push origin v1.0.1`. `.github/workflows/release.yml` runs the tests,
-builds and publishes; the secrets it needs are listed at the top of that file. "Run workflow" by hand builds without
+**From GitHub Actions (normal way):** bump `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`, merge,
+then push a matching tag: `git tag macos-v1.0.1 && git push origin macos-v1.0.1`. The monorepo's
+`.github/workflows/macos-release.yml` runs the tests, builds and publishes to `oriel-releases/macos` as `v1.0.1`; the
+secrets it needs are listed at the top of that file. "Run workflow" by hand builds without
 publishing (the files are kept with the run).
 
 **From this Mac:**

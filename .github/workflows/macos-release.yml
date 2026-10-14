@@ -1,16 +1,17 @@
-# Builds and publishes a release when a version tag is pushed (git tag v1.0.1 && git push origin v1.0.1):
-# Oriel.dmg, Oriel.zip and appcast.xml go to github.com/oriel-releases/macos as that tag.
+# The macOS app (macos/): builds and publishes a release when a macOS version tag is pushed
+# (git tag macos-v1.0.1 && git push origin macos-v1.0.1). Oriel.dmg, Oriel.zip and appcast.xml go to
+# github.com/oriel-releases/macos as v1.0.1.
 #
 # Repository secrets (Settings > Secrets and variables > Actions):
 #   UNSPLASH_ACCESS_KEY   the macOS Unsplash app's access key
 #   SPARKLE_PUBLIC_KEY    Sparkle's public EdDSA key (also in .env)
 #   SPARKLE_PRIVATE_KEY   the private key, exported once with generate_keys -x (never in the repo)
 #   RELEASES_TOKEN        a fine-grained token with Contents: read and write on oriel-releases/macos
-name: Release
+name: macOS release
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["macos-v*"]
   workflow_dispatch:
     inputs:
       upload:
@@ -23,6 +24,9 @@ jobs:
     # Needs Xcode with the macOS 26 SDK.
     runs-on: macos-26
     timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: macos
     steps:
       - uses: actions/checkout@v4
 
@@ -34,10 +38,10 @@ jobs:
         run: brew install xcodegen
 
       - name: The tag matches the version in project.yml
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/macos-v')
         run: |
           version="$(grep -E '^\s*MARKETING_VERSION:' project.yml | head -1 | sed -E 's/.*"(.*)".*/\1/')"
-          if [[ "v$version" != "$GITHUB_REF_NAME" ]]; then
+          if [[ "macos-v$version" != "$GITHUB_REF_NAME" ]]; then
             echo "::error::Tag $GITHUB_REF_NAME doesn't match MARKETING_VERSION $version in project.yml"
             exit 1
           fi
@@ -62,5 +66,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Oriel-macOS
-          path: releases/
+          path: macos/releases/
           retention-days: 14

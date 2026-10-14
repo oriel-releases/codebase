@@ -1,13 +1,17 @@
-# Pull requests: the OrielKit tests and a build of the app (no keys needed: it builds without them).
-name: CI
+# Pull requests that touch the macOS app: the OrielKit tests and a build (no keys needed: it builds without them).
+name: macOS CI
 
 on:
   pull_request:
+    paths: ["macos/**", ".github/workflows/macos-*.yml"]
 
 jobs:
   test:
     runs-on: macos-26
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: macos
     steps:
       - uses: actions/checkout@v4
       - uses: maxim-lobanov/setup-xcode@v1
