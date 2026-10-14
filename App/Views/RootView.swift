@@ -43,31 +43,12 @@ struct MainView: View {
                     }
                 }
                 .focused($focus, equals: .pages)
-                .onKeyPress(.rightArrow) {
-                    focus = .content
-                    return .handled
-                }
-                .onKeyPress(.downArrow) {
-                    guard app.page == .friends else { return .ignored }
-                    select(.settings)
-                    focus = .settings
-                    return .handled
-                }
                 List(selection: selection) {
                     SidebarItem(page: .settings, pulse: pulse[.settings] ?? 0).tag(Page.settings)
                 }
                 .frame(height: 52)
                 .scrollDisabled(true)
                 .focused($focus, equals: .settings)
-                .onKeyPress(.rightArrow) {
-                    focus = .content
-                    return .handled
-                }
-                .onKeyPress(.upArrow) {
-                    select(.friends)
-                    focus = .pages
-                    return .handled
-                }
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
         } detail: {
@@ -87,6 +68,12 @@ struct MainView: View {
             .animation(.easeOut(duration: 0.2), value: app.page)
         }
         .navigationTitle("Oriel (Beta)")
+        // The sidebar's native list eats ← → (and ↓ ↑ at its ends): the app delegate catches them and asks here.
+        .onChange(of: app.focusRequest) { _, request in
+            guard let request else { return }
+            focus = request
+            app.focusRequest = nil
+        }
     }
 
     private func select(_ page: Page) {

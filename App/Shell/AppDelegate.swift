@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var openFriends = false
     private var launchedWithLink = false
     private var observers: [NSObjectProtocol] = []
+    private var keyMonitor: Any?
 
     // MARK: - Startup
 
@@ -207,6 +208,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             w.setFrame(NSRect(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2, width: size.width, height: size.height),
                        display: false)
             window = w
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                let code = Int(event.keyCode), flags = event.modifierFlags.rawValue, number = event.windowNumber
+                let handled = MainActor.assumeIsolated { self?.sidebarKey(code, flags: flags, window: number) ?? false }
+                return handled ? nil : event
+            }
         }
         if openFriends {
             openFriends = false
@@ -224,10 +230,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     /// The window is gone: back to the menu bar only, and let the photos go.
     func windowWillClose(_ notification: Notification) {
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        keyMonitor = nil
         window = nil
         model.search.release()
         ImageCache.release()
         NSApp.setActivationPolicy(.accessory)
+    }
+
+    /// Keys the sidebar's native list would swallow (it uses ← → to fold groups): → goes into the page, and ↓ ↑ cross
+    /// between the pages and the Settings item pinned at the bottom. Everything else passes through.
+    /// True when the key was used here.
+    private func sidebarKey(_ code: Int, flags: UInt, window number: Int) -> Bool {
+        guard let window, number == window.windowNumber, window.firstResponder is NSTableView,
+              NSEvent.ModifierFlags(rawValue: flags).intersection([.command, .option, .control]).isEmpty else { return false }
+        switch code {
+        case 124: // →
+            model.focusRequest = .content
+        case 125 where model.page == .friends: // ↓ past Friends
+            model.page = .settings
+            model.focusRequest = .settings
+        case 126 where model.page == .settings: // ↑ from Settings
+            model.page = .friends
+            model.focusRequest = .pages
+        default:
+            return false
+        }
+        return true
     }
 
     @objc private func openWindow() { showWindow() }

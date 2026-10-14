@@ -66,6 +66,8 @@ final class AppModel {
     var page: Page = .home
     /// Search's sub-page.
     var showingInterests = false
+    /// Where the keyboard should go next (set by the app delegate's key handling; the window applies it).
+    var focusRequest: WindowFocus?
     var showOnboarding = false
     let shared: SharedPhotoModel
     let signIn: SignInModel
