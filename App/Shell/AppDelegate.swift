@@ -194,7 +194,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         if window == nil {
             let host = NSHostingController(rootView: RootView().environment(model))
             host.sceneBridgingOptions = [.toolbars, .title]
-            let w = NSWindow(contentViewController: host)
+            let w = OrielWindow(contentViewController: host)
             w.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
             w.title = "Oriel (Beta)"
             w.titlebarAppearsTransparent = true
@@ -355,5 +355,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         } catch {
             Log.app.warning("Couldn't move Oriel to Applications", error)
         }
+    }
+}
+
+/// Oriel's window. A key that nothing in the window uses (most pages have no text field) is ignored quietly instead
+/// of the system's error beep. Text fields, ⌘ shortcuts and Escape are handled before it gets here.
+final class OrielWindow: NSWindow {
+    override func noResponder(for eventSelector: Selector) {
+        if eventSelector == #selector(NSResponder.keyDown(with:)) { return }
+        super.noResponder(for: eventSelector)
     }
 }
