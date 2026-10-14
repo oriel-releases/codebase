@@ -7,7 +7,10 @@ public protocol HistoryStore: Sendable {
     @discardableResult func add(_ entry: HistoryEntry) throws -> Int64
     func list(includeDeleted: Bool) -> [HistoryEntry]
     func get(_ id: Int64) -> HistoryEntry?
+    /// Sets the star, then tells the favorite listeners (FavoritesSync shares it) with the entry as it is now.
     func setFavorite(_ id: Int64, _ favorite: Bool)
+    /// Calls `handler` after every `setFavorite`.
+    func onFavoriteChanged(_ handler: @escaping @Sendable (HistoryEntry) -> Void)
     func markDeleted(_ id: Int64)
     /// Non-favorite, not-yet-deleted entries applied before the cutoff.
     func expired(before cutoff: Date) -> [HistoryEntry]
@@ -25,6 +28,7 @@ public extension HistoryStore {
 public final class SQLiteHistoryStore: HistoryStore, @unchecked Sendable {
     private let lock = NSLock()
     private let database: SQLiteDatabase
+    private var favoriteHandlers: [@Sendable (HistoryEntry) -> Void] = []
 
     public convenience init(paths: AppPaths) throws {
         try self.init(file: paths.databaseFile)
@@ -97,6 +101,12 @@ public final class SQLiteHistoryStore: HistoryStore, @unchecked Sendable {
 
     public func setFavorite(_ id: Int64, _ favorite: Bool) {
         guarded(()) { try $0.run("UPDATE history SET is_favorite = ? WHERE id = ?", [.int(favorite ? 1 : 0), .int(id)]) }
+        let handlers = lock.withLock { favoriteHandlers }
+        if !handlers.isEmpty, let entry = get(id) { handlers.forEach { $0(entry) } }
+    }
+
+    public func onFavoriteChanged(_ handler: @escaping @Sendable (HistoryEntry) -> Void) {
+        lock.withLock { favoriteHandlers.append(handler) }
     }
 
     public func markDeleted(_ id: Int64) {
@@ -113,7 +123,7 @@ public final class SQLiteHistoryStore: HistoryStore, @unchecked Sendable {
         try withDatabase { db in
             try db.transaction {
                 for (old, new) in moves {
-                    try db.run("UPDATE history SET file_path = ? WHERE file_path = ?", [.text(new), .text(old)])
+                    try db.run("UPDATE history SET file_path = ? WHERE file_path = ? COLLATE NOCASE", [.text(new), .text(old)])
                 }
             }
         }
@@ -147,7 +157,7 @@ public final class SQLiteHistoryStore: HistoryStore, @unchecked Sendable {
         do {
             return try withDatabase(body)
         } catch {
-            Log.history.error("History database: \(String(describing: error), privacy: .public)")
+            Log.history.error("History database: \(String(describing: error))")
             return fallback
         }
     }
@@ -159,12 +169,7 @@ public final class SQLiteHistoryStore: HistoryStore, @unchecked Sendable {
     }
 
     // Stored as UTC ISO 8601 with milliseconds: text order is time order, so SQL can compare and sort it.
-    private static func format(_ date: Date) -> String {
-        Date.ISO8601FormatStyle(includingFractionalSeconds: true).format(date)
-    }
+    private static func format(_ date: Date) -> String { ISO8601.format(date) }
 
-    private static func parse(_ text: String) -> Date? {
-        (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(text))
-            ?? (try? Date.ISO8601FormatStyle().parse(text))
-    }
+    private static func parse(_ text: String) -> Date? { ISO8601.parse(text) }
 }

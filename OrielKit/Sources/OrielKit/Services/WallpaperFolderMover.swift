@@ -49,7 +49,7 @@ public struct WallpaperFolderMover: Sendable {
             try? fm.removeItem(at: oldFolder) // the old folder goes once it's empty
         }
 
-        Log.wallpaper.info("Moved \(moved.count) photo(s) to the new wallpaper folder")
+        Log.mover.info("Moved \(moved.count) photo(s) to the new wallpaper folder")
         return moved.count
     }
 
@@ -91,7 +91,7 @@ public struct WallpaperFolderMover: Sendable {
                 }
             }
         } catch {
-            Log.wallpaper.warning("Couldn't re-point the current wallpaper after moving the folder: \(error.localizedDescription, privacy: .public)")
+            Log.mover.warning("Couldn't re-point the current wallpaper after moving the folder: \(error.localizedDescription)")
         }
     }
 

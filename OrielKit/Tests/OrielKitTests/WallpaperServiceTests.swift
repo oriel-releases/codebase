@@ -22,7 +22,9 @@ struct WallpaperServiceTests {
 
     @Test func appliesRecordsAndTracks() async throws {
         let provider = FakeProvider([[Fixtures.photo("a")]])
-        let result = await service(provider).apply(force: false)
+        let svc = service(provider)
+        let result = await svc.apply(force: false)
+        await svc.afterChangeDone()
 
         #expect(result.status == .applied)
         let entry = try #require(result.entries.first)
@@ -86,12 +88,13 @@ struct WallpaperServiceTests {
         #expect(Set(setter.calls.compactMap(\.screen)) == ["SCREEN1", "SCREEN2"])
     }
 
+    /// Capped at 3840 wide (keeping the shape), so 5K/6K displays don't reject most photos.
     @Test func spanSizesForTheWholeDesktop() {
         var s = OrielSettings()
         s.fit = .span
         let screens = [ScreenInfo(id: "1", frame: PixelRect(x: 0, y: 0, width: 2560, height: 1440), isMain: true),
                        ScreenInfo(id: "2", frame: PixelRect(x: 2560, y: 0, width: 1920, height: 1080), isMain: false)]
-        #expect(WallpaperService.planTargets(screens, s).map(\.size) == [PixelSize(width: 4480, height: 1440)])
+        #expect(WallpaperService.planTargets(screens, s).map(\.size) == [PixelSize(width: 3840, height: 1234)])
     }
 
     @Test func favoritesOnlyReusesAFavorite() async throws {

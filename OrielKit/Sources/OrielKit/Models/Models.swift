@@ -1,7 +1,7 @@
 import Foundation
 
 /// A photo offered by an image provider, before it is downloaded.
-public struct PhotoCandidate: Sendable, Hashable {
+public struct PhotoCandidate: Sendable, Hashable, Codable {
     public var provider: String
     public var id: String
     public var width: Int

@@ -73,7 +73,7 @@ public actor UnsplashProvider: ImageProvider {
             } catch {
                 try Task.checkCancellation()
                 if attempt < 2 {
-                    Log.provider.info("Downloading \(photo.id, privacy: .public) failed (\(error.localizedDescription, privacy: .public)); trying once more")
+                    Log.provider.info("Downloading \(photo.id) failed (\(error.localizedDescription)); trying once more")
                     attempt += 1
                     continue
                 }
@@ -89,7 +89,7 @@ public actor UnsplashProvider: ImageProvider {
         do {
             _ = try await sendAPI(url)
         } catch {
-            Log.provider.warning("Download tracking failed for \(photo.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            Log.provider.warning("Download tracking failed for \(photo.id): \(error.localizedDescription)")
         }
     }
 

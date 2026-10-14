@@ -64,8 +64,8 @@ public struct OrielSettings: Sendable, Hashable, Codable {
     /// Where photos are saved; nil means the default (~/Pictures/Oriel).
     public var wallpaperFolder: String?
 
-    /// Start Oriel when you log in (a login item).
-    public var openAtLogin = true
+    /// Start Oriel in the menu bar when you log in (a login item). Windows: StartWithWindows.
+    public var startAtLogin = true
 
     /// Prefer darker photos in the evening (and in dark mode), brighter ones in the morning.
     public var matchTimeOfDay = true
@@ -73,10 +73,24 @@ public struct OrielSettings: Sendable, Hashable, Codable {
     /// With more than one screen, give each its own photo instead of the same one everywhere.
     public var photoPerMonitor = false
 
+    /// Following a friend: their account, first name and Google picture. While set, the own schedule is off and the
+    /// friend's wallpaper is used. Per device.
+    public var followUid: String?
+    public var followName: String?
+    public var followPicture: String?
+
+    /// This device's code for friends to follow (nil while not sharing).
+    public var myFollowCode: String?
+
     /// The first-run tour was finished or skipped.
     public var onboardingDone = false
 
+    /// Global shortcut for "next wallpaper", stored with Windows-style names ("Ctrl+Alt+W", Alt = Option). Empty: none.
+    public var hotkey = "Ctrl+Alt+W"
+
     public init() {}
+
+    public var isFollowing: Bool { !(followUid ?? "").isEmpty }
 
     public var zone: TimeZone { TimeZone(identifier: timeZone) ?? .current }
 
@@ -124,7 +138,8 @@ public struct OrielSettings: Sendable, Hashable, Codable {
 
     enum CodingKeys: String, CodingKey {
         case topics, dailyTime, timeZone, intervalMinutes, favoritesOnly, applyAtLogin, paused, fit, skipLowLikes,
-             minLikes, wallpaperFolder, openAtLogin, matchTimeOfDay, photoPerMonitor, onboardingDone
+             minLikes, wallpaperFolder, startAtLogin, matchTimeOfDay, photoPerMonitor, followUid, followName,
+             followPicture, myFollowCode, onboardingDone, hotkey
     }
 
     public init(from decoder: Decoder) throws {
@@ -141,10 +156,15 @@ public struct OrielSettings: Sendable, Hashable, Codable {
         skipLowLikes = try c.decodeIfPresent(Bool.self, forKey: .skipLowLikes) ?? d.skipLowLikes
         minLikes = try c.decodeIfPresent(Int.self, forKey: .minLikes) ?? d.minLikes
         wallpaperFolder = try c.decodeIfPresent(String.self, forKey: .wallpaperFolder)
-        openAtLogin = try c.decodeIfPresent(Bool.self, forKey: .openAtLogin) ?? d.openAtLogin
+        startAtLogin = try c.decodeIfPresent(Bool.self, forKey: .startAtLogin) ?? d.startAtLogin
         matchTimeOfDay = try c.decodeIfPresent(Bool.self, forKey: .matchTimeOfDay) ?? d.matchTimeOfDay
         photoPerMonitor = try c.decodeIfPresent(Bool.self, forKey: .photoPerMonitor) ?? d.photoPerMonitor
+        followUid = try c.decodeIfPresent(String.self, forKey: .followUid)
+        followName = try c.decodeIfPresent(String.self, forKey: .followName)
+        followPicture = try c.decodeIfPresent(String.self, forKey: .followPicture)
+        myFollowCode = try c.decodeIfPresent(String.self, forKey: .myFollowCode)
         onboardingDone = try c.decodeIfPresent(Bool.self, forKey: .onboardingDone) ?? d.onboardingDone
+        hotkey = try c.decodeIfPresent(String.self, forKey: .hotkey) ?? d.hotkey
     }
 }
 
@@ -161,12 +181,24 @@ public struct OrielState: Sendable, Hashable, Codable {
     /// When the schedule last started fresh (it was edited). Ticks before it aren't "missed", so an edit never
     /// changes the wallpaper by itself.
     public var scheduleStartedAt: Date?
+    /// The shared settings as last sent or received (to tell a real change from an echo), and when.
+    public var syncedSettingsHash: String?
+    public var settingsSyncedAt: Date?
+    /// Changed here but not sent yet (offline).
+    public var settingsDirty = false
+    /// The newest favorite change taken from the account (the next sync asks only for later ones).
+    public var favoritesSyncedAt: Date?
+    /// The account's (or followed friend's) photo already applied here, so it isn't set again.
+    public var followedPhotoId: String?
+    /// Why following doesn't work right now (the friend stopped sharing), for the UI.
+    public var followProblem: String?
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
         case lastAppliedDate, lastAppliedAt, lastAttemptAt, lastError, consecutiveFailures, nextRetryAt,
-             manualChanges, scheduleStartedAt
+             manualChanges, scheduleStartedAt, syncedSettingsHash, settingsSyncedAt, settingsDirty, favoritesSyncedAt,
+             followedPhotoId, followProblem
     }
 
     public init(from decoder: Decoder) throws {
@@ -179,5 +211,11 @@ public struct OrielState: Sendable, Hashable, Codable {
         nextRetryAt = try c.decodeIfPresent(Date.self, forKey: .nextRetryAt)
         manualChanges = try c.decodeIfPresent([Date].self, forKey: .manualChanges) ?? []
         scheduleStartedAt = try c.decodeIfPresent(Date.self, forKey: .scheduleStartedAt)
+        syncedSettingsHash = try c.decodeIfPresent(String.self, forKey: .syncedSettingsHash)
+        settingsSyncedAt = try c.decodeIfPresent(Date.self, forKey: .settingsSyncedAt)
+        settingsDirty = try c.decodeIfPresent(Bool.self, forKey: .settingsDirty) ?? false
+        favoritesSyncedAt = try c.decodeIfPresent(Date.self, forKey: .favoritesSyncedAt)
+        followedPhotoId = try c.decodeIfPresent(String.self, forKey: .followedPhotoId)
+        followProblem = try c.decodeIfPresent(String.self, forKey: .followProblem)
     }
 }
