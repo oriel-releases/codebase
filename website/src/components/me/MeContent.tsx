@@ -3,7 +3,7 @@
 import { RevealImage } from "@/components/ui/RevealImage";
 import Image from "next/image";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { GlobeIcon, LinuxIcon, MonitorIcon, PuzzleIcon, WindowsIcon } from "@/components/ui/icons";
+import { AndroidIcon, AppleIcon, GlobeIcon, LinuxIcon, MonitorIcon, PuzzleIcon, WindowsIcon } from "@/components/ui/icons";
 import { Logo } from "@/components/ui/Logo";
 import { platformNames, shortDate, timeAgo, type SessionRow } from "@/lib/sessions";
 import { SignInMethods, type MethodActions, type MethodsView } from "@/components/me/SignInMethods";
@@ -207,7 +207,6 @@ function WallpaperCard({ wallpaper }: { wallpaper: Wallpaper | null | undefined 
     );
   }
 
-  const SourceIcon = wallpaper.source === "linux" ? LinuxIcon : WindowsIcon;
   const glass = "rounded-full bg-black/35 px-3.5 py-1.5 text-[13px] font-medium text-white backdrop-blur-md ring-1 ring-white/15";
   return (
     <section aria-label="Current wallpaper" className={`group relative isolate overflow-hidden rounded-[2rem] bg-surface text-white ${wallpaperShape}`}>
@@ -222,8 +221,8 @@ function WallpaperCard({ wallpaper }: { wallpaper: Wallpaper | null | undefined 
         <div className="flex flex-wrap items-start justify-between gap-2">
           <h2 className={glass}>Current wallpaper</h2>
           <span className={`${glass} inline-flex items-center gap-2`}>
-            <SourceIcon width={14} height={14} />
-            {wallpaper.source === "linux" ? "Linux app" : "Windows app"}
+            <PlatformIcon platform={wallpaper.source} size={14} />
+            {platformNames[wallpaper.source] ?? "Windows app"}
             {wallpaper.updatedAt ? ` · ${timeAgo(wallpaper.updatedAt)}` : ""}
           </span>
         </div>
@@ -274,7 +273,9 @@ function Chip({ icon, children }: { icon?: ReactNode; children: ReactNode }) {
 function PlatformIcon({ platform, size }: { platform: string; size: number }) {
   const props = { width: size, height: size };
   if (platform === "windows") return <WindowsIcon {...props} />;
+  if (platform === "macos") return <AppleIcon {...props} />;
   if (platform === "linux") return <LinuxIcon {...props} />;
+  if (platform === "android") return <AndroidIcon {...props} />;
   if (platform === "extension") return <PuzzleIcon {...props} />;
   if (platform === "web") return <GlobeIcon {...props} />;
   return <MonitorIcon {...props} />;

@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import type { Releases } from "@/config/release";
 import { downloadPage } from "@/content/download";
-import { AndroidIcon, DownloadIcon, LinuxIcon, WindowsIcon } from "@/components/ui/icons";
+import { AndroidIcon, AppleIcon, DownloadIcon, LinuxIcon, WindowsIcon } from "@/components/ui/icons";
 import { LatestVersion } from "@/components/download/LatestVersion";
 import { PlatformNotice } from "@/components/download/PlatformNotice";
 import { SegmentedSwitch } from "@/components/download/SegmentedSwitch";
@@ -16,10 +16,10 @@ import { sharedElement } from "@/lib/transitions";
 const subscribe = () => () => {};
 const getPlatform = (): Platform => detectPlatform(navigator.userAgent);
 const getServerPlatform = (): Platform => "unknown";
-const order: readonly AppPlatform[] = ["windows", "linux", "android"];
+const order: readonly AppPlatform[] = ["windows", "macos", "linux", "android"];
 
 /**
- * One decision instead of three cards: a Windows / Linux / Android switch that starts on the visitor's own system and
+ * One decision instead of four cards: a Windows / Mac / Linux / Android switch that starts on the visitor's own system and
  * one big download button for it. Switching grows or shrinks the button to its new label and slides the new words in
  * from the side that was picked (the download icon stays still); the install
  * steps appear once the download has started, when they are what you need next.
@@ -28,7 +28,7 @@ export function DownloadPicker({ releases }: { releases: Releases }) {
   const detected = useSyncExternalStore(subscribe, getPlatform, getServerPlatform);
   const [picked, setPicked] = useState<AppPlatform | null>(null);
   const [downloaded, setDownloaded] = useState(false);
-  const chosen: AppPlatform = picked ?? (detected === "linux" || detected === "android" ? detected : "windows");
+  const chosen: AppPlatform = picked ?? (detected === "mac" ? "macos" : detected === "linux" || detected === "android" ? detected : "windows");
   const release = releases[chosen];
   const motion = useSwitchMotion(order);
 
@@ -40,6 +40,7 @@ export function DownloadPicker({ releases }: { releases: Releases }) {
         onChange={(next) => motion.change(chosen, next, setPicked)}
         options={[
           { key: "windows", label: releases.windows.name, Icon: WindowsIcon },
+          { key: "macos", label: releases.macos.name, Icon: AppleIcon },
           { key: "linux", label: releases.linux.name, Icon: LinuxIcon },
           { key: "android", label: releases.android.name, Icon: AndroidIcon },
         ]}
@@ -83,7 +84,7 @@ export function DownloadPicker({ releases }: { releases: Releases }) {
         <PlatformNotice message={downloadPage.unsupportedNotice} />
       </div>
 
-      {downloaded && <InstallSteps key={chosen} steps={downloadPage.installSteps[chosen]} name={release.name} />}
+      {downloaded && <InstallSteps key={`steps-${chosen}`} steps={downloadPage.installSteps[chosen]} name={release.name} />}
     </div>
   );
 }
