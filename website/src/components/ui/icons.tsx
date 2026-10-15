@@ -1,8 +1,11 @@
 import type { SVGProps } from "react";
+import { ArrowDown, Download, Globe, Monitor, Plus, Puzzle } from "lucide-react";
 
 type IconProps = SVGProps<SVGSVGElement>;
 
 const defaults: IconProps = { width: 18, height: 18, "aria-hidden": true, focusable: false };
+/** Everyday icons come from Lucide; only brand marks (which Lucide doesn't draw) are hand-made below. */
+const lucide = { size: 18, strokeWidth: 2, "aria-hidden": true, focusable: false } as const;
 
 export function WindowsIcon(props: IconProps) {
   return (
@@ -22,53 +25,27 @@ export function TelegramIcon(props: IconProps) {
 }
 
 export function MonitorIcon(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...defaults} {...props}>
-      <rect width="20" height="14" x="2" y="3" rx="2" />
-      <path d="M8 21h8M12 17v4" />
-    </svg>
-  );
+  return <Monitor {...lucide} {...props} />;
 }
 
 export function GlobeIcon(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...defaults} {...props}>
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20" />
-    </svg>
-  );
+  return <Globe {...lucide} {...props} />;
 }
 
 export function PuzzleIcon(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...defaults} {...props}>
-      <path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z" />
-    </svg>
-  );
+  return <Puzzle {...lucide} {...props} />;
 }
 
 export function DownloadIcon(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...defaults} {...props}>
-      <path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14" />
-    </svg>
-  );
+  return <Download {...lucide} {...props} />;
 }
 
 export function ArrowDownIcon(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...defaults} {...props}>
-      <path d="M12 5v14m0 0-6-6m6 6 6-6" />
-    </svg>
-  );
+  return <ArrowDown {...lucide} {...props} />;
 }
 
 export function PlusIcon(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" {...defaults} {...props}>
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
+  return <Plus {...lucide} {...props} />;
 }
 
 export function LinuxIcon(props: IconProps) {

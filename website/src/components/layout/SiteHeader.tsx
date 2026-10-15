@@ -16,18 +16,28 @@ export function SiteHeader() {
       className="fixed inset-x-0 top-0 z-50 border-b border-line/60 bg-paper/70 backdrop-blur-xl"
     >
       <Container className="flex h-16 items-center justify-between">
-        <Link href={routes.home} transitionTypes={[...navigation.back]} className="flex items-center gap-2.5 rounded-full font-semibold tracking-tight transition-opacity duration-200 hover:opacity-70">
+        <Link
+          href={routes.home}
+          transitionTypes={[...navigation.back]}
+          aria-label={`${site.name} home`}
+          className="flex items-center gap-2.5 rounded-full font-semibold tracking-tight transition-opacity duration-200 hover:opacity-70"
+        >
           <Logo />
           {site.name}
           {site.stage && <Badge>{site.stage}</Badge>}
         </Link>
-        <div className="flex items-center gap-2">
+        <nav aria-label="Main" className="flex items-center gap-2">
           <AccountLink />
-          <ButtonLink href={routes.download} transitionTypes={[...navigation.forward]} variant="secondary" size="sm">
+          <ButtonLink
+            href={routes.download}
+            transitionTypes={[...navigation.forward]}
+            variant="secondary"
+            size="sm"
+          >
             <DownloadIcon width={14} height={14} />
             Download
           </ButtonLink>
-        </div>
+        </nav>
       </Container>
     </header>
   );

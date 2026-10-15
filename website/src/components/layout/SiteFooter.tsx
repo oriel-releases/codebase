@@ -4,10 +4,14 @@ import { Container } from "@/components/ui/Container";
 import { TelegramIcon } from "@/components/ui/icons";
 import { navigation } from "@/lib/transitions";
 
-/** Copyright and links. With `wordmark`, ends the page with the name set huge and fading out. */
+/**
+ * Copyright and links. With `wordmark`, ends the page with the name set huge and fading out. Pages render it inside
+ * their own layout (some fit it on one screen with the content), which puts it inside <main>; `contentinfo` keeps it
+ * the page's footer for screen readers all the same.
+ */
 export function SiteFooter({ wordmark = false }: { wordmark?: boolean }) {
   return (
-    <footer className="overflow-hidden text-sm text-muted">
+    <footer role="contentinfo" className="overflow-hidden text-sm text-muted">
       <Container className="flex flex-col items-center justify-between gap-3 py-6 sm:flex-row">
         <p className="text-center">
           © {new Date().getFullYear()} {site.name}. Photos by{" "}
@@ -16,7 +20,7 @@ export function SiteFooter({ wordmark = false }: { wordmark?: boolean }) {
           </a>
           .
         </p>
-        <nav className="flex gap-6">
+        <nav aria-label="Footer" className="flex gap-6">
           <Link href={routes.home} transitionTypes={[...navigation.back]} className="grow transition-colors hover:text-ink">
             Home
           </Link>
