@@ -45,6 +45,9 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   then push a tag `macos-vX.Y.Z`: `.github/workflows/macos-release.yml` tests, builds, signs ad hoc and publishes to
   `oriel-releases/macos` as `vX.Y.Z` (or run `macos/scripts/release.sh` on a Mac with `GITHUB_TOKEN` set). Then the
   Firestore document **`application/macos`** and the website steps 4 and 5 above.
+- **Releasing the Linux app from GitHub:** instead of step 2 above, merge the version bump and push a tag `linux-vX.Y.Z`:
+  `.github/workflows/linux-release.yml` tests, builds and publishes to `oriel-releases/linux` (secrets
+  `LINUX_UNSPLASH_ACCESS_KEY` and `LINUX_RELEASES_TOKEN`, or `RELEASES_TOKEN` if it covers that repo). Steps 3 to 5 stay.
 - **Releasing the extension:** bump `version` in `extension/package.json`, `npm run package`; folders for Chrome, Edge,
   Firefox and the source land in `extension/release/` (earlier versions move to `release/old/<version>/`). The owner
   zips and uploads them to the stores.
