@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import { fetchLatestVersion, type AppPlatform } from "@/lib/latest-version";
 
 /** Shows the version baked in at build time, then swaps in the one currently in Firestore. */
-export function LatestVersion({ platform, initial }: { platform: AppPlatform; initial: string }) {
+export function LatestVersion({
+  platform,
+  initial,
+}: {
+  platform: AppPlatform;
+  initial: string;
+}) {
   const [version, setVersion] = useState(initial);
 
   useEffect(() => {
