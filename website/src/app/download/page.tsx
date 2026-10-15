@@ -3,10 +3,11 @@ import { routes, site } from "@/config/site";
 import { downloadPage } from "@/content/download";
 import { features } from "@/content/home";
 import { pageMetadata } from "@/lib/seo/metadata";
-import { breadcrumbSchema, softwareApplicationSchema } from "@/lib/seo/structured-data";
-import { DesktopPreview } from "@/components/download/DesktopPreview";
-import { DownloadPicker } from "@/components/download/DownloadPicker";
-import { ExtensionPicker } from "@/components/download/ExtensionPicker";
+import {
+  breadcrumbSchema,
+  softwareApplicationSchema,
+} from "@/lib/seo/structured-data";
+import { DownloadOptions } from "@/components/download/DownloadOptions";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { Container } from "@/components/ui/Container";
@@ -23,8 +24,8 @@ export const metadata = pageMetadata({
 });
 
 /**
- * Top to bottom, in the order a visitor needs it: the one download for their system, a look at what they get, how to
- * install it, then the browser extension. Everything is as wide as the header, like the rest of the site.
+ * Every way to get Oriel on one screen: the apps (the visitor's own system first), then the browser extension, with a
+ * jump between the two at the top.
  */
 export default function DownloadPage() {
   return (
@@ -44,24 +45,16 @@ export default function DownloadPage() {
             <SharedElement name={sharedElement.logo}>
               <Logo size={64} priority className="size-12 sm:size-16" />
             </SharedElement>
-            <h1 className="mt-7 text-4xl font-semibold tracking-tight text-balance sm:text-6xl">{downloadPage.title}</h1>
+            <h1 className="mt-7 text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
+              {downloadPage.title}
+            </h1>
+            <p className="mt-4 max-w-xl text-pretty text-muted sm:text-lg"></p>
 
             <div className="mt-10 w-full">
-              <DownloadPicker releases={releases} />
+              <DownloadOptions releases={releases} />
             </div>
-          </Container>
 
-          {/* What you get: a little wider than the text, so it reads as the page's picture. */}
-          <Container className="mt-16 sm:mt-20">
-            <DesktopPreview />
-          </Container>
-
-          <Container className="mt-20 flex flex-col items-center text-center sm:mt-28">
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">{downloadPage.extension.title}</h2>
-            <div className="mt-8 w-full">
-              <ExtensionPicker />
-            </div>
-            <div className="mt-12">
+            <div className="mt-14">
               <SupportHint>Trouble installing?</SupportHint>
             </div>
           </Container>

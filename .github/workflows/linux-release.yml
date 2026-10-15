@@ -1,0 +1,68 @@
+# The Linux app (linux/): builds and publishes a release when a Linux version tag is pushed
+# (git tag linux-v1.0.4 && git push origin linux-v1.0.4). The Velopack AppImage, its update feed and Oriel.AppImage
+# go to github.com/oriel-releases/linux as v1.0.4. Runs linux/scripts/release.sh, the same as on a PC.
+#
+# Repository secrets (Settings > Secrets and variables > Actions):
+#   LINUX_UNSPLASH_ACCESS_KEY   the Unsplash access key the Linux app is built with (UNSPLASH_ACCESS_KEY in linux/.env)
+#   LINUX_RELEASES_TOKEN        a fine-grained token with Contents: read and write on oriel-releases/linux
+#                               (optional: without it, RELEASES_TOKEN is used, if it also covers oriel-releases/linux)
+name: Linux release
+
+on:
+  push:
+    tags: ["linux-v*"]
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: Publish to oriel-releases/linux (off = build only, download the files from the run)
+        type: boolean
+        default: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: linux
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: The tag matches <Version> in Oriel.App.csproj
+        if: startsWith(github.ref, 'refs/tags/linux-v')
+        run: |
+          version="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/Oriel.App/Oriel.App.csproj | head -1)"
+          if [[ "linux-v$version" != "$GITHUB_REF_NAME" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match <Version> $version in Oriel.App.csproj"
+            exit 1
+          fi
+
+      - name: Tests
+        run: dotnet test tests/Oriel.Core.Tests -c Release -nologo
+
+      - name: Build, pack and publish
+        env:
+          UNSPLASH_ACCESS_KEY: ${{ secrets.LINUX_UNSPLASH_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.LINUX_RELEASES_TOKEN || secrets.RELEASES_TOKEN }}
+        run: |
+          if [[ -z "$UNSPLASH_ACCESS_KEY" ]]; then
+            echo "::error::Add the LINUX_UNSPLASH_ACCESS_KEY secret: without it the app can't fetch photos."
+            exit 1
+          fi
+          chmod +x scripts/*.sh
+          if [[ "${{ github.event_name }}" == "push" || "${{ inputs.upload }}" == "true" ]]; then
+            scripts/release.sh
+          else
+            scripts/release.sh --no-upload
+          fi
+
+      - name: Keep the files with the run
+        uses: actions/upload-artifact@v4
+        with:
+          name: Oriel-Linux
+          path: linux/releases/
+          retention-days: 14

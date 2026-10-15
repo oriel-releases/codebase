@@ -55,9 +55,62 @@ export function SmoothWidth({ children }: { children: ReactNode }) {
       style={{ width }}
     >
       {/* A little room on both sides so the turning icon's corners aren't clipped. */}
-      <span ref={inner} className="inline-flex shrink-0 items-center gap-2.5 px-1 whitespace-nowrap">
+      <span
+        ref={inner}
+        className="inline-flex shrink-0 items-center gap-2.5 px-1 whitespace-nowrap"
+      >
         {children}
       </span>
     </span>
+  );
+}
+
+/**
+ * A box whose width glides to its content's natural width, the content stretching with it: the second switch on the
+ * download page widens from three browsers to four systems and its items spread out as it does, instead of jumping.
+ * An invisible copy measures the natural width; the visible one fills the box. A new `swapKey` fades the new items in.
+ */
+export function GlidingBox({
+  children,
+  swapKey,
+  className = "",
+}: {
+  children: ReactNode;
+  swapKey: string;
+  className?: string;
+}) {
+  const measure = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState<number>();
+
+  useLayoutEffect(() => {
+    const el = measure.current;
+    if (!el) return;
+    const update = () => setWidth(el.offsetWidth);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      className={`relative max-w-full overflow-hidden transition-[width] duration-[400ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none ${className}`}
+      style={{ width }}
+    >
+      <div
+        ref={measure}
+        aria-hidden
+        inert
+        className="invisible absolute top-0 left-0 w-max"
+      >
+        {children}
+      </div>
+      <div
+        key={swapKey}
+        className="animate-[glide-in_0.4s_ease-out] motion-reduce:animate-none"
+      >
+        {children}
+      </div>
+    </div>
   );
 }

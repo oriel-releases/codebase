@@ -310,6 +310,12 @@ dialog.confirm[open]::backdrop {
   }
 }
 
+/* The download page's second switch: its new items fade in while the pill glides to its new width. */
+@keyframes glide-in {
+  from {
+    opacity: 0;
+  }
+}
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -320,3 +326,4 @@ dialog.confirm[open]::backdrop {
     translate: 0 0;
   }
 }
+

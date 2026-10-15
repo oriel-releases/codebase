@@ -7,12 +7,13 @@ import { Faq } from "@/components/home/Faq";
 import { Features } from "@/components/home/Features";
 import { GetStarted } from "@/components/home/GetStarted";
 import { Hero } from "@/components/home/Hero";
+import { Sync } from "@/components/home/Sync";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { PageTransition } from "@/components/motion/PageTransition";
 
 export const metadata = pageMetadata({
-  title: `${site.name}: Daily Wallpaper Changer for Windows, Linux and Android`,
+  title: `${site.name}: Daily Wallpaper Changer for Windows, Mac, Linux and Android`,
   description: site.description,
   path: routes.home,
   absoluteTitle: true,
@@ -25,6 +26,7 @@ export default function HomePage() {
       <PageTransition>
         <div>
           <Hero />
+          <Sync />
           <Features items={features} />
           <GetStarted steps={steps} />
           <Faq items={faq} />
