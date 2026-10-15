@@ -12,7 +12,7 @@
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid",
         "photoId": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64" },
-        "source": { ".validate": "newData.isString() && newData.val().matches(/^(windows|linux|android|extension)$/)" },
+        "source": { ".validate": "newData.isString() && newData.val().matches(/^(windows|linux|android|extension|macos)$/)" },
         "device": { ".validate": "newData.isString() && newData.val().length <= 64" },
         "at": { ".validate": "newData.isNumber()" },
         // A "settings changed" ring (sync/settings in Firestore was updated), patched next to the photo fields.
