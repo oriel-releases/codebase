@@ -6,9 +6,9 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 export function Features({ items }: { items: Feature[] }) {
   return (
     <Section labelledBy="features">
-      <Container>
+      <Container className="lg:max-w-6xl">
         <SectionHeading id="features">Everything it does, quietly</SectionHeading>
-        <ul className="mt-12 grid gap-4 sm:grid-cols-2">
+        <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((f) => (
             <li key={f.title} className="rounded-[2rem] bg-surface p-7 transition-[translate,box-shadow,background-color] duration-300 ease-out motion-reduce:transition-none  sm:p-8">
               <h3 className="font-medium">{f.title}</h3>

@@ -5,31 +5,94 @@ export type Step = { title: string; body: string };
 export type FaqItem = { question: string; answer: string };
 
 export const hero = {
-  eyebrow: "Free for Windows and Linux",
+  eyebrow: "Free for Windows, Mac, Linux and Android",
   title: "A new wallpaper, every day.",
-  body: "Oriel quietly sets a beautiful Unsplash photo as your desktop each morning. Pick the topics you like, and forget about it.",
+  body: "Oriel quietly sets a beautiful Unsplash photo as your wallpaper each morning, the same one on your computer, your Mac and your phone. Pick the topics you like, and forget about it.",
+} as const;
+
+export const sync = {
+  title: "One photo, every device",
+} as const;
+
+/** The photos the home page's devices cycle through (ids from data/today.json). */
+export const showcase = {
+  photoIds: [
+    "mWRR1xj95hg",
+    "uILhNE1VcwA",
+    "ln5drpv_ImI",
+    "37ZuGYD3JOk",
+    "C-opW0i5McE",
+    "Bkci_8qcdvQ",
+    "QtIXL7C4bB0",
+    "UdvXJ95Yqt8",
+    "J2bNC9gW5NI",
+    "12IHVEFRacQ",
+    "tLNRTxieD7k",
+    "CR0E20Of7yU",
+    "kDsNr-vu7ms",
+    "RpDA3uYkJWM",
+  ],
 } as const;
 
 export const features: Feature[] = [
-  { title: "Fresh every morning", body: "A new high-resolution photo at the time you choose, or as soon as you sign in." },
-  { title: "Your topics", body: "Nature, space, cities, or your own searches. Skip anything you'd rather not see." },
-  { title: "Never repeats", body: "Every photo is remembered, so you won't see the same one twice." },
-  { title: "Every screen", body: "All your monitors change together, on every virtual desktop that Windows or your Linux desktop allows." },
-  { title: "Light and quiet", body: "Lives in the tray and sleeps between changes. Closing the window gives the memory back." },
-  { title: "In your browser too", body: "A free new tab extension for Chrome, Edge, Brave and Firefox shows the same photo as your desktop, or its own picks." },
-  { title: "Credit where due", body: "Each photo links to its photographer on Unsplash. Keep your favorites forever." },
+  {
+    title: "The same on every device",
+    body: "Your computer, your Mac and your phone show the same photo. Change it on one, and the others follow within seconds.",
+  },
+  {
+    title: "One schedule",
+    body: "Set the time once and every device keeps it. Whichever wakes first picks the photo, so they never disagree.",
+  },
+  {
+    title: "Fresh every morning",
+    body: "A new high-resolution photo at the time you choose, or as soon as you sign in.",
+  },
+  {
+    title: "Your topics",
+    body: "Nature, space, cities, or your own searches. Skip anything you'd rather not see.",
+  },
+  {
+    title: "Never repeats",
+    body: "Every photo is remembered, so you won't see the same one twice.",
+  },
+  {
+    title: "Every screen",
+    body: "All your monitors change together, and on your phone the home and lock screens too.",
+  },
+  {
+    title: "Light and quiet",
+    body: "Lives in the tray or the menu bar and sleeps between changes. Gentle on your phone's battery.",
+  },
+  {
+    title: "In your browser too",
+    body: "A free new tab extension for Chrome, Edge, Brave and Firefox shows the same photo as your desktop, or its own picks.",
+  },
+  {
+    title: "Favorites everywhere",
+    body: "Star a photo on one device and it's a favorite on all of them. Each one links to its photographer on Unsplash.",
+  },
 ];
 
 export const steps: Step[] = [
-  { title: "Download", body: "Get Oriel for Windows or Linux. Sign in with Google or your email, no key needed." },
-  { title: "Install", body: "Run Oriel-Setup.exe on Windows, or open Oriel.AppImage on Linux. It settles into your tray in seconds." },
-  { title: "Enjoy", body: "Your first wallpaper arrives right away. A new one every day after that." },
+  {
+    title: "Download",
+    body: "Get Oriel for Windows or Linux. Sign in with Google or your email, no key needed.",
+  },
+  {
+    title: "Install",
+    body: "Run Oriel-Setup.exe on Windows, or open Oriel.AppImage on Linux. It settles into your tray in seconds.",
+  },
+  {
+    title: "Enjoy",
+    body: "Your first wallpaper arrives right away. A new one every day after that.",
+  },
 ];
 
 export const faq: FaqItem[] = [
   {
     question: "Is Oriel free?",
-    answer: "Yes. Oriel is free to download and use, with no ads. You just sign in with Google or your email.",
+    answer:
+      "Yes. Oriel is free to download and use, with no ads. You just sign in with Google or your email.",
   },
   {
     question: "Do I need an Unsplash account or API key?",
@@ -52,7 +115,7 @@ export const faq: FaqItem[] = [
   {
     question: "Does the keyboard shortcut work on Linux?",
     answer:
-      "On X11, yes: Ctrl+Alt+W by default. Wayland doesn't let apps listen for keys, so there you add a shortcut in your system keyboard settings that runs \"oriel --change-now\".",
+      'On X11, yes: Ctrl+Alt+W by default. Wayland doesn\'t let apps listen for keys, so there you add a shortcut in your system keyboard settings that runs "oriel --change-now".',
   },
   {
     question: "How do I get updates?",
@@ -71,18 +134,22 @@ export const faq: FaqItem[] = [
   },
   {
     question: "Does Oriel work on macOS, Android or iOS?",
-    answer: "Not yet. Oriel runs on Windows 10 and 11, on Linux, and as a new tab extension in Chrome, Edge, Brave, Opera, Vivaldi and Firefox on those desktop systems.",
+    answer:
+      "On macOS 26 Tahoe and Android 8.0 or later, yes. Sign in with the same account and every device shows the same photo. There is no iPhone app yet.",
   },
   {
     question: "What data does Oriel collect?",
-    answer: "Only what signing in needs: your Google name, email and picture, and the wallpaper your apps last set so your devices can match. No analytics, no ads, no tracking. See the privacy page for details.",
+    answer:
+      "Only what signing in needs: your Google name, email and picture, and the wallpaper your apps last set so your devices can match. No analytics, no ads, no tracking. See the privacy page for details.",
   },
   {
     question: "Where are the photos saved?",
-    answer: "In your Pictures folder, under Oriel, by default. You can pick another folder in Settings, and Oriel moves your photos there.",
+    answer:
+      "In your Pictures folder, under Oriel, by default. You can pick another folder in Settings, and Oriel moves your photos there.",
   },
   {
     question: "Where do the photos come from?",
-    answer: "From Unsplash, a community of photographers. Oriel credits each photographer and links to their profile.",
+    answer:
+      "From Unsplash, a community of photographers. Oriel credits each photographer and links to their profile.",
   },
 ];
