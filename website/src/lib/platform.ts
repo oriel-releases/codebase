@@ -11,9 +11,9 @@ export function detectPlatform(userAgent: string): Platform {
   return "unknown";
 }
 
-/** Oriel runs on Windows, Linux and Android; "unknown" gets the benefit of the doubt. */
+/** Oriel runs on Windows, macOS, Linux and Android; "unknown" gets the benefit of the doubt. */
 export function canRunOriel(platform: Platform): boolean {
-  return platform === "windows" || platform === "linux" || platform === "android" || platform === "unknown";
+  return platform === "windows" || platform === "mac" || platform === "linux" || platform === "android" || platform === "unknown";
 }
 
 export type Browser = "chrome" | "edge" | "firefox" | "unknown";

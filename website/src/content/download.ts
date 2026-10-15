@@ -10,6 +10,11 @@ export const downloadPage = {
       "If Windows says it protected your PC, click More info, then Run anyway.",
       "Oriel starts in your tray and keeps itself up to date.",
     ],
+    macos: [
+      "Open Oriel.dmg and drag Oriel into your Applications folder.",
+      "Open Oriel. If macOS says it can't check it, go to System Settings, Privacy & Security, and click Open Anyway.",
+      "Oriel starts in your menu bar and keeps itself up to date.",
+    ],
     android: [
       "Open Oriel.apk. If Android asks, allow your browser to install apps.",
       "Sign in with Google or email: your phone shows the same wallpaper as your computer.",
@@ -21,7 +26,7 @@ export const downloadPage = {
       "It keeps itself up to date, and the AppImage updates in place.",
     ],
   },
-  unsupportedNotice: "Oriel runs on Windows, Linux and Android. Open this page on one of them to download it.",
+  unsupportedNotice: "Oriel runs on Windows, Mac, Linux and Android. Open this page on one of them to download it.",
   extension: {
     title: "Also for your browser",
   },

@@ -72,7 +72,7 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   `uz.akbarjon.oriel.dev` with the debug key's SHA-1, and `uz.akbarjon.oriel` with the release key's SHA-1/SHA-256.
   Both use the same web client ID for Credential Manager. A new signing key means adding its fingerprint there.
 
-## macOS app (built, 1.0.0 not released yet)
+## macOS app (built, 1.0.0 released)
 
 - Native **Swift 6, SwiftUI + AppKit**, macOS 26 Tahoe+, a menu bar app (see `macos/README.md`; the full specification
   is `macos/docs/mac-task.md`). Core logic in the `OrielKit` Swift package, ported from `windows/src/Oriel.Core`

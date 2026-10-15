@@ -114,6 +114,7 @@ export function browserLabel(): string {
 
 export const platformNames: Record<string, string> = {
   windows: "Windows app",
+  macos: "Mac app",
   linux: "Linux app",
   android: "Android app",
   extension: "Browser extension",

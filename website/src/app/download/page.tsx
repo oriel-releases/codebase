@@ -17,8 +17,8 @@ import { SharedElement } from "@/components/motion/SharedElement";
 import { sharedElement } from "@/lib/transitions";
 
 export const metadata = pageMetadata({
-  title: "Download for Windows, Linux and Android",
-  description: `Download ${site.name} for Windows (${releases.windows.version}), Linux (${releases.linux.version}) and Android (${releases.android.version}). Free, with no ads: sign in with Google or your email and your first wallpaper arrives right away.`,
+  title: "Download for Windows, Mac, Linux and Android",
+  description: `Download ${site.name} for Windows (${releases.windows.version}), Mac (${releases.macos.version}), Linux (${releases.linux.version}) and Android (${releases.android.version}). Free, with no ads: sign in with Google or your email and your first wallpaper arrives right away.`,
   path: routes.download,
 });
 

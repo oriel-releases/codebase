@@ -1,5 +1,5 @@
 /** The apps that have their own release. */
-export type AppPlatform = "windows" | "linux" | "android";
+export type AppPlatform = "windows" | "macos" | "linux" | "android";
 
 /** Firestore document holding the newest released version of one app: `application/{platform}`, field `version`. */
 function documentUrl(platform: AppPlatform): string {

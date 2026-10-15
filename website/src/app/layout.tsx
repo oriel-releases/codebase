@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   keywords: [...site.keywords],
   category: "software",
   robots: { index: true, follow: true },
+  // The site has its own dark theme: tells Dark Reader to leave it alone (its edits also break hydration).
+  other: { "darkreader-lock": "true" },
 };
 
 export const viewport: Viewport = {

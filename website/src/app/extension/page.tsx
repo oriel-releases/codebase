@@ -53,7 +53,7 @@ export default function ExtensionPage() {
               <p className="mt-6 text-sm text-muted">
                 Want it to match your desktop?{" "}
                 <a href={routes.download} className="underline underline-offset-4 transition-colors hover:text-ink">
-                  Get Oriel for {releases.windows.name}, {releases.linux.name} or {releases.android.name}
+                  Get Oriel for {releases.windows.name}, {releases.macos.name}, {releases.linux.name} or {releases.android.name}
                 </a>
                 .
               </p>

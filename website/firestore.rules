@@ -4,7 +4,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // The website reads the latest version of each app from here; nothing else is public.
     match /application/{app} {
-      allow get: if app in ['windows', 'linux', 'android'];
+      allow get: if app in ['windows', 'linux', 'android', 'macos'];
     }
 
     // One document per account, keyed by Firebase uid. Only its owner can touch it.
@@ -108,7 +108,7 @@ service cloud.firestore {
         && d.photoId is string
         && d.imageUrl is string
         && d.imageUrl.matches('https://images\\.unsplash\\.com/.*')
-        && d.source in ['windows', 'linux', 'android', 'extension']
+        && d.source in ['windows', 'linux', 'android', 'extension', 'macos']
         && d.updatedAt is timestamp;
     }
 
@@ -163,17 +163,19 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(statKeys())
         && request.resource.data.keys().size() <= 5
         && startsAtOne('windows_new') && startsAtOne('linux_new') && startsAtOne('windows_active') && startsAtOne('linux_active')
+        && startsAtOne('macos_new') && startsAtOne('macos_active')
         && startsAtOne('retained7') && startsAtOne('retained30')
         && startsAtOne('sharesSent') && startsAtOne('sharesOpened') && startsAtOne('sharesSet');
       allow update: if request.auth != null && isToday(day)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(statKeys())
         && request.resource.data.diff(resource.data).affectedKeys().size() <= 5
         && plusOne('windows_new') && plusOne('linux_new') && plusOne('windows_active') && plusOne('linux_active')
+        && plusOne('macos_new') && plusOne('macos_active')
         && plusOne('retained7') && plusOne('retained30')
         && plusOne('sharesSent') && plusOne('sharesOpened') && plusOne('sharesSet');
 
       function statKeys() {
-        return ['windows_new', 'linux_new', 'windows_active', 'linux_active', 'retained7', 'retained30',
+        return ['windows_new', 'linux_new', 'macos_new', 'windows_active', 'linux_active', 'macos_active', 'retained7', 'retained30',
                 'sharesSent', 'sharesOpened', 'sharesSet'];
       }
       function isToday(day) {
