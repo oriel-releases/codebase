@@ -90,8 +90,15 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
 ## Browser extension (built)
 
 - Code in `extension/` (see its README): new tab page for Chrome/Edge/Brave/Firefox. "Same as my devices" shows the
-  account's `sync/current`; "Its own" picks from a bundled pool (`extension/src/data/pool.json`). Its own settings live
-  in the extension.
+  account's `sync/current`; "Its own" picks from a bundled pool (`extension/src/data/pool.json`).
+- Its settings and **shortcuts** (max 14, drag to reorder) are its own, not the apps': kept in the browser, and when
+  signed in synced to `users/{uid}/sync/extension` = {settings, shortcuts[{title, url}], updatedAt, device}, last write
+  wins, rung on the doorbell as {extensionAt, extensionDevice}. Local first: a tab reads `sync/extension` only when the
+  doorbell's `extensionAt` is newer than its `ext-version`, and `sync/current` only when the doorbell names another
+  photo. Signing out erases the shortcuts from that browser.
+- Settings panel (Home, Interests, Settings, Help, Account) on the new tab and as the toolbar **popup** (`popup.html`);
+  on an Oriel new tab the icon opens the page's own panel instead (`src/background.ts`). Wallpaper of the day comes
+  from `src/data/today.json`, written together with the website's by `website/scripts/build-today.mjs`.
 - Sign-in, in Settings > Account: **email and password right in the panel** (`signInWithEmailAndPassword`, with
   password reset), or **Google** through the website: `/login?for=extension` posts the Google credential to the
   extension's content script (`src/content/bridge.ts`). Either way it records a `users/{uid}/sessions/{id}`.
