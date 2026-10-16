@@ -1,4 +1,6 @@
-import { remember, type Settings } from "../lib/settings";
+import { remember, syncedSettings, type Settings } from "../lib/settings";
+import { loadAccount } from "../lib/load-account";
+import { loadShortcuts, type Shortcut } from "../lib/shortcuts";
 import type { DesktopCurrent, Profile } from "../lib/account";
 
 /** The Firebase SDK is only loaded when there's an account to talk to. */
@@ -19,7 +21,10 @@ export interface AccountSyncHost {
   /** Only the "busy" (signing in) flag changed: the panel needs a redraw. */
   busyChanged(): void;
   toast(message: string): void;
+  /** Settings and shortcuts arrived from the account (another browser changed them): take them over and redraw. */
+  applySynced(settings: Partial<Settings>, shortcuts: Shortcut[]): void;
 }
+
 
 /**
  * Everything about the Oriel account, apart from how it looks: who is linked, what the desktop wallpaper is, signing in
@@ -33,28 +38,98 @@ export function createAccountSync(host: AccountSyncHost) {
   let stopWatching: (() => void) | null = null;
   let started: Promise<void> | null = null;
 
-  const load = async (): Promise<Account> => (account ??= await import("../lib/account"));
+  const load = async (): Promise<Account> => (account ??= await loadAccount());
 
   function setBusy(value: boolean): void {
     busy = value;
     host.busyChanged();
   }
 
-  /** Follows the desktop's wallpaper only while the account is linked and the mode asks for it. */
+  /**
+   * The live doorbell connection, open while an account is linked: it follows the account's wallpaper while the mode
+   * asks for it, and the extension's settings and shortcuts always. Called again when the mode changes.
+   */
   async function syncWatcher(): Promise<void> {
     stopWatching?.();
     stopWatching = null;
-    if (!profile || host.settings().mode !== "desktop") return;
+    if (!profile) return;
     const acct = await load();
-    stopWatching = acct.watchDesktopWallpaper(
-      profile.uid,
-      (current) => {
+    stopWatching = acct.watchAccount(profile.uid, {
+      followsWallpaper: () => host.settings().mode === "desktop",
+      knownPhotoId: () => desktop?.photo.id,
+      onCurrent(current) {
         desktop = current;
         remember("current", current);
         host.changed();
       },
-      () => host.toast("Couldn't read your desktop wallpaper. Showing a photo from here for now."),
-    );
+      onError: () => host.toast("Couldn't read your desktop wallpaper. Showing a photo from here for now."),
+      onExtension(at, mine) {
+        const have = remember<number>("ext-version");
+        if (mine) {
+          // Our own upload's ring: this browser already has that version.
+          if (at !== undefined && at > (have ?? 0)) remember("ext-version", at);
+          return;
+        }
+        // Read the account's copy only when it changed since this browser last had it (or was never read here).
+        if (at === undefined ? have === null : at > (have ?? 0)) void syncExtension({ read: true, version: at });
+        else void syncExtension(); // nothing new there; upload a change made here, if any
+      },
+    });
+  }
+
+  let extensionBusy = false;
+  let queued: { adopt?: boolean; read?: boolean; version?: number } | null = null;
+  let pushTimer: number | undefined;
+
+  /**
+   * Keeps the extension's settings and shortcuts one and the same in every browser of the account
+   * (users/{uid}/sync/extension), without reading Firestore on every new tab: this browser keeps them in its own storage
+   * with the version it has ("ext-version", the doorbell's extensionAt). Changed here: upload them (the upload rings the
+   * other browsers). `read`: the doorbell says the account's copy is newer, so read it once and take it over.
+   * `adopt` is the first sign-in: like the apps, the account's copy wins over this browser's.
+   */
+  async function syncExtension(options: { adopt?: boolean; read?: boolean; version?: number } = {}): Promise<void> {
+    if (!profile) return;
+    if (extensionBusy) {
+      queued = options; // a ring during an upload or read: handle it right after
+      return;
+    }
+    extensionBusy = true;
+    try {
+      const acct = await load();
+      const upload = async () => {
+        const dirty = remember<number>("ext-dirty");
+        await acct.publishExtensionSync(syncedSettings(host.settings()), loadShortcuts());
+        if (remember<number>("ext-dirty") === dirty) remember("ext-dirty", null); // unless it changed again meanwhile
+      };
+      // A change made here is the newest there is (last write wins), unless this is the first sign-in.
+      if (remember("ext-dirty") && !options.adopt) return await upload();
+      if (!options.read && !options.adopt) return;
+      const remote = await acct.readExtensionSync();
+      if (!remote) return await upload(); // nothing kept yet: this browser's become the account's
+      if (remember("ext-dirty") && !options.adopt) return await upload(); // changed here while reading: this is newer
+      remember("ext-dirty", null);
+      // The doorbell's time (the server's clock, never this computer's). Without one (first sign-in), 0: the doorbell's
+      // first event then confirms it with one more read at most.
+      remember("ext-version", options.version ?? 0);
+      host.applySynced(remote.settings, remote.shortcuts);
+    } catch {
+      // Offline or signed out meanwhile: a change stays marked and goes up next time.
+    } finally {
+      extensionBusy = false;
+      if (queued) {
+        const next = queued;
+        queued = null;
+        void syncExtension(next);
+      }
+    }
+  }
+
+  /** A setting or shortcut changed here: upload shortly, so a burst of changes is one write. */
+  function pushExtensionSoon(): void {
+    if (!profile) return;
+    clearTimeout(pushTimer);
+    pushTimer = window.setTimeout(() => void syncExtension(), 1500);
   }
 
   async function watch(): Promise<void> {
@@ -69,6 +144,7 @@ export function createAccountSync(host: AccountSyncHost) {
         if (host.settings().mode === "desktop") host.update({ mode: "own" });
       } else {
         void acct.verifySession(user);
+        void syncExtension({ adopt: !wasLinked });
         // First link: follow the desktop by default, which is why the person connected.
         if (!wasLinked && !remember("linked-before")) {
           host.update({ mode: "desktop" });
@@ -136,6 +212,8 @@ export function createAccountSync(host: AccountSyncHost) {
     start,
     syncWatcher,
     consumeHandoff,
+    syncExtension,
+    pushExtensionSoon,
     /** Shows this photo on every device of the account (see account.ts publishWallpaper). */
     async publish(photo: import("../lib/photo").Photo): Promise<void> {
       await (await load()).publishWallpaper(photo);

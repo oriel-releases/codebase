@@ -39,4 +39,31 @@ test("accent only applies to the desktop's own photo and a valid color", () => {
   assert.equal(accentFor(photo, true, "other"), undefined);
   assert.equal(accentFor({ ...photo, color: "red" }, true, "p1"), undefined);
   assert.equal(accentFor({ ...photo, color: undefined }, true, "p1"), undefined);
+  // A near-black navy keeps its hue but is lifted so it shows on the dark dialog.
+  const lifted = accentFor({ ...photo, color: "#1e2a44" }, true, "p1")!;
+  assert.match(lifted, /^#[0-9a-f]{6}$/);
+  assert.ok(parseInt(lifted.slice(5, 7), 16) > 150 && parseInt(lifted.slice(5, 7), 16) > parseInt(lifted.slice(1, 3), 16));
+});
+
+test("shortcut addresses: bare domains get https, only web links pass", async () => {
+  const { normalizeUrl, titleFor } = await import("../src/lib/shortcuts.ts");
+  assert.equal(normalizeUrl("github.com"), "https://github.com/");
+  assert.equal(normalizeUrl(" https://mail.google.com/mail "), "https://mail.google.com/mail");
+  assert.equal(normalizeUrl("http://localhost:3000"), "http://localhost:3000/");
+  assert.equal(normalizeUrl("javascript:alert(1)"), null);
+  assert.equal(normalizeUrl("not a url"), null);
+  assert.equal(normalizeUrl("hello"), null);
+  assert.equal(titleFor("https://www.youtube.com/watch"), "Youtube");
+  const { sameLink } = await import("../src/lib/shortcuts.ts");
+  assert.ok(sameLink("https://github.com/", "http://www.github.com"));
+  assert.ok(sameLink("https://site.com/a/#top", "https://site.com/a"));
+  assert.ok(!sameLink("https://github.com/", "https://github.com/akbar"));
+  assert.ok(!sameLink("https://site.com/?q=1", "https://site.com/?q=2"));
+});
+
+test("synced settings leave out Shuffle's counter", async () => {
+  const { syncedSettings, defaults } = await import("../src/lib/settings.ts");
+  const synced = syncedSettings({ ...defaults, bump: 7 });
+  assert.equal("bump" in synced, false);
+  assert.equal(synced.clock, defaults.clock);
 });
