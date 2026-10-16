@@ -23,7 +23,7 @@ img, a { -webkit-user-drag: none; }
 [data-adapt] a:hover { text-decoration: underline; }
 
 /* The search bar follows the photo too: dark text and a lighter glass over bright photos. */
-#search { text-shadow: none; }
+#search { text-shadow: none; display: none; }
 #search input { color: inherit; }
 #search input::placeholder { color: currentColor; opacity: 0.6; }
 #search[data-tone="dark"] { background: rgb(255 255 255 / 0.45); border-color: rgb(255 255 255 / 0.6); }
@@ -71,11 +71,13 @@ button, [role="button"], summary, label.switch { cursor: pointer; }
   width: min(22rem, calc(100vw - 2rem)); padding: 1.3rem 1.3rem 1.2rem; border-radius: 1.4rem; color: #fff;
   background: rgb(24 24 28 / 0.62); border: 1px solid rgb(255 255 255 / 0.14);
   box-shadow: 0 30px 80px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.1);
-  -webkit-backdrop-filter: blur(36px) saturate(170%); backdrop-filter: blur(36px) saturate(170%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%); backdrop-filter: blur(16px) saturate(150%);
   opacity: 0; scale: 0.96; visibility: hidden;
   transition: opacity 0.22s, scale 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0.22s;
 }
 .info-card.open { opacity: 1; scale: 1; visibility: visible; }
+/* The shortcut dialog is visible (so its fields can take focus) from the moment it opens, while it still fades in. */
+.sc-dialog.open { transition: opacity 0.22s, scale 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s; }
 .info-card h2 { font-size: 1.15rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 0.8rem; }
 .info-card p { font-size: 0.9rem; line-height: 1.5; color: rgb(255 255 255 / 0.85); }
 .info-card p + p { margin-top: 0.5rem; }
@@ -109,7 +111,8 @@ button, [role="button"], summary, label.switch { cursor: pointer; }
 
 /* ---- Settings dialog ---- */
 /* While it is open only the photo softens (a plain blur, not backdrop-filter, which can leave faint seams across big layers); the controls stay as they are. */
-#bg { transition: background-color 0.7s, filter 0.35s ease, scale 0.35s ease; }
+/* The blur itself isn't animated (redrawing a full-screen blur every frame stuttered); the dialog's fade hides the switch. */
+#bg { transition: background-color 0.7s, scale 0.35s ease; }
 body.modal-open #bg { filter: blur(14px); scale: 1.02; }
 .backdrop {
   position: fixed; inset: 0; z-index: 40; background: rgb(0 0 0 / 0.5);
@@ -138,7 +141,8 @@ body.adjusting.modal-open #bg { filter: none; scale: 1; }
   background: rgb(24 24 28 / 0.62);
   border: 1px solid rgb(255 255 255 / 0.14);
   box-shadow: 0 30px 80px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.1);
-  -webkit-backdrop-filter: blur(36px) saturate(170%); backdrop-filter: blur(36px) saturate(170%);
+  /* Light on purpose: the photo behind is blurred already (body.modal-open #bg), a big backdrop blur only costs frames. */
+  -webkit-backdrop-filter: blur(16px) saturate(150%); backdrop-filter: blur(16px) saturate(150%);
   opacity: 0; scale: 0.96; visibility: hidden;
   transition: opacity 0.22s, scale 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0.22s;
 }
@@ -152,7 +156,7 @@ body.adjusting.modal-open #bg { filter: none; scale: 1; }
 .nav { display: flex; flex-direction: column; gap: 0.15rem; }
 .nav-item { position: relative; display: flex; align-items: center; gap: 0.7rem; width: 100%; padding: 0.55rem 0.75rem; border-radius: 0.7rem; font-size: 0.88rem; color: rgb(255 255 255 / 0.72); text-align: left; transition: background-color 0.25s, color 0.25s; }
 .nav-item:hover { background: rgb(255 255 255 / 0.07); color: #fff; }
-.nav-item[aria-current="page"] { background: rgb(255 255 255 / 0.12); color: #fff; font-weight: 500; }
+.nav-item[aria-current="page"] { background: rgb(255 255 255 / 0.12); color: #fff; }
 .nav-item svg, .nav-item img { width: 1.1rem; height: 1.1rem; flex: none; }
 .nav-item img { border-radius: 9999px; object-fit: cover; }
 .nav-bottom { margin-top: auto; }
@@ -173,7 +177,7 @@ body.adjusting.modal-open #bg { filter: none; scale: 1; }
 .card.stack { flex-direction: column; align-items: stretch; }
 .card .t { font-weight: 500; white-space: nowrap; }
 .card .d { margin-top: 0.1rem; font-size: 0.78rem; color: rgb(255 255 255 / 0.55); line-height: 1.4; }
-.close-x { position: absolute; top: 0.9rem; right: 0.9rem; background: rgb(255 255 255 / 0.1); border: 1px solid rgb(255 255 255 / 0.12); }
+.close-x { position: absolute; z-index: 3; top: 0.9rem; right: 0.9rem; background: rgb(255 255 255 / 0.1); border: 1px solid rgb(255 255 255 / 0.12); }
 .close-x:hover { background: rgb(255 255 255 / 0.2); }
 
 .seg { position: relative; isolation: isolate; flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 0.2rem; border-radius: 9999px; background: rgb(255 255 255 / 0.08); }
@@ -302,6 +306,7 @@ input[type="range"]::-moz-range-thumb { width: 1.1rem; height: 1.1rem; border: 0
 .acct { overflow: hidden; border-radius: 1.2rem; background: rgb(255 255 255 / 0.06); border: 1px solid rgb(255 255 255 / 0.08); }
 /* The banner is the photo on screen, blurred into a colour wash. */
 .acct-banner { position: relative; height: 5.5rem; overflow: hidden; background: linear-gradient(135deg, rgb(91 140 255 / 0.35), rgb(91 140 255 / 0.08)); -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent); mask-image: linear-gradient(to bottom, #000 30%, transparent); }
+.acct-banner .layers { position: absolute; inset: 0; }
 .acct-banner img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scale(1.3); filter: blur(22px) saturate(1.5); }
 .acct-banner i { position: absolute; inset: 0; background: linear-gradient(to bottom, rgb(0 0 0 / 0.08), transparent); }
 .acct-body { position: relative; padding: 0 1.1rem 1.1rem; }
@@ -343,3 +348,157 @@ input[type="range"]::-moz-range-thumb { width: 1.1rem; height: 1.1rem; border: 0
 .confirm-card h3 { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
 .confirm-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; width: 100%; margin-top: 0.2rem; }
 .confirm-buttons .btn { width: 100%; padding: 0.55rem 0.8rem; }
+
+/* Appearance: a slider row is the icon and title on top, the value at the right, the track across the bottom. */
+/* A slider row reads like the switches: icon, name, a slim track filled in the accent up to the value, the number. */
+.card.slider-card { flex-wrap: nowrap; }
+.card.slider-card .t { width: 4.5rem; flex: none; }
+.card.slider-card .slider-input { flex: 1; min-width: 0; width: auto; }
+.card.slider-card .val { flex: none; min-width: 2.2rem; padding: 0.15rem 0.45rem; border-radius: 9999px; background: rgb(255 255 255 / 0.08); font-variant-numeric: tabular-nums; font-size: 0.75rem; text-align: center; color: rgb(255 255 255 / 0.8); }
+input.slider-input { height: 0.25rem; cursor: pointer; background: linear-gradient(to right, var(--accent, #5b8cff) var(--p, 0%), rgb(255 255 255 / 0.16) var(--p, 0%)); }
+input.slider-input::-webkit-slider-thumb { width: 0.95rem; height: 0.95rem; box-shadow: 0 0 0 4px rgb(255 255 255 / 0.12), 0 1px 4px rgb(0 0 0 / 0.4); transition: box-shadow 0.15s; }
+input.slider-input:hover::-webkit-slider-thumb, input.slider-input:active::-webkit-slider-thumb { box-shadow: 0 0 0 6px rgb(255 255 255 / 0.16), 0 1px 4px rgb(0 0 0 / 0.4); }
+input.slider-input::-moz-range-thumb { width: 0.95rem; height: 0.95rem; box-shadow: 0 0 0 4px rgb(255 255 255 / 0.12); }
+.card .d { max-width: 30ch; }
+
+/* Clock: one card, the switch on top, the 12/24-hour choice folding open beneath it. */
+.clock-card { gap: 0; }
+.clock-head { display: flex; align-items: center; gap: 1rem; }
+.clock-card .fold.open { max-height: 4rem; }
+.clock-format { display: flex; padding-top: 0.75rem; }
+.clock-format .seg { flex: 1; }
+.clock-card:hover { background: rgb(255 255 255 / 0.07); }
+
+/* The toolbar popup (popup.html): the same dialog, over the same blurred, dimmed photo, as large as a popup may be. */
+html[data-popup], html[data-popup] body { width: 800px; height: 560px; overflow: hidden; margin: 0; }
+html[data-popup] body { position: relative; background: #171717; }
+html[data-popup] #bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(10px); scale: 1.1; }
+html[data-popup] #scrim, html[data-popup] .popup-shade { position: absolute; inset: 0; }
+html[data-popup] .popup-shade { background: rgb(0 0 0 / 0.5); }
+html[data-popup] .modal { inset: 0; width: 100%; height: 100%; border-radius: 0; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* Appearance: round icons. Help: a quiet tip card. */
+.tile-ico.round { border-radius: 9999px; }
+.tip { display: flex; align-items: flex-start; gap: 0.7rem; margin-top: 0.4rem; padding: 0.75rem 0.9rem; border-radius: 0.9rem; border: 1px dashed rgb(255 255 255 / 0.14); font-size: 0.8rem; line-height: 1.45; color: rgb(255 255 255 / 0.65); }
+.tip b { font-weight: 600; color: #fff; }
+.tip .tile-ico { flex: none; }
+
+/* ---- Shortcuts under the clock: round glass tiles with the site's icon and its name; a menu button to edit on hover ---- */
+.shortcuts { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.25rem; max-width: 50rem; margin-top: 1.75rem; }
+.shortcuts[hidden] { display: none; }
+.sc { position: relative; display: flex; flex-direction: column; align-items: center; width: 6.75rem; padding: 0.8rem 0.5rem 0.6rem; border-radius: 1.1rem; color: #fff; text-decoration: none; transition: background-color 0.25s ease; }
+.sc:hover, .sc:focus-within { background: rgb(255 255 255 / 0.12); }
+.sc-link { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 100%; color: inherit; text-decoration: none; outline: none; }
+.sc-ico { position: relative; display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 9999px; overflow: hidden; background: rgb(255 255 255 / 0.16); border: 1px solid rgb(255 255 255 / 0.2); -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%); transition: background-color 0.25s ease, border-color 0.25s ease; }
+.sc:hover .sc-ico { background: rgb(255 255 255 / 0.22); border-color: rgb(255 255 255 / 0.3); }
+.sc-globe { display: grid; place-items: center; opacity: 0.85; }
+.sc-globe svg { width: 1.35rem; height: 1.35rem; }
+/* The globe stands in only when there is no icon (it failed to load and was removed). */
+.sc-ico img ~ .sc-globe { display: none; }
+.sc-ico img { position: absolute; inset: 0; margin: auto; width: 1.5rem; height: 1.5rem; }
+.sc-ico svg { width: 1.25rem; height: 1.25rem; }
+.sc-title { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; text-shadow: 0 1px 3px rgb(0 0 0 / 0.45); }
+.sc-link:focus-visible .sc-ico { outline: 2px solid #fff; outline-offset: 2px; }
+.sc-edit { position: absolute; top: 0.35rem; right: 0.35rem; display: grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 9999px; color: #fff; opacity: 0; transition: opacity 0.2s ease, background-color 0.2s ease; cursor: pointer; }
+.sc-edit svg { width: 0.85rem; height: 0.85rem; }
+.sc:hover .sc-edit, .sc:focus-within .sc-edit { opacity: 1; }
+.sc-edit:hover { background: rgb(255 255 255 / 0.2); }
+.sc-add, .sc-more { cursor: pointer; gap: 0.5rem; }
+/* Show more / Show less animate from script (main.ts toggleMoreShortcuts); the row clips while its height changes. */
+.shortcuts { overflow: clip; overflow-clip-margin: 0.5rem; }
+.sc-more .sc-title { opacity: 0.8; }
+.sc-more:hover .sc-title { opacity: 1; }
+.sc-add .sc-ico { background: rgb(255 255 255 / 0.06); border: 1px dashed rgb(255 255 255 / 0.35); }
+.sc-add .sc-title { opacity: 0.8; }
+.sc-add:hover .sc-title { opacity: 1; }
+/* The add / edit dialog: the same glass card as the photo info. */
+.sc-dialog h2 { margin-bottom: 1rem; }
+.sc-form { display: flex; flex-direction: column; gap: 0.55rem; }
+.sc-error { font-size: 0.78rem; color: #ff9c9c; }
+.sc-error:empty { display: none; }
+.sc-actions { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.6rem; }
+
+/* Popup: "this page" card at the top of the first page. */
+.card.here .tile-ico img { width: 1.15rem; height: 1.15rem; }
+.card.here .tile-ico img ~ svg { display: none; }
+.card.here .d { max-width: none; }
+.card.here .pill { margin: 0; }
+
+/* ---- Home: the photo on screen, and this page (popup) ---- */
+.home-photo { position: relative; height: 15rem; overflow: hidden; border-radius: 1rem; background: rgb(255 255 255 / 0.06); border: 1px solid rgb(255 255 255 / 0.08); }
+.home-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* Appearance: compact rows (less padding top and bottom, smaller icons), so the whole page fits with little scrolling. */
+.compact .card { padding-top: 0.4rem; padding-bottom: 0.4rem; margin-bottom: 0.3rem; }
+.compact .tile-ico.sm { width: 2rem; height: 2rem; }
+.compact .tile-ico.sm svg { width: 1rem; height: 1rem; }
+.compact .clock-format { padding-top: 0.45rem; padding-bottom: 0.1rem; }
+.compact .group-title { margin-top: 0.9rem; margin-bottom: 0.4rem; }
+
+/* Home, like the apps' Home: the photo, a bar with its credit and Change now, the Wallpaper of the day. */
+/* Home's photo layers: a new photo fades in over the previous one once loaded (panel.ts showHomePhoto). */
+.home-photo .layers { position: absolute; inset: 0; }
+/* Change now: the refresh icon turns once (or keeps turning while it works). */
+.btn svg.turn { animation: turn-once 0.6s cubic-bezier(0.3, 0.7, 0.3, 1); }
+@keyframes turn-once { to { rotate: 360deg; } }
+.home-bar { display: flex; align-items: center; gap: 1rem; margin: 0.75rem 0.2rem 1rem; }
+.home-bar .t { font-size: 0.88rem; }
+.home-bar .t a { color: var(--accent, #8fb4ff); text-decoration: none; }
+.home-bar .t a:hover { text-decoration: underline; }
+.home-bar .d { margin-top: 0.1rem; font-size: 0.76rem; color: rgb(255 255 255 / 0.55); }
+.btn-accent { background: var(--accent, #5b8cff); color: #fff; padding: 0.55rem 1.1rem; font-size: 0.85rem; flex: none; }
+.btn-accent:hover:not(:disabled) { filter: brightness(1.1); }
+.btn svg { width: 1rem; height: 1rem; }
+.btn svg.spinning { animation: spin-ring 0.9s linear infinite; }
+.card.today { padding: 0.55rem 0.9rem 0.55rem 0.55rem; }
+.today-thumb { width: 5.5rem; height: 3.5rem; flex: none; border-radius: 0.6rem; object-fit: cover; background: rgb(255 255 255 / 0.06); }
+.card.today .t { font-weight: 600; }
+.card.today .d { max-width: none; margin-top: 0.15rem; }
+.card.today .d a { color: inherit; }
+.card.today .pill { margin: 0; }
+
+/* Popup "This page" card while the popup asks which page it's on. */
+.card.here .checking { flex: none; font-size: 0.8rem; color: rgb(255 255 255 / 0.5); animation: checking 1.2s ease-in-out infinite; }
+@keyframes checking { 50% { opacity: 0.45; } }
+html[data-popup] #bg:not([hidden]) { animation: fade-only 0.4s ease both; }
+
+/* Site icons (shortcuts, the popup's "This page") fade in once loaded instead of popping in. */
+.sc-ico img, .card.here .tile-ico img { opacity: 0; transition: opacity 0.35s ease; }
+.sc-ico img.loaded, .card.here .tile-ico img.loaded { opacity: 1; }
+
+/* An icon that came from the browser's cache shows at once (no fade). */
+.sc-ico img.instant { transition: none; }
+/* Dragging a shortcut: the tile itself lifts and follows the pointer, above the others, which glide aside. */
+.sc[data-sc] { touch-action: none; }
+.sc.held, .sc.settling { background: rgb(28 28 32 / 0.72); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%); box-shadow: 0 14px 34px rgb(0 0 0 / 0.35), inset 0 0 0 1px rgb(255 255 255 / 0.12); }
+.sc.held { z-index: 5; scale: 1.08; cursor: grabbing; transition: scale 0.18s ease, box-shadow 0.18s ease; }
+.sc.held .sc-edit { opacity: 0; }
+.sc.settling { z-index: 5; }
+.shortcuts.sorting { overflow: visible; }
+.shortcuts.sorting .sc:not(.held):hover { background: none; }
+
+/* Home: the wallpaper source as a small glass switch on the photo; "Live" under the credit while following. */
+.home-source { position: absolute; z-index: 2; left: 0.6rem; top: 0.6rem; }
+/* The photo and its switch share one layer (translateZ), so the switch's blur scrolls with the photo instead of lagging. */
+.home-photo { transform: translateZ(0); }
+.home-source .seg { background: rgb(18 18 22 / 0.45); border: 1px solid rgb(255 255 255 / 0.14); -webkit-backdrop-filter: blur(14px) saturate(150%); backdrop-filter: blur(14px) saturate(150%); box-shadow: 0 4px 16px rgb(0 0 0 / 0.25); }
+.home-source .seg button { display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; }
+.home-source .seg svg { width: 0.85rem; height: 0.85rem; flex: none; }
+.home-source .seg button { padding: 0.3rem 0.7rem; font-size: 0.74rem; color: rgb(255 255 255 / 0.85); }
+.home-source .seg button[aria-pressed="true"] { color: #111; }
+.home-bar .d a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.live-dot { display: inline-block; width: 6px; height: 6px; margin: 0 0.4rem 0.1rem 0.1rem; border-radius: 9999px; background: #4ade80; vertical-align: middle; animation: pulse 2s ease-in-out infinite; }
+/* Interests: a quiet note while the devices choose. */
+.note { display: flex; align-items: flex-start; gap: 0.6rem; margin-bottom: 0.6rem; padding: 0.65rem 0.9rem; border-radius: 0.9rem; background: rgb(255 255 255 / 0.05); font-size: 0.8rem; line-height: 1.45; color: rgb(255 255 255 / 0.7); }
+.note svg { width: 1rem; height: 1rem; flex: none; margin-top: 0.1rem; }
+.note b { color: #fff; font-weight: 600; }
+
+/* Settings: each group is one card; its rows sit flush, split by a thin line, instead of separate cards with gaps. */
+.list { margin-bottom: 0.3rem; overflow: hidden; border-radius: 0.9rem; background: rgb(255 255 255 / 0.07); border: 1px solid rgb(255 255 255 / 0.06); }
+.list > .card { margin: 0; border: 0; border-radius: 0; background: transparent; }
+.list > .card + .card { border-top: 1px solid rgb(255 255 255 / 0.07); }
+.list > .card:hover { background: rgb(255 255 255 / 0.04); }
+/* Holding a slider shows the photo as it is: the group card fades with the rest, only that slider's row stays. */
+#panel[data-adjusting] .list { background: transparent; border-color: transparent; }
+#panel[data-adjusting] .list > .card + .card { border-top-color: transparent; }
+.sc-ico img.round { border-radius: 9999px; }
