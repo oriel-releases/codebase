@@ -44,6 +44,7 @@ service cloud.firestore {
       // show it too (they hear about it through the Realtime Database's pulse/{uid}, see database.rules.json).
       // sync/settings: the settings every device shares (schedule, time zone, interests, filters); last write wins.
       // sync/slot: which device claimed the latest scheduled change ("first device wins"), so only one picks a photo.
+      // sync/extension: the browser extension's own settings and new tab shortcuts, the same in every browser of the account.
       match /sync/{doc} {
         // A follower (see followers below) may read just the current wallpaper.
         allow read: if request.auth.uid == uid
@@ -51,7 +52,8 @@ service cloud.firestore {
         allow create, update: if request.auth.uid == uid
           && ((doc == 'current' && validCurrent(request.resource.data))
             || (doc == 'settings' && validSyncedSettings(request.resource.data))
-            || (doc == 'slot' && validSlot(request.resource.data)));
+            || (doc == 'slot' && validSlot(request.resource.data))
+            || (doc == 'extension' && validExtension(request.resource.data)));
       }
     }
 
@@ -133,6 +135,15 @@ service cloud.firestore {
         && d.slotId is string && d.slotId.size() <= 32
         && d.device is string && d.device.size() <= 64
         && d.at is timestamp;
+    }
+
+    // The extension's settings (a small map) and shortcuts ([{title, url}], in order), written whole: last write wins.
+    function validExtension(d) {
+      return d.keys().hasOnly(['settings', 'shortcuts', 'updatedAt', 'device'])
+        && d.settings is map && d.settings.size() <= 40
+        && d.shortcuts is list && d.shortcuts.size() <= 14
+        && d.updatedAt is timestamp
+        && d.device is string && d.device.size() <= 64;
     }
 
     function validCode(d) {

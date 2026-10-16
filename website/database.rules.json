@@ -21,6 +21,9 @@
         // A "favorites changed" ring (users/{uid}/favorites in Firestore).
         "favoritesAt": { ".validate": "newData.isNumber()" },
         "favoritesDevice": { ".validate": "newData.isString() && newData.val().length <= 64" },
+        // An "extension settings changed" ring (users/{uid}/sync/extension in Firestore), from one browser to the others.
+        "extensionAt": { ".validate": "newData.isNumber()" },
+        "extensionDevice": { ".validate": "newData.isString() && newData.val().length <= 64" },
         "$other": { ".validate": false }
       }
     }
