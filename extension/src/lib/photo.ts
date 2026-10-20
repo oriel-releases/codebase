@@ -12,6 +12,8 @@ export interface Photo {
   topic?: string;
   /** Average colour, shown while the photo loads. */
   color?: string;
+  /** A vivid colour from the photo (pool photos), tinting the page's controls. */
+  accent?: string;
 }
 
 export interface PoolPhoto {
@@ -24,6 +26,8 @@ export interface PoolPhoto {
   l: string;
   d: string;
   t: string;
+  /** Vibrant accent colour (imgix palette, see scripts/build-pool.mjs). */
+  a?: string;
 }
 
 export const poolPhotos = pool.photos as PoolPhoto[];
@@ -39,7 +43,13 @@ export function fromPool(p: PoolPhoto): Photo {
     description: p.d,
     topic: p.t,
     color: p.c,
+    accent: p.a,
   };
+}
+
+/** A photo remembered from before accents were stored (today's pick) gets its own from the pool. */
+export function withPoolAccent(photo: Photo): Photo {
+  return photo.accent ? photo : { ...photo, accent: poolPhotos.find((p) => p.id === photo.id)?.a };
 }
 
 /** The photo sized and cropped for this screen (Unsplash crops on its side, so only the pixels we show are sent). */
