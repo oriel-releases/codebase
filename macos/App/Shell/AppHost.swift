@@ -9,6 +9,7 @@ struct Services: Sendable {
     let history: HistoryStore
     let setter: MacWallpaperSetter
     let provider: UnsplashProvider
+    let ai: PollinationsClient
     let firebase: FirebaseClient
     let auth: AuthService
     let syncPublisher: SyncPublisher
@@ -53,10 +54,12 @@ enum AppHost {
         let firebase = FirebaseClient()
         let auth = AuthService(store: FileAccountStore(paths: paths), firebase: firebase, appVersion: appVersion,
                                deviceName: Host.current().localizedName ?? "Mac")
-        let publisher = SyncPublisher(auth: auth, firebase: firebase, history: history, settings: store, accent: AccentSampler())
+        let ai = PollinationsClient(paths: paths)
+        let sampler = AccentSampler()
+        let publisher = SyncPublisher(auth: auth, firebase: firebase, history: history, settings: store, accent: sampler)
         let wallpapers = WallpaperService(
             provider: provider, setter: setter, history: history, settings: store, paths: paths, auth: auth, sync: publisher,
-            slots: SlotClaimer(auth: auth, firebase: firebase),
+            slots: SlotClaimer(auth: auth, firebase: firebase), ai: ai, accentSampler: sampler,
             isDarkMode: { UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark" })
         let retention = RetentionService(history: history, settings: store, setter: setter)
         let follow = FollowService(auth: auth, firebase: firebase, store: store, wallpapers: wallpapers, history: history)
@@ -66,7 +69,7 @@ enum AppHost {
         let stats = StatsReporter(auth: auth, firebase: firebase, history: history, paths: paths)
         let agents = LaunchAgents()
         return Services(
-            paths: paths, store: store, history: history, setter: setter, provider: provider, firebase: firebase, auth: auth,
+            paths: paths, store: store, history: history, setter: setter, provider: provider, ai: ai, firebase: firebase, auth: auth,
             syncPublisher: publisher, wallpapers: wallpapers, retention: retention, follow: follow,
             share: ShareService(auth: auth, firebase: firebase), settingsSync: settingsSync, favoritesSync: favoritesSync,
             pulse: pulse, today: TodayService(paths: paths), stats: stats,

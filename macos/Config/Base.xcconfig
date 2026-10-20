@@ -3,4 +3,6 @@
 UNSPLASH_ACCESS_KEY =
 // Sparkle's public EdDSA key (scripts/configure.sh reads it from .env); empty: updates are off.
 SPARKLE_PUBLIC_KEY =
+// Pollinations key for AI wallpapers (from .env); empty: the AI page says it can't create them.
+POLLINATIONS_KEY =
 #include? "Secrets.xcconfig"

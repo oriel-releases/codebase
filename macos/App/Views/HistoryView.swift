@@ -88,7 +88,8 @@ struct HistoryView: View {
 
     private func actions(_ entry: HistoryEntry) -> EntryActions {
         EntryActions(
-            canSet: !entry.filePath.isEmpty && FileManager.default.fileExists(atPath: entry.filePath) || entry.provider == "unsplash",
+            canSet: !entry.filePath.isEmpty && FileManager.default.fileExists(atPath: entry.filePath)
+                || entry.provider == "unsplash" || entry.provider == PollinationsClient.provider,
             busy: setWords != nil,
             setAgain: { Task { await setAgain(entry) } },
             favorite: { app.toggleFavorite(entry) },

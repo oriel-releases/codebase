@@ -153,11 +153,18 @@ private struct ActionsRow: View {
     var body: some View {
         HStack(spacing: 16) {
             if let entry = app.current {
-                Credit(name: entry.photographerName, photographer: entry.photographerURL, page: entry.photoPageURL)
-                    .padding(.leading, 4)
+                if entry.provider == PollinationsClient.provider {
+                    AICredit().padding(.leading, 4)
+                } else {
+                    Credit(name: entry.photographerName, photographer: entry.photographerURL, page: entry.photoPageURL)
+                        .padding(.leading, 4)
+                }
             }
             Spacer(minLength: 0)
             HStack(spacing: 8) {
+                if !app.accentOptions.isEmpty {
+                    AccentPill().padding(.trailing, -6) // 2 pt from Share
+                }
                 Button {
                     Task { await share() }
                 } label: {
@@ -240,6 +247,75 @@ struct ChangeNowButton: View {
         if app.isBusy { return app.phaseWords ?? ApplyPhase.finding.text }
         if let n = app.limitMinutes { return "Try after \(n) min" }
         return "Change now"
+    }
+}
+
+/// "Made with Pollinations AI" for an AI picture (no "on Unsplash").
+struct AICredit: View {
+    var body: some View {
+        HStack(spacing: 2) {
+            Text("Made with").foregroundStyle(Color.muted)
+            Button("Pollinations AI") { NSWorkspace.shared.open(URL(string: "https://pollinations.ai")!) }
+                .buttonStyle(TextLinkStyle())
+                .fontWeight(.semibold)
+                .padding(.horizontal, 3)
+        }
+        .font(.system(size: 13))
+        .lineLimit(1)
+    }
+}
+
+/// The photo's three colors in one small pill; the chosen one (ringed) is the accent on the account's other devices.
+private struct AccentPill: View {
+    @Environment(AppModel.self) private var app
+
+    var body: some View {
+        HStack(spacing: 1) {
+            ForEach(app.accentOptions, id: \.self) { hex in
+                Swatch(hex: hex, chosen: app.chosenAccent?.caseInsensitiveCompare(hex) == .orderedSame) { app.chooseAccent(hex) }
+            }
+        }
+        .padding(.horizontal, 5)
+        .frame(height: 36)
+        .background(Color.surface, in: Capsule())
+    }
+
+    private struct Swatch: View {
+        var hex: String
+        var chosen: Bool
+        var choose: () -> Void
+        @State private var hover = false
+
+        var body: some View {
+            Button(action: choose) {
+                ZStack {
+                    Circle()
+                        .strokeBorder(Color.ink, lineWidth: 1.75)
+                        .opacity(chosen ? 1 : 0)
+                        .animation(.easeOut(duration: 0.18), value: chosen)
+                    Circle().fill(Color(hex: UInt32(hex.dropFirst(), radix: 16) ?? 0)).frame(width: 16, height: 16)
+                }
+                .frame(width: 24, height: 24)
+                .contentShape(Circle())
+            }
+            .buttonStyle(SwatchPress(hover: hover))
+            .onHover { hover = $0 }
+            .help("Use as accent color")
+            .accessibilityLabel("Accent color \(hex)")
+            .accessibilityAddTraits(chosen ? .isSelected : [])
+        }
+    }
+
+    /// No box behind a dot: it grows under the pointer and shrinks a little when pressed.
+    private struct SwatchPress: ButtonStyle {
+        var hover: Bool
+
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .scaleEffect(configuration.isPressed ? 0.92 : hover ? 1.15 : 1)
+                .animation(.easeOut(duration: 0.12), value: hover)
+                .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
+        }
     }
 }
 

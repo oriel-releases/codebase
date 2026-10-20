@@ -8,7 +8,7 @@ Oriel for Windows (`../windows`): [docs/mac-task.md](docs/mac-task.md) is the fu
 
 - macOS 26 Tahoe or later
 - Xcode 27 (to build) and XcodeGen: `brew install xcodegen`
-- An Unsplash access key for Oriel's **macOS** Unsplash app (users never enter one)
+- An Unsplash access key for Oriel's **macOS** Unsplash app, and the Pollinations key for AI wallpapers (users never enter either)
 
 ## Unsplash key (build time)
 
@@ -18,6 +18,10 @@ The key is embedded in the app's `Info.plist` (`OrielUnsplashAccessKey`) at buil
 2. `UNSPLASH_ACCESS_KEY=...` in `.env` (git-ignored; copy `.env.example`).
 
 `scripts/configure.sh` writes it to `Config/Secrets.xcconfig` (git-ignored). Without a key the app builds but can't fetch photos.
+
+**AI wallpapers** use Pollinations with the owner's key, baked in the same way: `POLLINATIONS_KEY=sk_...` in `.env`
+(the same key as `windows/.env`), or the environment. It ships inside the app, so keep a Pollen budget on it. Without it
+the AI page says "This build of Oriel can't create AI wallpapers." Each Mac makes at most 20 a day (`created.json`).
 
 ## Build & run
 
