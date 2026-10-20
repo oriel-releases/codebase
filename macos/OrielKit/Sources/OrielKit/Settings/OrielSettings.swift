@@ -70,6 +70,9 @@ public struct OrielSettings: Sendable, Hashable, Codable {
     /// Prefer darker photos in the evening (and in dark mode), brighter ones in the morning.
     public var matchTimeOfDay = true
 
+    /// Change the Mac's accent color to the closest one to each new wallpaper's color. This Mac only, off by default.
+    public var matchAccentColor = false
+
     /// With more than one screen, give each its own photo instead of the same one everywhere.
     public var photoPerMonitor = false
 
@@ -138,7 +141,7 @@ public struct OrielSettings: Sendable, Hashable, Codable {
 
     enum CodingKeys: String, CodingKey {
         case topics, dailyTime, timeZone, intervalMinutes, favoritesOnly, applyAtLogin, paused, fit, skipLowLikes,
-             minLikes, wallpaperFolder, startAtLogin, matchTimeOfDay, photoPerMonitor, followUid, followName,
+             minLikes, wallpaperFolder, startAtLogin, matchTimeOfDay, matchAccentColor, photoPerMonitor, followUid, followName,
              followPicture, myFollowCode, onboardingDone, hotkey
     }
 
@@ -158,6 +161,7 @@ public struct OrielSettings: Sendable, Hashable, Codable {
         wallpaperFolder = try c.decodeIfPresent(String.self, forKey: .wallpaperFolder)
         startAtLogin = try c.decodeIfPresent(Bool.self, forKey: .startAtLogin) ?? d.startAtLogin
         matchTimeOfDay = try c.decodeIfPresent(Bool.self, forKey: .matchTimeOfDay) ?? d.matchTimeOfDay
+        matchAccentColor = try c.decodeIfPresent(Bool.self, forKey: .matchAccentColor) ?? d.matchAccentColor
         photoPerMonitor = try c.decodeIfPresent(Bool.self, forKey: .photoPerMonitor) ?? d.photoPerMonitor
         followUid = try c.decodeIfPresent(String.self, forKey: .followUid)
         followName = try c.decodeIfPresent(String.self, forKey: .followName)

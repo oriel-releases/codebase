@@ -60,6 +60,18 @@ struct SettingsView: View {
                            description: "Darker photos in the evening and in dark mode, brighter ones in the morning.") {
                     Toggle("", isOn: $app.settings.matchTimeOfDay).toggleStyle(.switch).labelsHidden()
                 }
+                SettingRow(icon: "paintpalette", title: "Match accent color",
+                           description: "Change the Mac's accent color (buttons, menus, selection) to the closest one to each new wallpaper.") {
+                    Toggle("", isOn: Binding(get: { app.settings.matchAccentColor }, set: { on in
+                        app.settings.matchAccentColor = on
+                        // Turning it on takes effect now, not only at the next wallpaper change.
+                        if on {
+                            let wallpapers = app.sp.wallpapers
+                            Task.detached(priority: .userInitiated) { wallpapers.applyAccentToCurrent() }
+                        }
+                    }))
+                    .toggleStyle(.switch).labelsHidden()
+                }
                 if app.sp.setter.screens().count > 1 {
                     SettingRow(icon: "display.2", title: "A photo for each display",
                                description: "Give each display its own photo instead of the same one everywhere.") {

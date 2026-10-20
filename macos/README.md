@@ -23,6 +23,11 @@ The key is embedded in the app's `Info.plist` (`OrielUnsplashAccessKey`) at buil
 (the same key as `windows/.env`), or the environment. It ships inside the app, so keep a Pollen budget on it. Without it
 the AI page says "This build of Oriel can't create AI wallpapers." Each Mac makes at most 20 a day (`created.json`).
 
+**Accent color:** Home offers the wallpaper's three colors; the chosen one syncs to the account's other devices. With
+Settings > Display > **Match accent color** on (this Mac only, off by default; choosing a color on Home turns it on, like
+Windows), the Mac's accent switches to the closest of macOS's eight accent colors (`MacAccentSetter`: the global
+`AppleAccentColor` / `AppleHighlightColor` preferences and the colors-changed notification).
+
 ## Build & run
 
 ```bash

@@ -172,3 +172,58 @@ struct AIWallpaperTests {
         #expect(ShareLink.photo(entry) == nil) // share links stay Unsplash-only
     }
 }
+
+struct MacAccentTests {
+    final class FakeAccent: AccentSetting, @unchecked Sendable {
+        private let lock = NSLock()
+        private var applied: [String] = []
+        var colors: [String] { lock.withLock { applied } }
+        func apply(_ hex: String) { lock.withLock { applied.append(hex) } }
+    }
+
+    @Test(arguments: [
+        ("#0A84FF", "Blue"), ("#3E5E8C", "Blue"), ("#E8742A", "Orange"), ("#34C759", "Green"), ("#FFD60A", "Yellow"),
+        ("#FF3B30", "Red"), ("#BF5AF2", "Purple"), ("#FF2D8D", "Pink"), ("#8E8E93", "Graphite"), ("#6B6B6B", "Graphite"),
+    ])
+    func theClosestOfTheEightAccents(hex: String, name: String) {
+        #expect(MacAccentSetter.nearest(hex)?.name == name)
+    }
+
+    @Test func choosingAColorTurnsMatchOnAndReceivingFollowsTheSetting() async throws {
+        let dir = TempDir()
+        try dir.paths.ensureCreated()
+        let store = JSONSettingsStore(paths: dir.paths)
+        let accent = FakeAccent()
+        let svc = WallpaperService(provider: FakeProvider(), setter: FakeSetter(), history: try SQLiteHistoryStore(paths: dir.paths),
+                                   settings: store, paths: dir.paths, accentSetter: accent)
+
+        svc.receiveAccent("p1", "#E8742A")
+        #expect(accent.colors.isEmpty) // off by default: the Mac's accent is left alone
+
+        let entry = HistoryEntry(provider: "unsplash", photoID: "p1", filePath: "", thumbnailURL: "t", photoPageURL: "p",
+                                 photographerName: "n", photographerURL: "u", appliedAt: Date())
+        await svc.chooseAccent(entry, "#34C759")
+        #expect(store.load().matchAccentColor)
+        #expect(accent.colors == ["#34C759"])
+
+        svc.receiveAccent("p1", "#0A84FF")
+        #expect(accent.colors.last == "#0A84FF")
+    }
+
+    @Test func aNewWallpaperSetsItsAccentWhenMatching() async throws {
+        let dir = TempDir()
+        try dir.paths.ensureCreated()
+        let store = JSONSettingsStore(paths: dir.paths)
+        store.update {
+            $0.matchAccentColor = true
+            $0.matchTimeOfDay = false
+        }
+        let accent = FakeAccent()
+        let svc = WallpaperService(provider: FakeProvider([[Fixtures.photo("a")]]), setter: FakeSetter(),
+                                   history: try SQLiteHistoryStore(paths: dir.paths), settings: store, paths: dir.paths,
+                                   accentSetter: accent)
+        svc.rememberAccent("a", "#FF2D8D") // chosen on another device before it arrived
+        #expect(await svc.apply(force: true).status == .applied)
+        #expect(accent.colors == ["#FF2D8D"])
+    }
+}

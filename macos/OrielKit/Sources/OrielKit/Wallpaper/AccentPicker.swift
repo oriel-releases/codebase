@@ -90,7 +90,7 @@ public enum AccentPicker {
         String(format: "#%02X%02X%02X", c.r, c.g, c.b)
     }
 
-    static func toHSV(_ r: Double, _ g: Double, _ b: Double) -> (Double, Double, Double) {
+    public static func toHSV(_ r: Double, _ g: Double, _ b: Double) -> (Double, Double, Double) {
         let r = r / 255, g = g / 255, b = b / 255
         let mx = max(r, g, b), mn = min(r, g, b), d = mx - mn
         var h: Double

@@ -92,6 +92,7 @@ public actor WallpaperService {
     private let slots: SlotClaiming?
     private let ai: PollinationsClient?
     private let accentSampler: AccentSampler?
+    private let accentSetter: AccentSetting?
     private let isDarkMode: @Sendable () -> Bool
 
     /// After a successful change from any trigger in this process.
@@ -114,7 +115,7 @@ public actor WallpaperService {
     public init(provider: ImageProvider, setter: WallpaperSetter, history: HistoryStore, settings: SettingsStore,
                 topics: TopicPicker = RandomTopicPicker(), clock: OrielClock = SystemClock(), paths: AppPaths,
                 auth: AuthState? = nil, sync: SyncPublishing? = nil, slots: SlotClaiming? = nil,
-                ai: PollinationsClient? = nil, accentSampler: AccentSampler? = nil,
+                ai: PollinationsClient? = nil, accentSampler: AccentSampler? = nil, accentSetter: AccentSetting? = nil,
                 isDarkMode: @escaping @Sendable () -> Bool = { false }) {
         self.provider = provider
         self.setter = setter
@@ -128,6 +129,7 @@ public actor WallpaperService {
         self.slots = slots
         self.ai = ai
         self.accentSampler = accentSampler
+        self.accentSetter = accentSetter
         self.isDarkMode = isDarkMode
     }
 
@@ -330,6 +332,7 @@ public actor WallpaperService {
                                 ext: PollinationsClient.isPNG(bytes) ? "png" : "jpg")
             phases.send(.changing)
             try setForAll(file, s)
+            matchAccent(photo.id, file)
             let entry = try record(photo, file: file, topic: topic ?? "search", screenID: nil)
             // Only Unsplash counts downloads; an AI picture has nobody to tell.
             if image == nil { afterChange { [provider] in await provider.trackUsage(photo) } }
@@ -389,6 +392,7 @@ public actor WallpaperService {
         } else {
             try setForAll(entry.fileURL, s)
         }
+        matchAccent(entry.photoID, entry.fileURL)
         var touched = entry
         touched.appliedAt = clock.now
         touched.id = try history.add(touched)
@@ -446,6 +450,7 @@ public actor WallpaperService {
         } else {
             for p in picked { try wrapSetterError { try setter.set(p.file, on: p.target.screenID!, fit: s.fit) } }
         }
+        matchAccent(picked[0].photo.id, picked[0].file)
 
         // 3. Record, then tell Unsplash (after the change).
         var entries: [HistoryEntry] = []
@@ -598,12 +603,32 @@ public actor WallpaperService {
     /// way for an app to set the system accent, so (like Linux) nothing changes here but the choice.
     public func chooseAccent(_ entry: HistoryEntry, _ hex: String) async {
         rememberAccent(entry.photoID, hex)
+        // Like Windows: choosing a color is asking for it, so "Match accent color" turns on.
+        if let accentSetter {
+            if !settings.load().matchAccentColor { settings.update { $0.matchAccentColor = true } }
+            accentSetter.apply(hex)
+        }
         await sync?.publishColor(entry, hex.uppercased())
     }
 
-    /// Another device chose this color for the photo on screen.
+    /// Another device chose this color for the photo on screen: used here too (when the accent follows the photo).
     public nonisolated func receiveAccent(_ photoId: String, _ hex: String) {
         rememberAccent(photoId, hex)
+        if let accentSetter, settings.load().matchAccentColor { accentSetter.apply(hex) }
+    }
+
+    /// The accent of the wallpaper on screen now ("Match accent color" was just turned on).
+    public nonisolated func applyAccentToCurrent() {
+        guard let current = history.list().first(where: { Self.fileExists($0.filePath) }) else { return }
+        matchAccent(current.photoID, current.fileURL)
+    }
+
+    /// The photo's accent on the Mac, when "Match accent color" is on: the color chosen for it (here or on another
+    /// device), else the one Oriel picks from it. Right after the desktop changed (it's quick: one small decode).
+    private nonisolated func matchAccent(_ photoId: String, _ file: URL) {
+        guard let accentSetter, settings.load().matchAccentColor else { return }
+        guard let hex = chosenAccent(photoId) ?? accentSampler?.sample(file.path(percentEncoded: false)) else { return }
+        accentSetter.apply(hex)
     }
 
     /// Keeps the color for the photo (before it's set, so setting it uses this color).

@@ -59,7 +59,7 @@ enum AppHost {
         let publisher = SyncPublisher(auth: auth, firebase: firebase, history: history, settings: store, accent: sampler)
         let wallpapers = WallpaperService(
             provider: provider, setter: setter, history: history, settings: store, paths: paths, auth: auth, sync: publisher,
-            slots: SlotClaimer(auth: auth, firebase: firebase), ai: ai, accentSampler: sampler,
+            slots: SlotClaimer(auth: auth, firebase: firebase), ai: ai, accentSampler: sampler, accentSetter: MacAccentSetter(),
             isDarkMode: { UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark" })
         let retention = RetentionService(history: history, settings: store, setter: setter)
         let follow = FollowService(auth: auth, firebase: firebase, store: store, wallpapers: wallpapers, history: history)
