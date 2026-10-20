@@ -52,7 +52,7 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   Firefox and the source land in `extension/release/` (earlier versions move to `release/old/<version>/`). The owner
   zips and uploads them to the stores.
 
-## Android app (built, 1.0.0 released)
+## Android app (built, 1.1.0 released)
 
 - Native **Kotlin + Jetpack Compose**, Android 8.0+ (see `android/README.md`). **No Firebase SDK**: Auth, Firestore and
   the Realtime Database are REST calls (`data/Firebase.kt`), like the desktop `FirebaseClient.cs`.
