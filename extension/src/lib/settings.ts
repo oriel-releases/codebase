@@ -61,6 +61,14 @@ export function syncedSettings(settings: Settings): Partial<Settings> {
   return rest;
 }
 
+/**
+ * Whether the account's copy lacks a setting this version has (it was written by an older version, before the setting
+ * existed): then this browser uploads its settings once, so the account holds every one of them.
+ */
+export function lacksSettings(remote: Partial<Settings>): boolean {
+  return Object.keys(syncedSettings(defaults)).some((name) => !(name in remote));
+}
+
 export function loadSettings(): Settings {
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem(key) ?? "{}") };

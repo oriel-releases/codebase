@@ -67,3 +67,11 @@ test("synced settings leave out Shuffle's counter", async () => {
   assert.equal("bump" in synced, false);
   assert.equal(synced.clock, defaults.clock);
 });
+
+test("settings written by an older version are filled in once", async () => {
+  const { lacksSettings, syncedSettings, defaults } = await import("../src/lib/settings.ts");
+  const { clockAnimation: _new, ...older } = syncedSettings(defaults); // 1.0.3 had no clockAnimation
+  assert.equal(lacksSettings(older), true);
+  assert.equal(lacksSettings(syncedSettings(defaults)), false);
+  assert.equal(lacksSettings({ ...syncedSettings(defaults), clockAnimation: false }), false); // turned off: kept as is
+});
