@@ -34,6 +34,9 @@ struct PollinationsTests {
         (PixelSize(width: 3840, height: 2160), PixelSize(width: 2048, height: 1152)),
         (PixelSize(width: 1920, height: 1080), PixelSize(width: 1920, height: 1088)),
         (PixelSize(width: 3440, height: 1440), PixelSize(width: 2048, height: 864)),
+        // 16:10 screens: within the model's pixel limit (2048 × 1328 is refused).
+        (PixelSize(width: 3024, height: 1964), PixelSize(width: 1904, height: 1232)),
+        (PixelSize(width: 2560, height: 1600), PixelSize(width: 1936, height: 1216)),
     ])
     func picturesKeepTheScreenShapeAtMost2048(screen: PixelSize, expected: PixelSize) {
         #expect(PollinationsClient.sizeFor(screen) == expected)
@@ -95,7 +98,7 @@ struct PollinationsTests {
         #expect(paint.value(forHTTPHeaderField: "Authorization") == "Bearer sk_test")
         let body = try #require(try JSONSerialization.jsonObject(with: paint.httpBody!) as? [String: Any])
         #expect(body["model"] as? String == "zimage")
-        #expect(body["size"] as? String == "2048x1328")
+        #expect(body["size"] as? String == "1904x1232")
         #expect((body["prompt"] as? String)?.contains("User's idea: cabin in snow.") == true)
         #expect((body["prompt"] as? String)?.contains("A cabin glowing") == true)
     }

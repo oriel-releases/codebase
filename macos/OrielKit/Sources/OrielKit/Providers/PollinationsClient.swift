@@ -191,11 +191,19 @@ public final class PollinationsClient: Sendable {
         }
     }
 
-    /// The screen's shape, at most 2048 wide, in steps of 16 (what the models want).
+    /// The most pixels the model makes (2048 × 1152): a 16:10 Mac screen at 2048 wide (2048 × 1328) is refused.
+    static let maxPixels = 2_359_296
+
+    /// The screen's shape, at most 2048 wide and at most `maxPixels` in all, in steps of 16 (what the models want).
     public static func sizeFor(_ screen: PixelSize) -> PixelSize {
         let w = Double(max(screen.width, 640)), h = Double(max(screen.height, 360))
-        let scale = min(1, Double(maxSide) / max(w, h))
-        return PixelSize(width: round16(w * scale), height: round16(h * scale))
+        let scale = min(1, Double(maxSide) / max(w, h), (Double(maxPixels) / (w * h)).squareRoot())
+        var size = PixelSize(width: round16(w * scale), height: round16(h * scale))
+        // Rounding up to 16 can tip it over the limit: take 16 off the longer side until it fits.
+        while size.width * size.height > maxPixels {
+            if size.width >= size.height { size.width -= 16 } else { size.height -= 16 }
+        }
+        return size
     }
 
     static func round16(_ v: Double) -> Int { max(16, Int((v / 16).rounded()) * 16) }
