@@ -38,6 +38,12 @@
                             <TextBlock Text="Search" />
                         </StackPanel>
                     </Button>
+                    <Button Classes="nav" Classes.selected="{Binding IsCreate}" Command="{Binding NavigateCommand}" CommandParameter="create">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <PathIcon Data="{StaticResource IconSparkles}" Width="16" Height="16" />
+                            <TextBlock Text="AI" />
+                        </StackPanel>
+                    </Button>
                     <Button Classes="nav" Classes.selected="{Binding IsHistory}" Command="{Binding NavigateCommand}" CommandParameter="history">
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <PathIcon Data="{StaticResource IconHistory}" Width="16" Height="16" />
@@ -64,6 +70,7 @@
                 <ContentControl.DataTemplates>
                     <DataTemplate DataType="vm:HomeViewModel"><views:HomeView /></DataTemplate>
                     <DataTemplate DataType="vm:CollectionsViewModel"><views:SearchView /></DataTemplate>
+                    <DataTemplate DataType="vm:CreateViewModel"><views:CreateView /></DataTemplate>
                     <DataTemplate DataType="vm:HistoryViewModel"><views:HistoryView /></DataTemplate>
                     <DataTemplate DataType="vm:SettingsViewModel"><views:SettingsView /></DataTemplate>
                     <DataTemplate DataType="vm:FriendsViewModel"><views:FriendsView /></DataTemplate>

@@ -1,0 +1,407 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Oriel.UI.Pages.CreatePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:local="using:Oriel.UI"
+    xmlns:vm="using:Oriel.UI.ViewModels">
+
+    <Page.Resources>
+        <!--  The AI colors: indigo, violet, orchid, soft blue. Turned slowly in a circle (Spin, started in CreatePage.xaml.cs).  -->
+        <LinearGradientBrush x:Key="AiGradient" StartPoint="0,0" EndPoint="1,1">
+            <LinearGradientBrush.RelativeTransform>
+                <RotateTransform CenterX="0.5" CenterY="0.5" />
+            </LinearGradientBrush.RelativeTransform>
+            <GradientStop Offset="0" Color="#5B5BF7" />
+            <GradientStop Offset="0.4" Color="#8B5CF6" />
+            <GradientStop Offset="0.7" Color="#C084FC" />
+            <GradientStop Offset="1" Color="#60A5FA" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="AiTextGradient" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Offset="0" Color="#5B5BF7" />
+            <GradientStop Offset="0.55" Color="#8B5CF6" />
+            <GradientStop Offset="1" Color="#C084FC" />
+        </LinearGradientBrush>
+        <Storyboard x:Name="Spin" RepeatBehavior="Forever">
+            <DoubleAnimation
+                x:Name="Turn"
+                EnableDependentAnimation="True"
+                Storyboard.TargetProperty="Angle"
+                From="0"
+                To="360"
+                Duration="0:0:6" />
+        </Storyboard>
+        <!--  While a picture is made, the sparkle breathes and turns a little.  -->
+        <Storyboard x:Name="Working" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="Twinkle" Storyboard.TargetProperty="ScaleX" From="0.86" To="1.14" Duration="0:0:0.9" AutoReverse="True">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Twinkle" Storyboard.TargetProperty="ScaleY" From="0.86" To="1.14" Duration="0:0:0.9" AutoReverse="True">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Twinkle" Storyboard.TargetProperty="Rotation" From="-12" To="12" Duration="0:0:1.8" AutoReverse="True">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+        <!--  The bubbles drift and swell, each on its own path and pace.  -->
+        <Storyboard x:Name="Float">
+            <DoubleAnimation Storyboard.TargetName="Drift0" Storyboard.TargetProperty="TranslateX" To="160" Duration="0:0:9" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift0" Storyboard.TargetProperty="TranslateY" To="90" Duration="0:0:6.75" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift0" Storyboard.TargetProperty="ScaleX" To="1.18" Duration="0:0:5.4" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift0" Storyboard.TargetProperty="ScaleY" To="1.18" Duration="0:0:5.4" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift1" Storyboard.TargetProperty="TranslateX" To="-140" Duration="0:0:11" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift1" Storyboard.TargetProperty="TranslateY" To="120" Duration="0:0:8.25" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift1" Storyboard.TargetProperty="ScaleX" To="1.18" Duration="0:0:6.6" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift1" Storyboard.TargetProperty="ScaleY" To="1.18" Duration="0:0:6.6" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift2" Storyboard.TargetProperty="TranslateX" To="150" Duration="0:0:8" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift2" Storyboard.TargetProperty="TranslateY" To="-100" Duration="0:0:6" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift2" Storyboard.TargetProperty="ScaleX" To="1.18" Duration="0:0:4.8" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift2" Storyboard.TargetProperty="ScaleY" To="1.18" Duration="0:0:4.8" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift3" Storyboard.TargetProperty="TranslateX" To="-170" Duration="0:0:12" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift3" Storyboard.TargetProperty="TranslateY" To="-80" Duration="0:0:9" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift3" Storyboard.TargetProperty="ScaleX" To="1.18" Duration="0:0:7.2" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Drift3" Storyboard.TargetProperty="ScaleY" To="1.18" Duration="0:0:7.2" AutoReverse="True" RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+    </Page.Resources>
+
+    <Grid>
+        <!--  Glowing bubbles behind everything, drifting and swelling  -->
+        <Canvas IsHitTestVisible="False">
+        <Ellipse Canvas.Left="-80" Canvas.Top="-60" Width="440" Height="440" RenderTransformOrigin="0.5,0.5">
+            <Ellipse.RenderTransform>
+                <CompositeTransform x:Name="Drift0" />
+            </Ellipse.RenderTransform>
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Offset="0" Color="#705B5BF7" />
+                    <GradientStop Offset="0.5" Color="#2C5B5BF7" />
+                    <GradientStop Offset="1" Color="#005B5BF7" />
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+        <Ellipse Canvas.Left="560" Canvas.Top="-100" Width="400" Height="400" RenderTransformOrigin="0.5,0.5">
+            <Ellipse.RenderTransform>
+                <CompositeTransform x:Name="Drift1" />
+            </Ellipse.RenderTransform>
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Offset="0" Color="#668B5CF6" />
+                    <GradientStop Offset="0.5" Color="#288B5CF6" />
+                    <GradientStop Offset="1" Color="#008B5CF6" />
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+        <Ellipse Canvas.Left="100" Canvas.Top="360" Width="380" Height="380" RenderTransformOrigin="0.5,0.5">
+            <Ellipse.RenderTransform>
+                <CompositeTransform x:Name="Drift2" />
+            </Ellipse.RenderTransform>
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Offset="0" Color="#5A60A5FA" />
+                    <GradientStop Offset="0.5" Color="#2460A5FA" />
+                    <GradientStop Offset="1" Color="#0060A5FA" />
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+        <Ellipse Canvas.Left="660" Canvas.Top="300" Width="440" Height="440" RenderTransformOrigin="0.5,0.5">
+            <Ellipse.RenderTransform>
+                <CompositeTransform x:Name="Drift3" />
+            </Ellipse.RenderTransform>
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Offset="0" Color="#5AC084FC" />
+                    <GradientStop Offset="0.5" Color="#24C084FC" />
+                    <GradientStop Offset="1" Color="#00C084FC" />
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+        </Canvas>
+
+        <ScrollViewer>
+            <StackPanel
+                MaxWidth="{StaticResource PageMaxWidth}"
+                Margin="40,32,40,40"
+                Spacing="14">
+
+                <!--  The words, inside a turning gradient ring, and "I'm feeling lucky" beside them  -->
+                <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border
+                    Padding="2"
+                    Background="{StaticResource AiGradient}"
+                    CornerRadius="28">
+                    <Grid
+                        Height="52"
+                        Padding="18,0,6,0"
+                        Background="{ThemeResource OrielPaperBrush}"
+                        ColumnSpacing="10"
+                        CornerRadius="26">
+                        <Grid.Resources>
+                            <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                            <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
+                            <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+                        </Grid.Resources>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                            <Path Data="M19,1L17.74,3.75L15,5L17.74,6.26L19,9L20.25,6.26L23,5L20.25,3.75M9,4L6.5,9.5L1,12L6.5,14.5L9,20L11.5,14.5L17,12L11.5,9.5M19,15L17.74,17.74L15,19L17.74,20.25L19,23L20.25,20.25L23,19L20.25,17.74" Fill="{StaticResource AiTextGradient}" />
+                        </Viewbox>
+                        <TextBox
+                            x:Name="PromptBox"
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            AutomationProperties.Name="Describe your wallpaper"
+                            FontSize="15"
+                            KeyDown="Prompt_KeyDown"
+                            MaxLength="400"
+                            PlaceholderText="Describe a wallpaper, like a cabin in the snow"
+                            Text="{x:Bind ViewModel.PromptText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button
+                            Grid.Column="2"
+                            Height="40"
+                            Padding="22,0"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="Create"
+                            Command="{x:Bind ViewModel.CreateCommand}"
+                            CornerRadius="20"
+                            Style="{StaticResource PrimaryPillButtonStyle}"
+                            ToolTipService.ToolTip="{x:Bind ViewModel.LeftText, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ProgressRing
+                                    Width="14"
+                                    Height="14"
+                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                    IsActive="{x:Bind ViewModel.IsCreating, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.IsCreating, Mode=OneWay}" />
+                                <TextBlock Text="Create" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+                <!--  I'm feeling lucky: an idea and a look at random, made right away  -->
+                <Button
+                    Grid.Column="1"
+                    Height="56"
+                    Padding="20,0"
+                    VerticalAlignment="Center"
+                    Background="{ThemeResource OrielSurfaceBrush}"
+                    BorderThickness="0"
+                    Command="{x:Bind ViewModel.LuckyCommand}"
+                    CornerRadius="28">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Viewbox Width="18" Height="18">
+                                        <Grid Width="24" Height="24">
+                                            <Path
+                                                Data="M5,3H19A2,2 0 0 1 21,5V19A2,2 0 0 1 19,21H5A2,2 0 0 1 3,19V5A2,2 0 0 1 5,3Z"
+                                                Stroke="{ThemeResource OrielInkBrush}"
+                                                StrokeThickness="1.75" />
+                                            <Path Data="M8,6.5A1.5,1.5 0 1 1 8,9.5A1.5,1.5 0 1 1 8,6.5ZM16,6.5A1.5,1.5 0 1 1 16,9.5A1.5,1.5 0 1 1 16,6.5ZM12,10.5A1.5,1.5 0 1 1 12,13.5A1.5,1.5 0 1 1 12,10.5ZM8,14.5A1.5,1.5 0 1 1 8,17.5A1.5,1.5 0 1 1 8,14.5ZM16,14.5A1.5,1.5 0 1 1 16,17.5A1.5,1.5 0 1 1 16,14.5Z" Fill="{ThemeResource OrielInkBrush}" />
+                                        </Grid>
+                                    </Viewbox>
+                        <TextBlock VerticalAlignment="Center" Text="I'm feeling lucky" />
+                    </StackPanel>
+                </Button>
+                </Grid>
+
+                <!--  Looks: one is on  -->
+                <ItemsControl ItemsSource="{x:Bind ViewModel.Styles}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <controls:WrapPanel HorizontalSpacing="6" VerticalSpacing="6" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:CreateStyleViewModel">
+                            <ToggleButton
+                                Padding="12,4"
+                                BorderThickness="0"
+                                Content="{x:Bind Label}"
+                                CornerRadius="{StaticResource OrielPillRadius}"
+                                FontSize="13"
+                                IsChecked="{x:Bind IsSelected, Mode=TwoWay}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <InfoBar
+                    Title="{x:Bind ViewModel.InfoTitle, Mode=OneWay}"
+                    IsOpen="{x:Bind ViewModel.IsInfoOpen, Mode=TwoWay}"
+                    Message="{x:Bind ViewModel.InfoMessage, Mode=OneWay}"
+                    Severity="{x:Bind ViewModel.InfoSeverity, Mode=OneWay}" />
+
+                <!--  The canvas: ideas, the picture being made, or the picture  -->
+                <Grid
+                    Height="430"
+                    Background="{ThemeResource OrielSurfaceBrush}"
+                    CornerRadius="{StaticResource OrielLargeRadius}">
+
+                    <!--  Being made  -->
+                    <Grid Visibility="{x:Bind ViewModel.IsCreating, Mode=OneWay}">
+                        <StackPanel
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="12">
+                            <Viewbox
+                                Width="34"
+                                Height="34"
+                                HorizontalAlignment="Center"
+                                RenderTransformOrigin="0.5,0.5">
+                                <Viewbox.RenderTransform>
+                                    <CompositeTransform x:Name="Twinkle" />
+                                </Viewbox.RenderTransform>
+                                <Path Data="M19,1L17.74,3.75L15,5L17.74,6.26L19,9L20.25,6.26L23,5L20.25,3.75M9,4L6.5,9.5L1,12L6.5,14.5L9,20L11.5,14.5L17,12L11.5,9.5M19,15L17.74,17.74L15,19L17.74,20.25L19,23L20.25,20.25L23,19L20.25,17.74" Fill="{StaticResource AiTextGradient}" />
+                            </Viewbox>
+                            <TextBlock
+                                local:TextSlide.Enabled="True"
+                                HorizontalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.CreatingText, Mode=OneWay}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!--  The picture, with its actions on it  -->
+                    <Grid Visibility="{x:Bind ViewModel.ShowPicture, Mode=OneWay}">
+                        <Image
+                            local:ImageReveal.Enabled="True"
+                            AutomationProperties.Name="{x:Bind ViewModel.PictureCaption, Mode=OneWay}"
+                            Source="{x:Bind ViewModel.Picture, Mode=OneWay}"
+                            Stretch="UniformToFill" />
+                        <Grid
+                            Padding="18,48,12,12"
+                            VerticalAlignment="Bottom"
+                            Background="{StaticResource OrielPhotoScrimBrush}"
+                            ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Foreground="White"
+                                MaxLines="1"
+                                Text="{x:Bind ViewModel.PictureCaption, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                            <StackPanel
+                                Grid.Column="1"
+                                Orientation="Horizontal"
+                                Spacing="8">
+                                <Button
+                                    Padding="14,5"
+                                    Command="{x:Bind ViewModel.SetCommand}"
+                                    FontSize="13"
+                                    Style="{StaticResource PillButtonStyle}">
+                                    <Button.Resources>
+                                        <SolidColorBrush x:Key="ButtonBackground" Color="#F2F2F2" />
+                                        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#E0E0E0" />
+                                        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#D0D0D0" />
+                                        <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="#F2F2F2" />
+                                        <SolidColorBrush x:Key="ButtonForeground" Color="#141414" />
+                                        <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#141414" />
+                                        <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#141414" />
+                                        <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="#6B6B6B" />
+                                    </Button.Resources>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <ProgressRing
+                                            Width="12"
+                                            Height="12"
+                                            Foreground="#141414"
+                                            IsActive="{x:Bind ViewModel.IsSetting, Mode=OneWay}"
+                                            Visibility="{x:Bind ViewModel.IsSetting, Mode=OneWay}" />
+                                        <TextBlock local:TextSlide.Enabled="True" Text="{x:Bind ViewModel.SetText, Mode=OneWay}" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+
+                    <!--  Nothing yet: ideas to start from; picking one fills in the words  -->
+                    <StackPanel
+                        MaxWidth="640"
+                        Margin="32"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="14"
+                        Visibility="{x:Bind ViewModel.ShowIdeas, Mode=OneWay}">
+                        <ItemsControl HorizontalAlignment="Center" ItemsSource="{x:Bind ViewModel.Ideas}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <controls:WrapPanel
+                                        HorizontalAlignment="Center"
+                                        HorizontalSpacing="8"
+                                        VerticalSpacing="8" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Button
+                                        Padding="14,7"
+                                        Background="{ThemeResource OrielPaperBrush}"
+                                        Click="Idea_Click"
+                                        Content="{x:Bind}"
+                                        FontSize="13"
+                                        Style="{StaticResource PillButtonStyle}"
+                                        Tag="{x:Bind}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button
+                            HorizontalAlignment="Center"
+                            Command="{x:Bind ViewModel.ShuffleIdeasCommand}"
+                            Style="{StaticResource PillButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontSize="12" Glyph="&#xE8B1;" />
+                                <TextBlock Text="Shuffle" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

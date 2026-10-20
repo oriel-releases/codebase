@@ -5,14 +5,26 @@ using Oriel.Core.Wallpaper;
 
 namespace Oriel.UI.Services;
 
-/// <summary>Decodes the photo at thumbnail size (plenty for finding its main color, and fast) and picks its accent.</summary>
+/// <summary>Decodes the photo at thumbnail size (plenty for finding its main color, and fast) and picks its accents.</summary>
 public sealed class AccentSampler : IAccentSampler
 {
     const int Width = 96;
 
-    public Task<string?> SampleAsync(string imagePath) => Task.Run<string?>(() =>
+    (string Path, IReadOnlyList<string> Hexes)? _last;
+
+    public async Task<string?> SampleAsync(string imagePath) => (await SampleTopAsync(imagePath)).FirstOrDefault();
+
+    public async Task<IReadOnlyList<string>> SampleTopAsync(string imagePath)
     {
-        if (!File.Exists(imagePath)) return null;
+        if (_last is { } last && last.Path == imagePath) return last.Hexes;
+        var hexes = await Task.Run(() => Decode(imagePath));
+        _last = (imagePath, hexes);
+        return hexes;
+    }
+
+    static IReadOnlyList<string> Decode(string imagePath)
+    {
+        if (!File.Exists(imagePath)) return [];
         using var stream = File.OpenRead(imagePath);
         using var bitmap = Bitmap.DecodeToWidth(stream, Width, BitmapInterpolationMode.MediumQuality);
 
@@ -32,6 +44,6 @@ public sealed class AccentSampler : IAccentSampler
         // The picker reads B,G,R,A; Skia may hand back R,G,B,A.
         if (bitmap.Format == Avalonia.Platform.PixelFormats.Rgba8888)
             for (var i = 0; i < pixels.Length; i += 4) (pixels[i], pixels[i + 2]) = (pixels[i + 2], pixels[i]);
-        return AccentPicker.ToHex(AccentPicker.Pick(pixels));
-    });
+        return [.. AccentPicker.PickTop(pixels).Select(AccentPicker.ToHex)];
+    }
 }

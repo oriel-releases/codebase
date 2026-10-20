@@ -93,7 +93,7 @@ public sealed partial class MainWindow : Window
     /// <summary>Played when a tab is clicked. Home hops and pops, Search wiggles like a magnifier, History winds back a turn.</summary>
     void PlayIcon(NavigationViewItem item)
     {
-        if (item.Icon is not FontIcon icon) return;
+        if (item.Icon is not IconElement icon) return;
         if (icon.RenderTransform is not CompositeTransform t)
             icon.RenderTransform = t = new CompositeTransform();
         icon.RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5);
@@ -153,6 +153,7 @@ public sealed partial class MainWindow : Window
             : tag switch
             {
                 "collections" => typeof(CollectionsPage),
+                "create" => typeof(CreatePage),
                 "history" or "favorites" => typeof(HistoryPage),
                 "friends" => typeof(FriendsPage),
                 _ => typeof(HomePage),

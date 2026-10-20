@@ -57,6 +57,7 @@ public sealed class App : Application
             services.AddSingleton<SignInViewModel>();
             services.AddSingleton<HomeViewModel>();
             services.AddSingleton<CollectionsViewModel>();
+            services.AddSingleton<CreateViewModel>();
             services.AddSingleton<HistoryViewModel>();
             services.AddTransient<SettingsViewModel>();
             services.AddTransient<FriendsViewModel>();

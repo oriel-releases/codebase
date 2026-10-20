@@ -19,7 +19,7 @@ public sealed partial class HistoryItemViewModel(HistoryViewModel owner, History
     public string Topic => Entry.Topic ?? "";
     public bool FileExists => File.Exists(Entry.FilePath);
     /// <summary>A favorite from another device has no file here yet: setting it downloads it.</summary>
-    public bool CanReapply => FileExists || Entry.Provider == "unsplash";
+    public bool CanReapply => FileExists || Entry.Provider is "unsplash" or Oriel.Core.Providers.PollinationsClient.Provider;
 
     [ObservableProperty] public partial ImageSource? Thumbnail { get; set; }
     [ObservableProperty] public partial bool IsFavorite { get; set; } = entry.IsFavorite;

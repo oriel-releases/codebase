@@ -53,10 +53,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] public partial bool ShowShared { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsHome), nameof(IsSearch), nameof(IsHistory), nameof(IsFavorites), nameof(IsFriends), nameof(IsSettings))]
+    [NotifyPropertyChangedFor(nameof(IsHome), nameof(IsSearch), nameof(IsCreate), nameof(IsHistory), nameof(IsFavorites), nameof(IsFriends), nameof(IsSettings))]
     public partial string Section { get; set; } = "home";
     public bool IsHome => Section == "home";
     public bool IsSearch => Section == "search";
+    public bool IsCreate => Section == "create";
     public bool IsHistory => Section == "history";
     public bool IsFavorites => Section == "favorites";
     public bool IsFriends => Section == "friends";
@@ -98,6 +99,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         CurrentPage = section switch
         {
             "search" => _services.GetRequiredService<CollectionsViewModel>(),
+            "create" => _services.GetRequiredService<CreateViewModel>(),
             "history" => LoadHistory(favorites: false),
             "favorites" => LoadHistory(favorites: true),
             "settings" => _services.GetRequiredService<SettingsViewModel>(), // new each time: it listens for updates
