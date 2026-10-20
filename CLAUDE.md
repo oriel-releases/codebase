@@ -56,9 +56,9 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
 
 - Native **Kotlin + Jetpack Compose**, Android 8.0+ (see `android/README.md`). **No Firebase SDK**: Auth, Firestore and
   the Realtime Database are REST calls (`data/Firebase.kt`), like the desktop `FirebaseClient.cs`.
-- Sections like the desktop apps: **Home** (the wallpaper in a phone-shaped frame on its blurred self, Share, Lock, Crop,
-  Favorite, Change now), **Search** (Interests live inside it, added only via "Add to Interests"), **History** (All /
-  Favorites), **Friends**, **Settings**. Floating blurred navigation bar (Haze), a rail on the right in landscape.
+- Five tabs: **Home** (the wallpaper in a phone-shaped frame on its blurred self, Share, Lock, Crop, Favorite, Change
+  now), **Search** (Interests live inside it, added only via "Add to Interests"), **AI** (AI Studio, see Create below),
+  **History** (All / Favorites), **Settings** (Friends lives inside it, a row that opens it). Floating blurred navigation bar (Haze), a rail on the right in landscape.
   Black and white design, Lucide-style icons, every dialog a bottom sheet rounded on top only.
 - Sign-in: **Google via Credential Manager** (native, no browser) or email and password.
 - Scheduling: one inexact alarm at the next tick (no exact-alarm permission), then a JobScheduler job does the change.
@@ -125,6 +125,10 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   last write wins; a change rings {settingsAt, settingsDevice}. First sign-in adopts the account's settings, or uploads
   its own if there are none. **Device-only, never synced:** lock screen / home+lock, fit, hotkey, startup, folder,
   change-at-login, Android photo position, search history.
+- **Accent color:** Home shows the photo's top 3 colors (`AccentPicker.PickTop`, one per part of the color wheel); the
+  chosen one is kept in `OrielState.AccentPhotoId/AccentColor`, becomes the Windows accent (turning "Match accent
+  color" on) and is written to `sync/current.color` (masked PATCH) with a doorbell ring. Receiving desktops take it in
+  `FollowService.CheckAsync`, also for a photo they already show.
 - **Lock** (`paused`) stops only the schedule: a photo set by hand on any device still shows everywhere, and setting
   one never unlocks.
 - **Favorites** `users/{uid}/favorites/{photoId}` = {photoId, imageUrl, pageUrl, photographer, photographerUrl,
@@ -167,9 +171,15 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
 - The Unsplash key is shared and rate-limited: first-device-wins means one pick per tick, and Change now is limited to
   twice an hour on Android. Respect Unsplash terms (hotlink URLs, ping the download tracking endpoint, credit the photographer).
 - Wallpapers are fetched at full quality (`q=100`, at most 2160px wide).
-
-## Not built yet (ideas, in rough order)
-
+- **AI (AI wallpapers):** the "AI" page on desktop (left menu) and Android (tab, "AI Studio"); "I'm feeling lucky" makes
+  one from a random idea and look. Android always makes 16:9 (2048 x 1152, so it fills the computers it syncs to) and
+  crops its own part on the phone (`Wallpapers.fetch`; the position editor works for it). The user's few words are written out to a 60-90 word scene by
+  `openai/gpt-5.4-nano`, then drawn by `zimage` at the screen's shape (at most 2048 wide; 2560 is refused), both on
+  Pollinations with the owner's key `POLLINATIONS_KEY` baked in like the Unsplash key (it ships in the app: keep a Pollen
+  budget on it). 20 pictures per device per day (`created.json`). Pollinations keeps each picture at a public link
+  `https://media.pollinations.ai/{id}` (30 days after last use), so it syncs like a photo: `photoId` = `ai-{id}`,
+  `imageUrl` = that link (rules `validImage`), favorites too. Other devices download the link (desktop `ApplyLinkedAsync`;
+  Android and the extension use it as the image URL as is). Not shareable by link or follow code yet.
 - **History sync** across devices, including deletes (tombstones). Today only favorites and the current photo sync.
 - **Instant delivery to a closed Android app:** FCM data messages sent by a free Cloudflare Worker (it verifies the
   Firebase ID token, reads device FCM tokens, sends the push; key only as a Worker secret). Today a closed app catches
