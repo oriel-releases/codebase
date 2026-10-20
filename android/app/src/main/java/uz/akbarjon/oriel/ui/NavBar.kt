@@ -65,8 +65,8 @@ internal enum class Play { Hop, Wiggle, Beat, Flip, Spin }
 enum class Tab(val label: String, val icon: ImageVector, val selectedIcon: ImageVector, internal val animation: Play) {
     Home("Home", OrielIcons.Home, OrielIcons.HomeFilled, Play.Hop),
     Search("Search", OrielIcons.Search, OrielIcons.Search, Play.Wiggle),
+    Create("AI", OrielIcons.Sparkles, OrielIcons.SparklesFilled, Play.Beat),
     History("History", OrielIcons.History, OrielIcons.History, Play.Flip),
-    Friends("Friends", OrielIcons.Users, OrielIcons.Users, Play.Beat),
     Settings("Settings", OrielIcons.Settings, OrielIcons.Settings, Play.Spin),
 }
 

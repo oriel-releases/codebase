@@ -1,6 +1,6 @@
 package uz.akbarjon.oriel.data
 
-/** An Unsplash photo, before or after it was used. */
+/** An Unsplash photo, or an AI wallpaper made on the Create tab (or on a desktop), before or after it was used. */
 data class Photo(
     val id: String,
     val width: Int,
@@ -22,6 +22,8 @@ data class Photo(
      * CDN crops it, so the phone gets exactly the pixels it shows.
      */
     fun sized(widthPx: Int, heightPx: Int? = null, quality: Int = 100, format: String = "jpg", position: Position = Position.Smart): String {
+        // An AI wallpaper: Pollinations keeps one size only, and its bare link is what syncs.
+        if (isAi) return rawUrl
         val sep = if ('?' in rawUrl) '&' else '?'
         val crop = if (heightPx == null) "" else "&h=$heightPx&fit=crop" + when (position) {
             Position.Smart -> "&crop=faces,entropy"
@@ -34,6 +36,9 @@ data class Photo(
     /** Small WebP preview (a few KB), cropped to the phone's shape when [heightPx] is given. */
     fun thumb(widthPx: Int, heightPx: Int? = null, position: Position = Position.Smart) =
         sized(widthPx, heightPx, quality = 90, format = "webp", position = position)
+
+    /** Made with AI: its id is "ai-" and its Pollinations media id, its link media.pollinations.ai/{id}. */
+    val isAi get() = id.startsWith("ai-") && rawUrl.startsWith(Pollinations.MEDIA)
 }
 
 /**

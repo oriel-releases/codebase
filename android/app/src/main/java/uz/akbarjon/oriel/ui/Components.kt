@@ -9,6 +9,8 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
@@ -84,6 +86,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -183,10 +186,27 @@ fun Modifier.pressScale(interaction: InteractionSource, pressed: Float = 0.97f):
     graphicsLayer { scaleX = scale; scaleY = scale }
 }
 
-/** Clickable with the press spring (and a ripple unless [ripple] is false). */
+/**
+ * Clickable with the press spring (and a ripple unless [ripple] is false). The ripple sits outside the spring, so it
+ * always fills the whole item even while the content shrinks. For a pill or circle with its own background, use
+ * [pressable]: then the background shrinks with it too.
+ */
 fun Modifier.springClick(enabled: Boolean = true, pressed: Float = 0.97f, ripple: Boolean = true, onClick: () -> Unit): Modifier = composed {
     val interaction = remember { MutableInteractionSource() }
-    pressScale(interaction, pressed).clickable(interaction, if (ripple) ripple() else null, enabled = enabled, onClick = onClick)
+    clickable(interaction, if (ripple) ripple() else null, enabled = enabled, onClick = onClick).pressScale(interaction, pressed)
+}
+
+/**
+ * A tappable [shape] filled with [background]: the whole of it (background, border, ripple and content) springs down
+ * together while pressed, and the ripple covers it edge to edge.
+ */
+fun Modifier.pressable(
+    shape: Shape, background: Color, enabled: Boolean = true, pressed: Float = 0.94f, border: Color? = null, onClick: () -> Unit,
+): Modifier = composed {
+    val interaction = remember { MutableInteractionSource() }
+    pressScale(interaction, pressed).clip(shape).background(background)
+        .let { if (border != null) it.border(1.dp, border, shape) else it }
+        .clickable(interaction, ripple(), enabled = enabled, onClick = onClick)
 }
 
 // ---- Layout ----
@@ -367,8 +387,7 @@ fun RoundIconButton(
     tint: Color = Palette.colors.ink, background: Color = Palette.colors.surface, size: Dp = 56.dp, enabled: Boolean = true,
 ) {
     Box(
-        modifier.size(size).clip(CircleShape).background(background).border(1.dp, Palette.colors.line, CircleShape)
-            .springClick(enabled, pressed = 0.9f, onClick = onClick),
+        modifier.size(size).pressable(CircleShape, background, enabled, pressed = 0.9f, border = Palette.colors.line, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, description, tint = if (enabled) tint else tint.copy(alpha = 0.4f), modifier = Modifier.size(22.dp)) }
 }
@@ -387,7 +406,7 @@ fun OrielTextField(
     val c = Palette.colors
     TextField(
         value, onValueChange, modifier.fillMaxWidth(), enabled = enabled, singleLine = true, isError = isError,
-        placeholder = placeholder?.let { { Text(it, color = c.muted) } },
+        placeholder = placeholder?.let { { Text(it, color = c.muted, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) } },
         leadingIcon = leadingIcon?.let { { Icon(it, null, tint = c.muted, modifier = Modifier.size(20.dp)) } },
         trailingIcon = trailing,
         shape = CircleShape, visualTransformation = visualTransformation,
@@ -413,10 +432,8 @@ fun ToggleChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: 
     val bg by animateColorAsState(if (selected) c.ink else c.surface, tween(200), label = "chip")
     val fg by animateColorAsState(if (selected) c.paper else c.ink, tween(200), label = "chipText")
     Row(
-        modifier.clip(CircleShape).background(bg)
-            .springClick(pressed = 0.92f) { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onClick() }
-            .padding(horizontal = 16.dp, vertical = 10.dp)
-            .animateContentSize(spring(dampingRatio = 0.7f, stiffness = 600f)),
+        modifier.pressable(CircleShape, bg, pressed = 0.92f) { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onClick() }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leading != null) {
@@ -424,10 +441,16 @@ fun ToggleChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: 
             Spacer(Modifier.width(8.dp))
         }
         Text(label, style = MaterialTheme.typography.bodyMedium, color = fg, fontWeight = FontWeight.Medium)
-        AnimatedVisibility(selected, enter = scaleIn(spring(dampingRatio = 0.45f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
+        // The check makes room as it pops in, and gives it back as it fades: the chip's width follows it smoothly.
+        AnimatedVisibility(
+            selected,
+            enter = expandHorizontally(spring(dampingRatio = 0.8f, stiffness = 600f), expandFrom = Alignment.Start) +
+                scaleIn(spring(dampingRatio = 0.5f), initialScale = 0.4f) + fadeIn(tween(150)),
+            exit = shrinkHorizontally(tween(180), shrinkTowards = Alignment.Start) + fadeOut(tween(100)),
+        ) {
             Row {
                 Spacer(Modifier.width(6.dp))
-                Icon(OrielIcons.Check, null, tint = fg, modifier = Modifier.size(15.dp))
+                Icon(OrielIcons.Check, null, tint = c.paper, modifier = Modifier.size(15.dp))
             }
         }
     }
@@ -539,6 +562,13 @@ fun SheetActions(
 fun Credit(photo: Photo, context: Context, modifier: Modifier = Modifier, color: Color = Palette.colors.muted) {
     Row(modifier.widthIn(max = 360.dp), horizontalArrangement = Arrangement.Start) {
         // Only the name gives way when it's tight (ellipsis); the rest never wraps.
+        // An AI wallpaper isn't a photo, and isn't on Unsplash.
+        if (photo.isAi) {
+            Text("Made with ", style = MaterialTheme.typography.bodySmall, color = color, maxLines = 1, softWrap = false)
+            Text(photo.photographer, style = MaterialTheme.typography.bodySmall, color = color, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, modifier = Modifier.clickable { openUrl(context, photo.photographerUrl) })
+            return@Row
+        }
         Text("Photo by ", style = MaterialTheme.typography.bodySmall, color = color, maxLines = 1, softWrap = false)
         Text(
             photo.photographer, style = MaterialTheme.typography.bodySmall, color = color, fontWeight = FontWeight.SemiBold,

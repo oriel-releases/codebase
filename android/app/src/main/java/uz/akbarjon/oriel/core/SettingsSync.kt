@@ -83,11 +83,12 @@ object SettingsSync {
     }
 
     suspend fun push() = gate.withLock {
-        val tokens = Oriel.auth.tokens() ?: return@withLock
         val mine = SyncedSettings.from(Oriel.store.settings.value)
         val device = Oriel.auth.account.value?.sessionId.orEmpty()
         val at = System.currentTimeMillis()
         try {
+            // Offline, even getting a fresh token fails: that's handled below too, never a crash.
+            val tokens = Oriel.auth.tokens() ?: return@withLock
             Firebase.setSyncedSettings(tokens, mine, device, at)
             Oriel.store.updateState { it.copy(syncedSettingsHash = mine.fingerprint(), settingsSyncedAt = at, settingsDirty = false) }
             Log.i(TAG, "Shared your settings with your other devices")
@@ -102,8 +103,8 @@ object SettingsSync {
     /** Brings the account's settings here when they're newer (another device changed them). */
     suspend fun pull() {
         val push = gate.withLock {
-            val tokens = Oriel.auth.tokens() ?: return@withLock false
             val remote = try {
+                val tokens = Oriel.auth.tokens() ?: return@withLock false
                 Firebase.getSyncedSettings(tokens)
             } catch (e: FirebaseException) {
                 Log.i(TAG, "Couldn't read the shared settings: ${e.message}")

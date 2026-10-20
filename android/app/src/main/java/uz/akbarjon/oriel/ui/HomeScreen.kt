@@ -243,9 +243,12 @@ private fun WallpaperPreview(photo: Photo?, screenW: Int, screenH: Int, modifier
             Box(Modifier.fillMaxSize().hazeSource(haze)) {
                 Crossfade(photo, animationSpec = tween(700), label = "preview") { p ->
                     if (p != null) {
+                        val position = uz.akbarjon.oriel.core.Positions.of(p.id)
                         RemoteImage(
-                            p.thumb(previewWidthPx, previewWidthPx * screenH / screenW, uz.akbarjon.oriel.core.Positions.of(p.id)), p.description, Modifier.fillMaxSize(),
+                            p.thumb(previewWidthPx, previewWidthPx * screenH / screenW, position), p.description, Modifier.fillMaxSize(),
                             placeholder = parseColor(p.color) ?: White.copy(alpha = 0.08f),
+                            // Unsplash crops its photos on its side; an AI wallpaper is whole, so the preview is placed here.
+                            focus = if (p.isAi) (position as? uz.akbarjon.oriel.data.Position.Focus)?.let { it.x to it.y } ?: (0.5f to 0.5f) else null,
                         )
                     } else {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Logo(32.dp, tint = White.copy(alpha = 0.5f)) }
@@ -342,7 +345,7 @@ private fun Controls(photo: Photo?, entry: HistoryEntry?, modifier: Modifier = M
 
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             // Like the desktop apps' Home: share it, keep it (lock: the schedule pauses on every device), favorite it.
-            RoundAction(OrielIcons.Share, "Share this wallpaper", enabled = photo != null) {
+            RoundAction(OrielIcons.Share, "Share this wallpaper", enabled = photo != null && !photo.isAi) {
                 val p = photo ?: return@RoundAction
                 Oriel.scope.launch(Dispatchers.Main) {
                     try {

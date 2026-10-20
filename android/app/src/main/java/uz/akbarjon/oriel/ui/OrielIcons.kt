@@ -48,6 +48,15 @@ object OrielIcons {
     val HeartFilled = icon("HeartFilled", HEART, fill = setOf(0))
     val History = icon("History", "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8", "M3 3v5h5", "M12 7v5l4 2")
     val Settings = icon("Settings", GEAR, c(12f, 12f, 3f))
+    val Sparkles = icon("Sparkles",
+        "M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z",
+        "M20 3v4", "M22 5h-4", "M4 17v2", "M5 18H3")
+    val SparklesFilled = icon("SparklesFilled",
+        "M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z",
+        "M20 3v4", "M22 5h-4", "M4 17v2", "M5 18H3", fill = setOf(0))
+    val ArrowUp = icon("ArrowUp", "m5 12 7-7 7 7", "M12 19V5")
+    val Dice = icon("Dice", r(3f, 3f, 18f, 18f, 2f), c(8f, 8f, 0.6f), c(16f, 8f, 0.6f), c(12f, 12f, 0.6f), c(8f, 16f, 0.6f), c(16f, 16f, 0.6f),
+        fill = setOf(1, 2, 3, 4, 5))
 
     // Actions and rows
     val Refresh = icon("Refresh", "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8", "M21 3v5h-5",

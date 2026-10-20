@@ -1,5 +1,6 @@
 package uz.akbarjon.oriel.ui
 
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -60,6 +61,20 @@ private val MIN_LIKES = listOf(50, 100, 200, 300, 500, 1000)
 
 @Composable
 fun SettingsScreen(onSignedOut: () -> Unit) {
+    // Friends lives here (not in the tab bar): set up once, opened now and then. It slides in like Interests in Search.
+    var friends by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    androidx.compose.animation.AnimatedContent(friends, transitionSpec = {
+        if (targetState) (androidx.compose.animation.slideInHorizontally { it / 3 } + androidx.compose.animation.fadeIn()) togetherWith
+            (androidx.compose.animation.slideOutHorizontally { -it / 3 } + androidx.compose.animation.fadeOut())
+        else (androidx.compose.animation.slideInHorizontally { -it / 3 } + androidx.compose.animation.fadeIn()) togetherWith
+            (androidx.compose.animation.slideOutHorizontally { it / 3 } + androidx.compose.animation.fadeOut())
+    }, label = "friends") { open ->
+        if (open) FriendsScreen(onBack = { friends = false }) else SettingsPage(onSignedOut, onFriends = { friends = true })
+    }
+}
+
+@Composable
+private fun SettingsPage(onSignedOut: () -> Unit, onFriends: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settings by Oriel.store.settings.collectAsState()
@@ -84,6 +99,12 @@ fun SettingsScreen(onSignedOut: () -> Unit) {
                     leading = { ProfilePicture(a.photoUrl, a.displayName.ifBlank { a.email }, 40.dp) },
                 )
             }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Group {
+            SettingRow("Friends", settings.followName?.takeIf { settings.isFollowing }?.let { "Following $it" }, OrielIcons.Users,
+                onClick = onFriends)
         }
 
         if (!settings.isFollowing) {
