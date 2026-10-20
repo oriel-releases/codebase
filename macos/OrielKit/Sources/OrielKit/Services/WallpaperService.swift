@@ -57,6 +57,8 @@ public protocol AuthState: Sendable {
 /// Shares a wallpaper that was just applied with the account's other devices. Never throws.
 public protocol SyncPublishing: Sendable {
     func publish(_ entry: HistoryEntry) async
+    /// The accent color chosen for the photo on screen, for the account's other devices.
+    func publishColor(_ entry: HistoryEntry, _ color: String) async
 }
 
 /// "First device wins": true when this device takes the moment, false when another one did, nil when unknown.
@@ -88,12 +90,16 @@ public actor WallpaperService {
     private let auth: AuthState?
     private let sync: SyncPublishing?
     private let slots: SlotClaiming?
+    private let ai: PollinationsClient?
+    private let accentSampler: AccentSampler?
     private let isDarkMode: @Sendable () -> Bool
 
     /// After a successful change from any trigger in this process.
     public nonisolated let applied = Broadcaster<ApplyResult>()
     /// Every step of every change, from whatever task is working.
     public nonisolated let phases = Broadcaster<ApplyPhase>()
+    /// After the accent color chosen for the photo on screen changed (here or on another device).
+    public nonisolated let accentChosen = Broadcaster<Void>()
 
     /// The app (a long-running process) turns this on: photos for the next changes are prepared in the background, and
     /// network work that doesn't change the screen runs after the change. Off for one-shot command-line runs.
@@ -108,6 +114,7 @@ public actor WallpaperService {
     public init(provider: ImageProvider, setter: WallpaperSetter, history: HistoryStore, settings: SettingsStore,
                 topics: TopicPicker = RandomTopicPicker(), clock: OrielClock = SystemClock(), paths: AppPaths,
                 auth: AuthState? = nil, sync: SyncPublishing? = nil, slots: SlotClaiming? = nil,
+                ai: PollinationsClient? = nil, accentSampler: AccentSampler? = nil,
                 isDarkMode: @escaping @Sendable () -> Bool = { false }) {
         self.provider = provider
         self.setter = setter
@@ -119,6 +126,8 @@ public actor WallpaperService {
         self.auth = auth
         self.sync = sync
         self.slots = slots
+        self.ai = ai
+        self.accentSampler = accentSampler
         self.isDarkMode = isDarkMode
     }
 
@@ -264,23 +273,57 @@ public actor WallpaperService {
         return result
     }
 
-    private func applyPhotoNow(_ photo: PhotoCandidate, topic: String?, publish: Bool) async -> ApplyResult {
+    /// The size one picture for every screen is made for (the biggest screen, or all of them when spanned).
+    public func screenSize() -> PixelSize {
+        Self.planTargets(setter.screens(), settings.load(), perMonitor: false)[0].size
+    }
+
+    /// Sets a picture Oriel already has in hand: an AI wallpaper from the AI page (shared with the account's other
+    /// devices through its public link), or one another device made.
+    public func applyCreated(_ photo: PhotoCandidate, image: Data, topic: String = "created", publish: Bool = true) async -> ApplyResult {
+        let result = await applyPhotoNow(photo, topic: topic, publish: publish, image: image)
+        finishPhase()
+        return result
+    }
+
+    /// An AI wallpaper made on another device (or a favorite of one): downloaded from its public link, then set.
+    public func applyLinked(_ photo: PhotoCandidate, topic: String, publish: Bool) async -> ApplyResult {
+        guard let ai else { return ApplyResult(.failed, error: "This build of Oriel can't show AI wallpapers.") }
+        let image: Data
+        do {
+            phases.send(.downloading)
+            image = try await ai.download(photo)
+        } catch {
+            finishPhase()
+            return ApplyResult(.failed, error: error.localizedDescription, errorKind: (error as? ProviderError)?.kind)
+        }
+        return await applyCreated(photo, image: image, topic: topic, publish: publish)
+    }
+
+    private func applyPhotoNow(_ photo: PhotoCandidate, topic: String?, publish: Bool, image: Data? = nil) async -> ApplyResult {
         if let auth, !auth.isSignedIn { return Self.signInRequired }
         let s = settings.load()
         guard let lock = ApplyLock.tryAcquire(paths.lockFile) else { return Self.busy }
         defer { withExtendedLifetime(lock) {} }
         do {
             let size = Self.planTargets(setter.screens(), s, perMonitor: false)[0].size
-            phases.send(.downloading)
-            let bytes = try await provider.download(photo, size: size)
-            guard Self.looksLikeJPEG(bytes) else {
+            let bytes: Data
+            if let image {
+                bytes = image
+            } else {
+                phases.send(.downloading)
+                bytes = try await provider.download(photo, size: size)
+            }
+            guard image == nil ? Self.looksLikeJPEG(bytes) : PollinationsClient.isImage(bytes) else {
                 throw WallpaperError("Downloaded file isn't a valid image; keeping your current wallpaper.")
             }
-            let file = try save(photo, bytes, index: 0, folder: paths.wallpaperFolder(s))
+            let file = try save(photo, bytes, index: 0, folder: paths.wallpaperFolder(s),
+                                ext: PollinationsClient.isPNG(bytes) ? "png" : "jpg")
             phases.send(.changing)
             try setForAll(file, s)
             let entry = try record(photo, file: file, topic: topic ?? "search", screenID: nil)
-            afterChange { [provider] in await provider.trackUsage(photo) }
+            // Only Unsplash counts downloads; an AI picture has nobody to tell.
+            if image == nil { afterChange { [provider] in await provider.trackUsage(photo) } }
 
             // Counts as this tick's change, so the scheduler doesn't replace it right away.
             var state = settings.loadState()
@@ -308,6 +351,12 @@ public actor WallpaperService {
     /// Puts a photo from History back on the desktop; it becomes the newest entry. A favorite from another device (or
     /// a file cleaned up since) is downloaded again.
     public func reapply(_ entry: HistoryEntry) async throws {
+        if !Self.fileExists(entry.filePath) && entry.provider == PollinationsClient.provider,
+           let made = PollinationsClient.fromLink(entry.thumbnailURL, prompt: entry.description) {
+            let result = await applyLinked(made, topic: entry.topic ?? "favorite", publish: true)
+            if result.status != .applied { throw WallpaperError(result.error ?? "Couldn't set it. Try again.") }
+            return
+        }
         if !Self.fileExists(entry.filePath) && entry.provider == "unsplash" {
             let photo = try await sharedPhoto(entry.photoID)
             let result = await applyPhoto(photo, topic: entry.topic ?? "favorite")
@@ -489,9 +538,9 @@ public actor WallpaperService {
         return entry
     }
 
-    private func save(_ photo: PhotoCandidate, _ bytes: Data, index: Int, folder: URL) throws -> URL {
+    private func save(_ photo: PhotoCandidate, _ bytes: Data, index: Int, folder: URL, ext: String = "jpg") throws -> URL {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let file = folder.appending(path: fileName(photo, index: index))
+        let file = folder.appending(path: fileName(photo, index: index, ext: ext))
         let part = file.appendingPathExtension("part")
         try bytes.write(to: part)
         _ = try? FileManager.default.removeItem(at: file)
@@ -499,8 +548,9 @@ public actor WallpaperService {
         return file
     }
 
-    private func fileName(_ photo: PhotoCandidate, index: Int) -> String {
-        "\(clock.today)_\(photo.provider)_\(Self.sanitize(photo.id))\(index > 0 ? "_\(index)" : "").jpg"
+    /// "2026-10-14_unsplash_FIKD9t5_5zQ.jpg", "2026-10-20_ai_ai-e774….png"
+    private func fileName(_ photo: PhotoCandidate, index: Int, ext: String = "jpg") -> String {
+        "\(clock.today)_\(photo.provider)_\(Self.sanitize(photo.id))\(index > 0 ? "_\(index)" : "").\(ext)"
     }
 
     static func sanitize(_ s: String) -> String {
@@ -517,6 +567,44 @@ public actor WallpaperService {
 
     private func moodAt(_ date: Date, _ s: OrielSettings) -> Mood {
         s.matchTimeOfDay ? PhotoMood.mood(at: date, calendar: clock.calendar, systemDark: isDarkMode()) : .any
+    }
+
+    // MARK: - Choosing the accent color
+
+    /// The colors offered for a photo on Home: its top three, best first (empty when it has no file).
+    public nonisolated func accentOptions(_ entry: HistoryEntry) -> [String] {
+        guard let accentSampler, Self.fileExists(entry.filePath) else { return [] }
+        return accentSampler.sampleTop(entry.filePath)
+    }
+
+    /// The accent color chosen for the photo, or nil when Oriel picks it.
+    public nonisolated func chosenAccent(_ photoId: String?) -> String? {
+        let state = settings.loadState()
+        guard let id = state.accentPhotoId, let hex = state.accentColor, id == photoId else { return nil }
+        return hex
+    }
+
+    /// The user chose one of the photo's colors: it becomes the accent on the account's other devices. macOS has no
+    /// way for an app to set the system accent, so (like Linux) nothing changes here but the choice.
+    public func chooseAccent(_ entry: HistoryEntry, _ hex: String) async {
+        rememberAccent(entry.photoID, hex)
+        await sync?.publishColor(entry, hex.uppercased())
+    }
+
+    /// Another device chose this color for the photo on screen.
+    public nonisolated func receiveAccent(_ photoId: String, _ hex: String) {
+        rememberAccent(photoId, hex)
+    }
+
+    /// Keeps the color for the photo (before it's set, so setting it uses this color).
+    public nonisolated func rememberAccent(_ photoId: String, _ hex: String) {
+        let state = settings.loadState()
+        if state.accentPhotoId == photoId && state.accentColor?.caseInsensitiveCompare(hex) == .orderedSame { return }
+        settings.updateState {
+            $0.accentPhotoId = photoId
+            $0.accentColor = hex.uppercased()
+        }
+        accentChosen.send(())
     }
 
     // MARK: - After the change, and publishing

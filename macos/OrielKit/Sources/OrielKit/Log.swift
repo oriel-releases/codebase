@@ -40,6 +40,7 @@ public enum Log {
     public static let stats = OrielLogger("StatsReporter")
     public static let launchd = OrielLogger("LaunchAgents")
     public static let cli = OrielLogger("Cli")
+    public static let ai = OrielLogger("PollinationsClient")
 
     /// Where the daily log files go. Set once at startup (tests leave it unset: nothing is written).
     public static func configure(folder: URL, minimum: LogFile.Level = .info) {

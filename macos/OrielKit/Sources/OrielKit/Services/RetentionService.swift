@@ -47,7 +47,7 @@ public struct RetentionService: Sendable {
     private func deleteFile(_ file: URL) -> Bool {
         // A favorite synced from another device and never downloaded here has no file ("" would mean the
         // current folder): nothing to delete.
-        guard !file.path(percentEncoded: false).isEmpty, file.lastPathComponent.hasSuffix(".jpg") else { return true }
+        guard !file.path(percentEncoded: false).isEmpty, ["jpg", "png"].contains(file.pathExtension.lowercased()) else { return true }
         do {
             try FileManager.default.removeItem(at: file)
             return true

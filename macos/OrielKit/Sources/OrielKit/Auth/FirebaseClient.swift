@@ -60,6 +60,15 @@ public struct SessionInfo: Sendable {
     }
 }
 
+/// The photo an account shows now (`sync/current`): its ID, the accent color chosen for it, and the picture's link and
+/// words (an AI wallpaper is downloaded from that link, not looked up on Unsplash).
+public struct CurrentPhoto: Sendable, Equatable {
+    public var photoId: String
+    public var color: String?
+    public var imageUrl: String?
+    public var description: String?
+}
+
 /// The wallpaper a device applied last, shared through `users/{uid}/sync/current`.
 public struct CurrentWallpaper: Sendable {
     public var photoId: String
@@ -187,8 +196,23 @@ public struct FirebaseClient: Sendable {
 
     /// The photo an account has on its desktop now, or nil if none yet. Rejected once a followed friend stops sharing.
     public func currentPhotoId(_ tokens: FirebaseTokens, owner: String) async throws -> String? {
-        guard let f = try await getDocument(currentURL(owner) + "?mask.fieldPaths=photoId", tokens) else { return nil }
-        return Self.stringField(f, "photoId")
+        try await currentPhoto(tokens, owner: owner)?.photoId
+    }
+
+    /// The same, with its accent color, link and words.
+    public func currentPhoto(_ tokens: FirebaseTokens, owner: String) async throws -> CurrentPhoto? {
+        let mask = ["photoId", "color", "imageUrl", "description"].map { "mask.fieldPaths=\($0)" }.joined(separator: "&")
+        guard let f = try await getDocument(currentURL(owner) + "?" + mask, tokens), let id = Self.stringField(f, "photoId") else {
+            return nil
+        }
+        return CurrentPhoto(photoId: id, color: Self.stringField(f, "color"), imageUrl: Self.stringField(f, "imageUrl"),
+                            description: Self.stringField(f, "description"))
+    }
+
+    /// Changes only the accent color of `sync/current` (the user chose another one of the photo's colors).
+    public func setCurrentColor(_ tokens: FirebaseTokens, _ color: String) async throws {
+        try await writeDocument(currentURL(tokens.uid) + "?updateMask.fieldPaths=color&updateMask.fieldPaths=updatedAt", tokens,
+                                ["color": Self.str(color), "updatedAt": Self.time(Date())])
     }
 
     /// Rings the account's doorbell after `sync/current` changed. `device` lets this device ignore its own ring.

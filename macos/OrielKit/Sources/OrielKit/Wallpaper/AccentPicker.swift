@@ -10,7 +10,14 @@ public enum AccentPicker {
 
     /// The photo's most striking color, adjusted so it works as a UI accent (white text stays readable).
     /// - Parameter rgba: pixels as R,G,B,A bytes.
-    public static func pick(_ rgba: [UInt8]) -> (r: UInt8, g: UInt8, b: UInt8) {
+    public static func pick(_ rgba: [UInt8]) -> (r: UInt8, g: UInt8, b: UInt8) { pickTop(rgba, count: 1)[0] }
+
+    typealias RGB = (r: UInt8, g: UInt8, b: UInt8)
+
+    /// The photo's most used striking colors, best first, each from its own part of the color wheel when the photo has
+    /// enough of them (so three blues don't fill the choice), and adjusted like `pick`. Always `count`: a photo with
+    /// fewer colors gets neighboring hues, then lighter and darker shades.
+    public static func pickTop(_ rgba: [UInt8], count: Int = 3) -> [(r: UInt8, g: UInt8, b: UInt8)] {
         var weight = [Double](repeating: 0, count: hueBuckets)
         var sumR = weight, sumG = weight, sumB = weight
         var allR = 0.0, allG = 0.0, allB = 0.0
@@ -28,20 +35,55 @@ public enum AccentPicker {
             sumR[bucket] += r * w; sumG[bucket] += g * w; sumB[bucket] += b * w
         }
 
-        let best = weight.indices.max { weight[$0] < weight[$1] } ?? 0
-        let mr, mg, mb: Double
-        if weight[best] > 0 {
-            mr = sumR[best] / weight[best]; mg = sumG[best] / weight[best]; mb = sumB[best] / weight[best]
-        } else if n > 0 {
-            mr = allR / Double(n); mg = allG / Double(n); mb = allB / Double(n) // a grayscale photo: its average
-        } else {
-            return (0x00, 0x78, 0xD4)
+        let top = weight.max() ?? 0
+        if top <= 0 {
+            if n == 0 { return shades((0x00, 0x78, 0xD4), count) }
+            // A grayscale photo: its average, in shades.
+            let (h, s, v) = toHSV(allR / Double(n), allG / Double(n), allB / Double(n))
+            return shades(fromHSV(h, s, v.clamped(0.55, 0.85)), count)
         }
 
-        var (hue, sat, val) = toHSV(mr, mg, mb)
-        if weight[best] > 0 { sat = max(sat, 0.55) }
-        val = min(max(val, 0.55), 0.85)
-        return fromHSV(hue, sat, val)
+        // Most used first; ties keep the wheel's order (like LINQ's stable OrderByDescending).
+        let ranked = weight.indices.sorted { weight[$0] != weight[$1] ? weight[$0] > weight[$1] : $0 < $1 }
+        var picked: [Int] = []
+        for bucket in ranked {
+            if picked.count == count { break }
+            // A color the photo barely has isn't worth offering.
+            if weight[bucket] < top * 0.04 { break }
+            // Its own hue: not next to one already picked (the wheel wraps around).
+            if picked.contains(where: { min(abs($0 - bucket), hueBuckets - abs($0 - bucket)) <= 1 }) { continue }
+            picked.append(bucket)
+        }
+        // Few colors: the next most used hues, even next to one already picked.
+        for bucket in ranked {
+            if picked.count == count || weight[bucket] <= 0 { break }
+            if !picked.contains(bucket) { picked.append(bucket) }
+        }
+
+        var colors: [RGB] = []
+        for i in picked {
+            let (h, s, v) = toHSV(sumR[i] / weight[i], sumG[i] / weight[i], sumB[i] / weight[i])
+            let c = fromHSV(h, max(s, 0.55), v.clamped(0.55, 0.85))
+            if !colors.contains(where: { $0 == c }) { colors.append(c) }
+        }
+        // Still short (one hue only): its lighter and darker shades.
+        for shade in shades(colors[0], count).dropFirst() where colors.count < count && !colors.contains(where: { $0 == shade }) {
+            colors.append(shade)
+        }
+        return colors
+    }
+
+    /// The color, then a darker and a lighter shade of it, and so on: `count` in all.
+    static func shades(_ color: RGB, _ count: Int) -> [RGB] {
+        let (h, s, v) = toHSV(Double(color.r), Double(color.g), Double(color.b))
+        var list: [RGB] = [color]
+        var i = 1
+        while list.count < count && i <= count {
+            if list.count < count { list.append(fromHSV(h, s, max(0.3, v - 0.2 * Double(i)))) }
+            if list.count < count { list.append(fromHSV(h, s * 0.7, min(1, v + 0.15 * Double(i)))) }
+            i += 1
+        }
+        return list
     }
 
     public static func hex(_ c: (r: UInt8, g: UInt8, b: UInt8)) -> String {
@@ -80,18 +122,21 @@ extension Double {
     func clamped(_ lo: Double, _ hi: Double) -> Double { Swift.min(Swift.max(self, lo), hi) }
 }
 
-/// Decodes a photo at 96×54 and picks its accent. Remembers the last one (the same photo is often asked twice).
+/// Decodes a photo at 96×54 and picks its colors. Remembers the last one (the same photo is often asked twice).
 public final class AccentSampler: Sendable {
-    private let last = Mutex<(path: String, hex: String?)?>(nil)
+    private let last = Mutex<(path: String, colors: [String])?>(nil)
 
     public init() {}
 
     /// The photo's accent as "#RRGGBB", or nil when it can't be read.
-    public func sample(_ path: String) -> String? {
-        if let hit = last.withLock({ $0 }), hit.path == path { return hit.hex }
-        let hex = Self.decode(path).map { AccentPicker.hex(AccentPicker.pick($0)) }
-        last.withLock { $0 = (path, hex) }
-        return hex
+    public func sample(_ path: String) -> String? { sampleTop(path).first }
+
+    /// The photo's top three colors ("#RRGGBB", best first), empty when it can't be read.
+    public func sampleTop(_ path: String) -> [String] {
+        if let hit = last.withLock({ $0 }), hit.path == path { return hit.colors }
+        let colors = Self.decode(path).map { AccentPicker.pickTop($0).map(AccentPicker.hex) } ?? []
+        last.withLock { $0 = (path, colors) }
+        return colors
     }
 
     static func decode(_ path: String) -> [UInt8]? {
