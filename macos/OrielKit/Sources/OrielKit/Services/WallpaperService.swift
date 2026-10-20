@@ -178,10 +178,11 @@ public actor WallpaperService {
             let slot = ScheduleRules.slotId(s, ScheduleRules.dueTick(s, clock.now))
             if await slots.tryClaim(slot) == false {
                 // Done for this tick: the other device's photo comes through sync/current.
-                state = settings.loadState()
-                state.scheduleStartedAt = clock.now
-                state.nextRetryAt = nil
-                settings.saveState(state)
+                let now = clock.now
+                settings.updateState {
+                    $0.scheduleStartedAt = now
+                    $0.nextRetryAt = nil
+                }
                 return ApplyResult(.takenByOtherDevice)
             }
         }
@@ -197,20 +198,26 @@ public actor WallpaperService {
 
         // The schedule belongs to the app and "Change now" to the user: only an automatic change moves the schedule;
         // a manual one only counts toward its own limit.
-        if !force { state.lastAttemptAt = clock.now }
+        // Saved field by field on the state as it is then (the syncs save it meanwhile too).
+        let manual = state.manualChanges
+        if !force {
+            let attempt = clock.now
+            settings.updateState { $0.lastAttemptAt = attempt }
+        }
         do {
             let entries = try await applyCore(s)
-            state = settings.loadState().merging(attempt: state.lastAttemptAt, manual: state.manualChanges)
-            if force {
-                state.manualChanges.append(clock.now)
-            } else {
-                state.lastAppliedDate = clock.today
-                state.lastAppliedAt = clock.now
-                state.lastError = nil
-                state.consecutiveFailures = 0
-                state.nextRetryAt = nil
+            let now = clock.now, today = clock.today
+            settings.updateState { st in
+                if force {
+                    st.manualChanges = manual + [now]
+                } else {
+                    st.lastAppliedDate = today
+                    st.lastAppliedAt = now
+                    st.lastError = nil
+                    st.consecutiveFailures = 0
+                    st.nextRetryAt = nil
+                }
             }
-            settings.saveState(state)
 
             // Let the account's other devices show the same photo. Never fails the change.
             if let first = entries.first { await publishSoon(first) }
@@ -226,10 +233,12 @@ public actor WallpaperService {
             Log.wallpaper.warning("Wallpaper change failed (\(kind.map { "\($0)" } ?? "unknown"))", error)
             // A failed "Change now" is shown right away; it must not delay the automatic change.
             if !force {
-                state.lastError = message
-                state.consecutiveFailures += 1
-                state.nextRetryAt = clock.now.addingTimeInterval(RetryBackoff.delay(afterFailures: state.consecutiveFailures))
-                settings.saveState(state)
+                let now = clock.now
+                settings.updateState { st in
+                    st.lastError = message
+                    st.consecutiveFailures += 1
+                    st.nextRetryAt = now.addingTimeInterval(RetryBackoff.delay(afterFailures: st.consecutiveFailures))
+                }
             }
             return ApplyResult(.failed, error: message, errorKind: kind)
         }
@@ -326,13 +335,14 @@ public actor WallpaperService {
             if image == nil { afterChange { [provider] in await provider.trackUsage(photo) } }
 
             // Counts as this tick's change, so the scheduler doesn't replace it right away.
-            var state = settings.loadState()
-            state.lastAppliedDate = clock.today
-            state.lastAppliedAt = clock.now
-            state.lastError = nil
-            state.consecutiveFailures = 0
-            state.nextRetryAt = nil
-            settings.saveState(state)
+            let now = clock.now, today = clock.today
+            settings.updateState { st in
+                st.lastAppliedDate = today
+                st.lastAppliedAt = now
+                st.lastError = nil
+                st.consecutiveFailures = 0
+                st.nextRetryAt = nil
+            }
 
             if publish { await publishSoon(entry) }
             let result = ApplyResult(.applied, [entry])
@@ -791,15 +801,5 @@ public actor WallpaperService {
     private func nextChangeAt(_ s: OrielSettings) -> Date {
         if let interval = s.interval { return clock.now.addingTimeInterval(interval) }
         return ScheduleRules.nextTick(s, clock.now)
-    }
-}
-
-extension OrielState {
-    /// The state saved by others meanwhile (sync, another process), with this change's attempt time and manual list.
-    func merging(attempt: Date?, manual: [Date]) -> OrielState {
-        var s = self
-        if attempt != nil { s.lastAttemptAt = attempt }
-        s.manualChanges = manual
-        return s
     }
 }

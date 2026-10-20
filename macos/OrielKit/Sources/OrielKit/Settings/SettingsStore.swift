@@ -6,25 +6,9 @@ public protocol SettingsStore: Sendable {
     func save(_ settings: OrielSettings)
     func loadState() -> OrielState
     func saveState(_ state: OrielState)
-}
-
-public extension SettingsStore {
-    /// Load-modify-save, so different screens never overwrite each other's changes.
-    @discardableResult
-    func update(_ change: (inout OrielSettings) -> Void) -> OrielSettings {
-        var s = load()
-        change(&s)
-        save(s)
-        return s
-    }
-
-    @discardableResult
-    func updateState(_ change: (inout OrielState) -> Void) -> OrielState {
-        var s = loadState()
-        change(&s)
-        saveState(s)
-        return s
-    }
+    /// Load-modify-save in one step, so different parts of the app never overwrite each other's changes.
+    @discardableResult func update(_ change: (inout OrielSettings) -> Void) -> OrielSettings
+    @discardableResult func updateState(_ change: (inout OrielState) -> Void) -> OrielState
 }
 
 public extension Notification.Name {
@@ -39,6 +23,30 @@ public final class JSONSettingsStore: SettingsStore {
 
     public init(paths: AppPaths) {
         self.paths = paths
+    }
+
+    @discardableResult
+    public func update(_ change: (inout OrielSettings) -> Void) -> OrielSettings {
+        let saved = gate.withLock { _ in
+            var s: OrielSettings = readUnlocked(paths.settingsFile)
+            s.updateBuiltInTopics()
+            change(&s)
+            writeUnlocked(s, to: paths.settingsFile)
+            return s
+        }
+        NotificationCenter.default.post(name: .orielSettingsChanged, object: self)
+        return saved
+    }
+
+    /// Atomic: the state is shared by the scheduler, the syncs and the UI, which save it at the same moments.
+    @discardableResult
+    public func updateState(_ change: (inout OrielState) -> Void) -> OrielState {
+        gate.withLock { _ in
+            var s: OrielState = readUnlocked(paths.stateFile)
+            change(&s)
+            writeUnlocked(s, to: paths.stateFile)
+            return s
+        }
     }
 
     public func load() -> OrielSettings {
@@ -57,21 +65,25 @@ public final class JSONSettingsStore: SettingsStore {
     public func saveState(_ state: OrielState) { write(state, to: paths.stateFile) }
 
     private func read<T: Codable & Defaultable & Sendable>(_ file: URL) -> T {
-        gate.withLock { _ in
-            guard let data = try? Data(contentsOf: file) else { return T() }
-            // A corrupt file shouldn't brick the app; fall back to defaults.
-            return (try? Self.decoder.decode(T.self, from: data)) ?? T()
-        }
+        gate.withLock { _ in readUnlocked(file) }
     }
 
     private func write<T: Encodable>(_ value: T, to file: URL) {
-        gate.withLock { _ in
-            do {
-                try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-                try Self.encoder.encode(value).write(to: file, options: .atomic)
-            } catch {
-                Log.settings.error("Couldn't save \(file.lastPathComponent): \(error.localizedDescription)")
-            }
+        gate.withLock { _ in writeUnlocked(value, to: file) }
+    }
+
+    private func readUnlocked<T: Codable & Defaultable>(_ file: URL) -> T {
+        guard let data = try? Data(contentsOf: file) else { return T() }
+        // A corrupt file shouldn't brick the app; fall back to defaults.
+        return (try? Self.decoder.decode(T.self, from: data)) ?? T()
+    }
+
+    private func writeUnlocked<T: Encodable>(_ value: T, to file: URL) {
+        do {
+            try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Self.encoder.encode(value).write(to: file, options: .atomic)
+        } catch {
+            Log.settings.error("Couldn't save \(file.lastPathComponent): \(error.localizedDescription)")
         }
     }
 

@@ -226,7 +226,7 @@ public final class FollowService: Sendable {
                 return
             }
             let color = current?.color
-            var state = store.loadState()
+            let state = store.loadState()
             guard let current, current.photoId != state.followedPhotoId else {
                 if state.followProblem != nil { setProblem(nil) }
                 takeAccent(current?.photoId, color)
@@ -235,8 +235,7 @@ public final class FollowService: Sendable {
             let photoId = current.photoId
             // Already on this device (it published it, or showed it before): nothing to do but its color.
             if history.list().first?.photoID == photoId {
-                state.followedPhotoId = photoId
-                store.saveState(state)
+                store.updateState { $0.followedPhotoId = photoId }
                 takeAccent(photoId, color)
                 return
             }

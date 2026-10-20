@@ -54,6 +54,19 @@ struct SettingsTests {
         #expect(state.nextRetryAt == .utc(2026, 10, 14, 9))
     }
 
+    /// The syncs, the scheduler and the UI save the state at the same moments: no change may get lost.
+    @Test func stateChangesFromManyThreadsAtOnceAllStay() async {
+        let store = JSONSettingsStore(paths: dir.paths)
+        await withTaskGroup(of: Void.self) { group in
+            for i in 0..<40 {
+                group.addTask { store.updateState { $0.manualChanges.append(Date(timeIntervalSince1970: Double(i))) } }
+                group.addTask { store.updateState { $0.accentColor = "#00000\(i % 10)" } }
+            }
+        }
+        #expect(store.loadState().manualChanges.count == 40)
+        #expect(store.loadState().accentColor != nil)
+    }
+
     @Test func savedInterestsFollowTheNewBuiltInList() {
         var s = OrielSettings()
         s.topics = [

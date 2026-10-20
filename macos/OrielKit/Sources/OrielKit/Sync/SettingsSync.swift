@@ -160,23 +160,26 @@ public final class SettingsSync: Sendable {
         guard let (theirs, updatedAt) = try await firebase.syncedSettings(tokens) else {
             return true // the first device: the account takes this one's settings
         }
-        var state = store.loadState()
+        let state = store.loadState()
         var settings = store.load()
         let mine = SyncedSettings.from(settings)
         if theirs.fingerprint == mine.fingerprint {
-            state.syncedSettingsHash = mine.fingerprint
-            state.settingsSyncedAt = updatedAt
-            state.settingsDirty = false
-            store.saveState(state)
+            store.updateState {
+                $0.syncedSettingsHash = mine.fingerprint
+                $0.settingsSyncedAt = updatedAt
+                $0.settingsDirty = false
+            }
             return false
         }
         // Changed here while offline, after the account's last change: this device's is the newer one.
         if state.settingsDirty, let synced = state.settingsSyncedAt, synced >= updatedAt { return true }
         theirs.apply(to: &settings)
-        state.syncedSettingsHash = SyncedSettings.from(settings).fingerprint
-        state.settingsSyncedAt = updatedAt
-        state.settingsDirty = false
-        store.saveState(state)
+        let fingerprint = SyncedSettings.from(settings).fingerprint
+        store.updateState {
+            $0.syncedSettingsHash = fingerprint
+            $0.settingsSyncedAt = updatedAt
+            $0.settingsDirty = false
+        }
         store.save(settings) // localChange: a schedule change starts fresh, and nothing is sent back
         Log.settingsSync.info("Took the settings changed on another device")
         return false
