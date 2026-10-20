@@ -1,8 +1,9 @@
 import Foundation
 
 /// Writes `users/{uid}/sync/current` so the account's other devices (and the browser extension) show the same photo,
-/// then rings their doorbell. Only the Unsplash photo (ID and links) is shared, never the image file: each device
-/// makes its own crop. Best effort: being offline never affects changing the wallpaper.
+/// then rings their doorbell. Only the photo's ID and links are shared, never the image file: an Unsplash photo (each
+/// device makes its own crop) or an AI wallpaper's public Pollinations link. Best effort: being offline never affects
+/// changing the wallpaper.
 public struct SyncPublisher: SyncPublishing {
     static let source = "macos"
     static let timeout: Double = 8
@@ -37,7 +38,7 @@ public struct SyncPublisher: SyncPublishing {
             return
         }
         guard let document = Self.document(entry) else {
-            Log.sync.info("Not sharing the wallpaper: \(entry.photoID) isn't an Unsplash photo")
+            Log.sync.info("Not sharing the wallpaper: \(entry.photoID) isn't an Unsplash photo or an AI wallpaper")
             return
         }
         do {
@@ -45,7 +46,8 @@ public struct SyncPublisher: SyncPublishing {
                 guard let tokens = try await auth.tokens() else { return }
                 if onlyIfMissing, try await firebase.hasCurrentWallpaper(tokens) { return }
                 var withColor = document
-                withColor.color = accent.sample(entry.filePath)
+                // The color chosen for it (on Home, or on another device), else the one picked from it.
+                withColor.color = chosenColor(entry) ?? accent.sample(entry.filePath)
                 try await firebase.setCurrentWallpaper(tokens, withColor)
                 // The doorbell: devices listening hear about it now instead of at their next poll.
                 if !onlyIfMissing {
@@ -67,9 +69,34 @@ public struct SyncPublisher: SyncPublishing {
         }
     }
 
-    /// Only Unsplash photos can be shared (the extension hotlinks them); anything else is skipped.
+    /// The account's other devices learn of the color chosen for the photo on screen. Only while it is still the
+    /// account's photo: another device may have set a newer one meanwhile.
+    public func publishColor(_ entry: HistoryEntry, _ color: String) async {
+        guard auth.isSignedIn, Self.document(entry) != nil else { return }
+        do {
+            try await withTimeout(Self.timeout) { [self] in
+                guard let tokens = try await auth.tokens(),
+                      let current = try await firebase.currentPhoto(tokens, owner: tokens.uid), current.photoId == entry.photoID else { return }
+                try await firebase.setCurrentColor(tokens, color)
+                try await firebase.ring(tokens, photoId: entry.photoID, source: Self.source, device: auth.current?.sessionId ?? "")
+                Log.sync.info("Shared the accent color \(color) of \(entry.photoID) with your other devices")
+            }
+        } catch {
+            Log.sync.warning("Couldn't share the accent color of \(entry.photoID): \(error.localizedDescription)")
+        }
+    }
+
+    private func chosenColor(_ entry: HistoryEntry) -> String? {
+        let state = settings.loadState()
+        guard state.accentPhotoId == entry.photoID else { return nil }
+        return state.accentColor
+    }
+
+    /// Unsplash photos and AI wallpapers (kept by Pollinations at a public link) can be shared: the other devices
+    /// hotlink or download them. Anything else is skipped.
     static func document(_ e: HistoryEntry) -> CurrentWallpaper? {
-        guard let url = URL(string: e.thumbnailURL), url.host() == "images.unsplash.com" else { return nil }
+        guard let url = URL(string: e.thumbnailURL),
+              url.host() == "images.unsplash.com" || PollinationsClient.isMediaLink(e.thumbnailURL) else { return nil }
         return CurrentWallpaper(photoId: e.photoID, imageUrl: e.thumbnailURL, pageUrl: e.photoPageURL, photographer: e.photographerName,
                                 photographerUrl: e.photographerURL, description: e.description, topic: e.topic, source: source)
     }

@@ -54,6 +54,32 @@ struct SettingsTests {
         #expect(state.nextRetryAt == .utc(2026, 10, 14, 9))
     }
 
+    @Test func timestampsKeepEveryDigit() throws {
+        let micro = try #require(ISO8601.parse("2026-10-20T16:30:00.123456Z"))
+        let milli = try #require(ISO8601.parse("2026-10-20T16:30:00.123Z"))
+        #expect(micro > milli)
+        #expect(abs(micro.timeIntervalSince(milli) - 0.000456) < 0.000001)
+        #expect(ISO8601.parse("2026-10-20T16:30:00Z") != nil)
+        // A time read back writes the same text (not one millisecond less), so "since" queries don't repeat.
+        for text in ["2026-10-15T18:45:21.539Z", "2026-10-15T18:45:21.001Z", "2026-10-15T18:45:21.999Z", "1969-12-31T23:59:59.500Z"] {
+            #expect(ISO8601.format(try #require(ISO8601.parse(text))) == text)
+        }
+        #expect(ISO8601.parse("2026-10-20T21:30:00.5+05:00") == Date.utc(2026, 10, 20, 16).addingTimeInterval(30 * 60 + 0.5))
+    }
+
+    /// The syncs, the scheduler and the UI save the state at the same moments: no change may get lost.
+    @Test func stateChangesFromManyThreadsAtOnceAllStay() async {
+        let store = JSONSettingsStore(paths: dir.paths)
+        await withTaskGroup(of: Void.self) { group in
+            for i in 0..<40 {
+                group.addTask { store.updateState { $0.manualChanges.append(Date(timeIntervalSince1970: Double(i))) } }
+                group.addTask { store.updateState { $0.accentColor = "#00000\(i % 10)" } }
+            }
+        }
+        #expect(store.loadState().manualChanges.count == 40)
+        #expect(store.loadState().accentColor != nil)
+    }
+
     @Test func savedInterestsFollowTheNewBuiltInList() {
         var s = OrielSettings()
         s.topics = [

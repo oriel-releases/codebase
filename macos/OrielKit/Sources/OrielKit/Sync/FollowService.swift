@@ -218,35 +218,49 @@ public final class FollowService: Sendable {
         do {
             guard let tokens = try await auth.tokens() else { return }
             let owner = settings.followUid ?? tokens.uid
-            let photoId: String?
+            let current: CurrentPhoto?
             do {
-                photoId = try await firebase.currentPhotoId(tokens, owner: owner)
+                current = try await firebase.currentPhoto(tokens, owner: owner)
             } catch let error as FirebaseError where error.failure == .rejected && following {
                 setProblem("\(settings.followName ?? "Your friend") stopped sharing their wallpaper.")
                 return
             }
-            var state = store.loadState()
-            guard let photoId, photoId != state.followedPhotoId else {
+            let color = current?.color
+            let state = store.loadState()
+            guard let current, current.photoId != state.followedPhotoId else {
                 if state.followProblem != nil { setProblem(nil) }
+                takeAccent(current?.photoId, color)
                 return
             }
-            // Already on this device (it published it, or showed it before): nothing to do.
+            let photoId = current.photoId
+            // Already on this device (it published it, or showed it before): nothing to do but its color.
             if history.list().first?.photoID == photoId {
-                state.followedPhotoId = photoId
-                store.saveState(state)
+                store.updateState { $0.followedPhotoId = photoId }
+                takeAccent(photoId, color)
                 return
             }
-            wallpapers.reportPhase(.receiving)
-            let photo: PhotoCandidate
-            do {
-                photo = try await wallpapers.sharedPhoto(photoId)
-            } catch {
-                wallpapers.finishPhase()
-                throw error
-            }
+            let topic = following ? "from \(settings.followName ?? "your friend")" : "synced"
             // A friend's photo is passed on to this account's other devices; the account's own isn't sent back.
-            let result = await wallpapers.applyPhoto(photo, topic: following ? "from \(settings.followName ?? "your friend")" : "synced",
-                                                     publish: following)
+            let result: ApplyResult
+            if PollinationsClient.isAiPhoto(photoId) {
+                // An AI wallpaper made on another device: downloaded from its public link (never looked up on Unsplash).
+                guard let made = PollinationsClient.fromLink(current.imageUrl ?? "", prompt: current.description) else { return }
+                if let color { wallpapers.rememberAccent(photoId, color) }
+                wallpapers.reportPhase(.receiving)
+                result = await wallpapers.applyLinked(made, topic: topic, publish: following)
+            } else {
+                wallpapers.reportPhase(.receiving)
+                let photo: PhotoCandidate
+                do {
+                    photo = try await wallpapers.sharedPhoto(photoId)
+                } catch {
+                    wallpapers.finishPhase()
+                    throw error
+                }
+                // Its accent: the color the other device chose, so every device shows the same one.
+                if let color { wallpapers.rememberAccent(photoId, color) }
+                result = await wallpapers.applyPhoto(photo, topic: topic, publish: following)
+            }
             guard result.status == .applied else { return }
             store.updateState {
                 $0.followedPhotoId = photoId
@@ -257,6 +271,14 @@ public final class FollowService: Sendable {
         } catch {
             Log.follow.info("Couldn't check the followed wallpaper: \(error.localizedDescription)")
         }
+    }
+
+    /// Another device chose another accent color for the photo on screen here: it is used here too.
+    private func takeAccent(_ photoId: String?, _ color: String?) {
+        guard let photoId, let color, history.list().first?.photoID == photoId else { return }
+        if wallpapers.chosenAccent(photoId)?.caseInsensitiveCompare(color) == .orderedSame { return }
+        wallpapers.receiveAccent(photoId, color)
+        Log.follow.info("Using the accent color \(color) chosen on another device")
     }
 
     private func setProblem(_ problem: String?) {

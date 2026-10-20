@@ -15,7 +15,7 @@ struct Banner: Equatable, Identifiable {
 }
 
 enum Page: String, CaseIterable, Identifiable {
-    case home, search, history, favorites, friends, settings
+    case home, search, ai, history, favorites, friends, settings
 
     var id: Self { self }
 
@@ -23,6 +23,7 @@ enum Page: String, CaseIterable, Identifiable {
         switch self {
         case .home: "Home"
         case .search: "Search"
+        case .ai: "AI"
         case .history: "History"
         case .favorites: "Favorites"
         case .friends: "Friends"
@@ -34,6 +35,7 @@ enum Page: String, CaseIterable, Identifiable {
         switch self {
         case .home: "house"
         case .search: "magnifyingglass"
+        case .ai: "sparkles"
         case .history: "clock.arrow.circlepath"
         case .favorites: "star"
         case .friends: "person.2"
@@ -74,6 +76,7 @@ final class AppModel {
     let search: SearchModel
     let friends: FriendsModel
     let onboarding: OnboardingModel
+    let create: CreateModel
 
     /// Why the shortcut couldn't be registered (shown in Settings), or nil.
     var hotkeyError: String?
@@ -107,12 +110,14 @@ final class AppModel {
         search = SearchModel(services: services)
         friends = FriendsModel(services: services)
         onboarding = OnboardingModel()
+        create = CreateModel(services: services)
         entries = services.history.list()
         shared.app = self
         signIn.app = self
         search.app = self
         friends.app = self
         onboarding.app = self
+        create.app = self
         subscribe()
         refreshLimit()
     }
@@ -129,6 +134,7 @@ final class AppModel {
         }
         sp.scheduler.attempted.subscribe { [weak self] result in Task { @MainActor in self?.showResult(result, manual: false) } }
         sp.auth.changed.subscribe { [weak self] in Task { @MainActor in self?.authChanged() } }
+        sp.wallpapers.accentChosen.subscribe { [weak self] in Task { @MainActor in self?.refreshAccents() } }
         sp.auth.signingOutChanged.subscribe { [weak self] on in Task { @MainActor in self?.isSigningOut = on } }
         NotificationCenter.default.addObserver(forName: .orielSettingsChanged, object: sp.store, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.settingsChangedOutside() }
@@ -167,6 +173,7 @@ final class AppModel {
     func reload() {
         entries = sp.history.list()
         state = sp.store.loadState()
+        refreshAccents()
         refreshLimit()
         if !isBusy, let error = state.lastError {
             var message = error
@@ -293,6 +300,40 @@ final class AppModel {
         done.continuation.finish()
         report(nil)
         return result
+    }
+
+    // MARK: - Accent colors
+
+    /// The photo on Home's three colors ("#RRGGBB", best first), and the one chosen (ringed).
+    private(set) var accentOptions: [String] = []
+    private(set) var chosenAccent: String?
+    private var accentsFor: String?
+
+    /// One decode per photo; a color chosen on another device that isn't among the three takes the first place.
+    func refreshAccents() {
+        guard let current else {
+            accentOptions = []
+            chosenAccent = nil
+            accentsFor = nil
+            return
+        }
+        let key = "\(current.photoID)|\(current.filePath)"
+        var options = accentsFor == key ? accentOptions : sp.wallpapers.accentOptions(current)
+        accentsFor = key
+        let chosen = sp.wallpapers.chosenAccent(current.photoID)
+        if let chosen, !options.isEmpty, !options.contains(where: { $0.caseInsensitiveCompare(chosen) == .orderedSame }) {
+            options = [chosen.uppercased()] + options.prefix(2)
+        }
+        accentOptions = options
+        chosenAccent = chosen?.uppercased() ?? options.first
+    }
+
+    /// The user picked one of the photo's colors: the account's other devices use it as their accent.
+    func chooseAccent(_ hex: String) {
+        guard let current else { return }
+        chosenAccent = hex
+        let wallpapers = sp.wallpapers
+        Task { await wallpapers.chooseAccent(current, hex) }
     }
 
     // MARK: - Wallpaper of the day

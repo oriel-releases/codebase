@@ -70,6 +70,9 @@ public struct OrielSettings: Sendable, Hashable, Codable {
     /// Prefer darker photos in the evening (and in dark mode), brighter ones in the morning.
     public var matchTimeOfDay = true
 
+    /// Change the Mac's accent color to the closest one to each new wallpaper's color. This Mac only, off by default.
+    public var matchAccentColor = false
+
     /// With more than one screen, give each its own photo instead of the same one everywhere.
     public var photoPerMonitor = false
 
@@ -138,7 +141,7 @@ public struct OrielSettings: Sendable, Hashable, Codable {
 
     enum CodingKeys: String, CodingKey {
         case topics, dailyTime, timeZone, intervalMinutes, favoritesOnly, applyAtLogin, paused, fit, skipLowLikes,
-             minLikes, wallpaperFolder, startAtLogin, matchTimeOfDay, photoPerMonitor, followUid, followName,
+             minLikes, wallpaperFolder, startAtLogin, matchTimeOfDay, matchAccentColor, photoPerMonitor, followUid, followName,
              followPicture, myFollowCode, onboardingDone, hotkey
     }
 
@@ -158,6 +161,7 @@ public struct OrielSettings: Sendable, Hashable, Codable {
         wallpaperFolder = try c.decodeIfPresent(String.self, forKey: .wallpaperFolder)
         startAtLogin = try c.decodeIfPresent(Bool.self, forKey: .startAtLogin) ?? d.startAtLogin
         matchTimeOfDay = try c.decodeIfPresent(Bool.self, forKey: .matchTimeOfDay) ?? d.matchTimeOfDay
+        matchAccentColor = try c.decodeIfPresent(Bool.self, forKey: .matchAccentColor) ?? d.matchAccentColor
         photoPerMonitor = try c.decodeIfPresent(Bool.self, forKey: .photoPerMonitor) ?? d.photoPerMonitor
         followUid = try c.decodeIfPresent(String.self, forKey: .followUid)
         followName = try c.decodeIfPresent(String.self, forKey: .followName)
@@ -192,13 +196,17 @@ public struct OrielState: Sendable, Hashable, Codable {
     public var followedPhotoId: String?
     /// Why following doesn't work right now (the friend stopped sharing), for the UI.
     public var followProblem: String?
+    /// The accent color chosen for the photo on screen (here or on another device), "#RRGGBB". Only the photo on
+    /// screen matters, so one pair is kept.
+    public var accentPhotoId: String?
+    public var accentColor: String?
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
         case lastAppliedDate, lastAppliedAt, lastAttemptAt, lastError, consecutiveFailures, nextRetryAt,
              manualChanges, scheduleStartedAt, syncedSettingsHash, settingsSyncedAt, settingsDirty, favoritesSyncedAt,
-             followedPhotoId, followProblem
+             followedPhotoId, followProblem, accentPhotoId, accentColor
     }
 
     public init(from decoder: Decoder) throws {
@@ -217,5 +225,7 @@ public struct OrielState: Sendable, Hashable, Codable {
         favoritesSyncedAt = try c.decodeIfPresent(Date.self, forKey: .favoritesSyncedAt)
         followedPhotoId = try c.decodeIfPresent(String.self, forKey: .followedPhotoId)
         followProblem = try c.decodeIfPresent(String.self, forKey: .followProblem)
+        accentPhotoId = try c.decodeIfPresent(String.self, forKey: .accentPhotoId)
+        accentColor = try c.decodeIfPresent(String.self, forKey: .accentColor)
     }
 }

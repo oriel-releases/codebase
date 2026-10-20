@@ -4,6 +4,7 @@
 #
 # Repository secrets (Settings > Secrets and variables > Actions):
 #   UNSPLASH_ACCESS_KEY   the macOS Unsplash app's access key
+#   POLLINATIONS_KEY      the Pollinations key for AI wallpapers (the same one as windows/.env)
 #   SPARKLE_PUBLIC_KEY    Sparkle's public EdDSA key (also in .env)
 #   SPARKLE_PRIVATE_KEY   the private key, exported once with generate_keys -x (never in the repo)
 #   RELEASES_TOKEN        a fine-grained token with Contents: read and write on oriel-releases/macos
@@ -52,6 +53,7 @@ jobs:
       - name: Build, sign and publish
         env:
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          POLLINATIONS_KEY: ${{ secrets.POLLINATIONS_KEY }}
           SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}

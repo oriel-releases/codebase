@@ -56,6 +56,7 @@ struct MainView: View {
                 switch app.page {
                 case .home: HomeView()
                 case .search: if app.showingInterests { InterestsView(focus: $focus) } else { SearchView(focus: $focus) }
+                case .ai: CreateView()
                 case .history, .favorites: HistoryView(favorites: app.page == .favorites, focus: $focus)
                 case .friends: FriendsView()
                 case .settings: SettingsView()
@@ -118,6 +119,11 @@ struct SidebarItem: View {
             }
             withAnimation(.easeInOut(duration: 0.15)) { scale = 1.2 } completion: {
                 withAnimation(.easeInOut(duration: 0.25)) { scale = 1 }
+            }
+        case .ai:
+            // The sparkles pulse.
+            withAnimation(.easeInOut(duration: 0.16)) { scale = 1.3 } completion: {
+                withAnimation(.easeInOut(duration: 0.2)) { scale = 1 }
             }
         case .history:
             // Winds back a turn.

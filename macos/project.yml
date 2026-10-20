@@ -14,8 +14,8 @@ configFiles:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "1.1.0"
+    CURRENT_PROJECT_VERSION: "2"
 
 packages:
   OrielKit:
@@ -55,6 +55,7 @@ targets:
         SUScheduledCheckInterval: 86400
         # Embedded at build time from .env / the environment (scripts/configure.sh -> Config/Secrets.xcconfig).
         OrielUnsplashAccessKey: $(UNSPLASH_ACCESS_KEY)
+        OrielPollinationsKey: $(POLLINATIONS_KEY)
     settings:
       configs:
         # Development builds have their own identity, so they never replace the installed app's login item or links.

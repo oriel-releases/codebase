@@ -78,9 +78,9 @@ public final class FavoritesSync: Sendable {
                 }
                 try await firebase.ringFavorites(tokens, device: auth.current?.sessionId ?? "")
             }
-            store.updateState {
-                $0.favoritesSyncedAt = changes.map(\.updatedAt).max() ?? since ?? Date(timeIntervalSince1970: 0)
-            }
+            // Rounded up to the millisecond the state file keeps, so the next "since" never asks for the newest again.
+            let newest = changes.map(\.updatedAt).max().map { Date(timeIntervalSince1970: ($0.timeIntervalSince1970 * 1000).rounded(.up) / 1000) }
+            store.updateState { $0.favoritesSyncedAt = newest ?? since ?? Date(timeIntervalSince1970: 0) }
             if !changes.isEmpty { Log.favorites.info("Took \(changes.count) favorite change(s) from your other devices") }
         } catch {
             quiet.withLock { $0 = false }
@@ -98,16 +98,23 @@ public final class FavoritesSync: Sendable {
         // A photo never shown here: into History, filed so it doesn't become the current wallpaper.
         let newest = local.first { !$0.isDeleted }?.appliedAt
         let at = newest.map { change.updatedAt >= $0 ? $0.addingTimeInterval(-1) : change.updatedAt } ?? change.updatedAt
+        // An AI wallpaper's link is used as it is; an Unsplash one gets a thumbnail size.
+        let ai = PollinationsClient.isMediaLink(change.imageUrl)
         let entry = HistoryEntry(
-            provider: "unsplash", photoID: change.photoId, filePath: "",
-            thumbnailURL: change.imageUrl + (change.imageUrl.contains("?") ? "&" : "?") + "w=640&q=80&fm=jpg&fit=max",
+            provider: PollinationsClient.isAiPhoto(change.photoId) ? PollinationsClient.provider : "unsplash",
+            photoID: change.photoId, filePath: "",
+            thumbnailURL: ai ? change.imageUrl : change.imageUrl + (change.imageUrl.contains("?") ? "&" : "?") + "w=640&q=80&fm=jpg&fit=max",
             photoPageURL: change.pageUrl, photographerName: change.photographer, photographerURL: change.photographerUrl,
             description: change.description, topic: "favorite", appliedAt: at, isFavorite: true)
         if let id = try? history.add(entry) { history.setFavorite(id, true) }
     }
 
-    /// Only Unsplash photos can be shared between devices (every device fetches its own copy).
+    /// Unsplash photos and AI wallpapers can be shared between devices (every device fetches its own copy).
     static func toSynced(_ e: HistoryEntry, at: Date) -> SyncedFavorite? {
+        if PollinationsClient.isMediaLink(e.thumbnailURL) {
+            return SyncedFavorite(photoId: e.photoID, imageUrl: e.thumbnailURL, pageUrl: e.photoPageURL, photographer: e.photographerName,
+                                  photographerUrl: e.photographerURL, description: e.description, favorite: e.isFavorite, updatedAt: at)
+        }
         guard let image = URL(string: e.thumbnailURL), image.host() == "images.unsplash.com" else { return nil }
         return SyncedFavorite(photoId: e.photoID, imageUrl: "https://images.unsplash.com\(image.path(percentEncoded: true))",
                               pageUrl: e.photoPageURL, photographer: e.photographerName, photographerUrl: e.photographerURL,
