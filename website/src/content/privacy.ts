@@ -2,9 +2,9 @@
 
 export const privacyPage = {
   title: "Privacy policy",
-  updatedOn: "2026-10-10",
+  updatedOn: "2026-10-20",
   intro:
-    "Oriel (the Windows and Linux apps, the browser extension and this website) is built to keep as little about you as possible. This page says what is stored, where, and how to remove it.",
+    "Oriel (the Windows, Linux and Android apps, the browser extension and this website) is built to keep as little about you as possible. This page says what is stored, where, and how to remove it.",
   sections: [
     {
       title: "What Oriel stores",
@@ -14,6 +14,7 @@ export const privacyPage = {
         "When a desktop app changes your wallpaper, it saves the Unsplash photo ID, its links, the photographer's name, the topic and a color picked from the photo, so the extension (and your other devices) can show the same photo. We never store the image itself.",
         "When the extension is signed in, its settings (topics, frequency, clock, quote, search and the other display options) and the new tab shortcuts you add (their names and web addresses) are saved to your account, so every browser you sign in to shows the same. Signing out erases the shortcuts from that browser.",
         "If you share your wallpaper with a code, the code and your first name are saved. People who follow you with it can see the photo on your desktop (the same Unsplash details as above, nothing else), and you can see how many follow you. Stop sharing and the code stops working for everyone. When you follow a friend, your first name is saved in their list of followers until you unfollow.",
+        "When you set an AI wallpaper (made on the AI page), its public picture link (on media.pollinations.ai) and the words you typed are saved like a photo, so your other devices can show it too. If you star it, it is saved with your favorites.",
         "A share link you send carries the Unsplash photo, the photographer's name and your first name, so your friend sees who sent it.",
         "The desktop apps add 1 to a few anonymous daily totals: new installs, devices in use that day, devices still in use after 7 and 30 days, and wallpapers shared, opened and set. They are plain numbers per day, with no account, device or IP address attached, and they help us see whether Oriel works for people.",
       ],
@@ -39,6 +40,7 @@ export const privacyPage = {
       body: [
         "Google Firebase (Authentication and Firestore) stores your account and sync data, under Google's privacy policy. Each account's data can only be read by that account, except the current wallpaper, which people you let follow you can read.",
         "Unsplash provides the photos. Your browser or app loads images directly from images.unsplash.com, so Unsplash sees the request, like any website you visit, under Unsplash's privacy policy.",
+        "Pollinations makes AI wallpapers. When you create one, the words you type (and a fuller description of them written by Pollinations' text model) are sent to Pollinations, which draws the picture and keeps it at a public, unlisted link for about 30 days after it was last opened, under Pollinations' terms. No account details are sent with them. Don't type anything private there.",
         "Shortcut icons come from your browser's own icon cache; when it doesn't have one, the icon is loaded from that website itself (no icon service in between).",
         "Telegram is used only if you contact support through the support bot.",
       ],
