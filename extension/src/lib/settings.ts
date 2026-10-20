@@ -11,6 +11,8 @@ export interface Settings {
   bump: number;
   clock: boolean;
   hour12: boolean;
+  /** Changed digits of the clock roll softly into place instead of switching at once. */
+  clockAnimation: boolean;
   greeting: boolean;
   /** The "i" button at the bottom left that opens the photo's credit. */
   photoInfo: boolean;
@@ -38,6 +40,7 @@ export const defaults: Settings = {
   bump: 0,
   clock: true,
   hour12: false,
+  clockAnimation: true,
   greeting: true,
   photoInfo: true,
   quote: true,
