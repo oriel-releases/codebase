@@ -45,6 +45,8 @@ export function fromPool(p: PoolPhoto): Photo {
 /** The photo sized and cropped for this screen (Unsplash crops on its side, so only the pixels we show are sent). */
 export function imageUrl(photo: Photo, width: number, height: number, quality = 80): string {
   const url = new URL(photo.url);
+  // An AI wallpaper made on a desktop: Pollinations keeps one size only, so its link is used as it is.
+  if (url.host !== "images.unsplash.com") return photo.url;
   url.search = new URLSearchParams({
     ixid: url.searchParams.get("ixid") ?? "",
     w: String(Math.round(width)),
