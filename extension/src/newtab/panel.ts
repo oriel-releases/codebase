@@ -1,3 +1,4 @@
+import { escapeHtml } from "../lib/html";
 import { poolTopics } from "../lib/photo";
 import type { Profile } from "../lib/account";
 import type { Change, Mode, Settings } from "../lib/settings";
@@ -95,8 +96,7 @@ const redraw = (): void => void document.dispatchEvent(new CustomEvent("oriel:re
 const googleG =
   '<svg class="g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
 
-const escapes: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => escapes[c]);
+const esc = escapeHtml;
 const label = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const device = (source: string) =>
   source === "linux" ? "Linux PC" : source === "windows" ? "Windows PC" : source === "android" ? "phone" : source === "extension" ? "browser" : "computer";
@@ -119,7 +119,7 @@ function seg(id: string, aria: string, options: { value: string; text: string; d
 const row = (title: string, hint: string, control: string, icon?: keyof typeof iconPaths) =>
   `<div class="card">${icon ? `<span class="tile-ico sm round" aria-hidden="true">${ico(icon)}</span>` : ""}<div class="min-w-0 flex-1"><div class="t">${title}</div>${hint ? `<div class="d">${hint}</div>` : ""}</div>${control}</div>`;
 
-function toggle(c: Settings, name: "clock" | "hour12" | "greeting" | "quote" | "search" | "photoInfo" | "avatar" | "settingsButton" | "shuffle" | "shortcuts", title: string, hint = "", icon?: keyof typeof iconPaths): string {
+function toggle(c: Settings, name: "clock" | "hour12" | "clockAnimation" | "greeting" | "quote" | "search" | "photoInfo" | "avatar" | "settingsButton" | "shuffle" | "shortcuts", title: string, hint = "", icon?: keyof typeof iconPaths): string {
   return row(title, hint, `<label class="switch"><input type="checkbox" data-act="toggle" data-v="${name}" ${c[name] ? "checked" : ""} aria-label="${esc(title)}" /><span></span></label>`, icon);
 }
 
@@ -180,7 +180,7 @@ function homePage(s: PanelState): string {
   )}</div>`;
   const p = s.photo;
   const credit = (x: Photo) =>
-    `Photo by <a href="${esc(x.photographerUrl)}" target="_blank" rel="noopener">${esc(x.photographer)}</a> on <a href="${esc(x.pageUrl)}" target="_blank" rel="noopener">Unsplash</a>`;
+    `Photo by <a class="credit-name" href="${esc(x.photographerUrl)}" target="_blank" rel="noopener">${esc(x.photographer)}</a> on <a href="${esc(x.pageUrl)}" target="_blank" rel="noopener">Unsplash</a>`;
   const busy = s.changing ? "disabled aria-busy=\"true\"" : "";
   const icon = s.changing ? "spinning" : Date.now() < turnUntil ? "turn" : "";
   // The image itself is placed by showHomePhoto (after each draw), so a new photo can fade in once it has loaded.
@@ -188,7 +188,7 @@ function homePage(s: PanelState): string {
   const photo = `<div class="home-photo" data-src="${p ? esc(imageUrl(p, 1200, 560, 75)) : ""}"><div class="layers" data-keep></div>${source}</div>
     <div class="home-bar">
       <div class="min-w-0 flex-1">
-        <div class="t truncate">${p?.photographer ? credit(p) : "&nbsp;"}</div>
+        <div class="t truncate home-credit" data-photo="${p?.photographer ? esc(p.id) : ""}">${p?.photographer ? credit(p) : "&nbsp;"}</div>
         <div class="d truncate">${from}</div>
       </div>
       ${following ? "" : `<button class="btn btn-accent" data-act="change-now" ${busy}>${ico("refresh", icon)}${s.changing ? "Changing…" : "Change now"}</button>`}
@@ -238,10 +238,11 @@ function settingsPage(s: PanelState): string {
       <div class="clock-head"><span class="tile-ico sm round" aria-hidden="true">${ico("clock")}</span><div class="t min-w-0 flex-1">Clock</div><label class="switch"><input type="checkbox" data-act="toggle" data-v="clock" ${c.clock ? "checked" : ""} aria-label="Clock" /><span></span></label></div>
       <div class="fold ${c.clock ? "open" : ""}" ${c.clock ? "" : "inert"}><div class="inner clock-format">${seg("hour12", "Time format", [{ value: "24", text: "24-hour" }, { value: "12", text: "12-hour" }], c.hour12 ? "12" : "24", "hour12")}</div></div>
     </div>
-    ${toggle(c, "greeting", "Greeting", "", "smile")}
+    ${toggle(c, "clockAnimation", "Animate clock", "", "sparkle")}
     </div>
     <div class="group-title">On the page</div>
     <div class="list">
+    ${toggle(c, "greeting", "Greeting", "", "smile")}
     ${toggle(c, "quote", "Quote", "", "quote")}
     ${toggle(c, "search", "Search bar", "", "search")}
     ${toggle(c, "shortcuts", "Shortcuts", "", "link")}
@@ -497,6 +498,7 @@ export function renderPanel(root: HTMLElement, state: PanelState, actions: Panel
   renderedPage = page;
   placeBar(root, !content || !visible);
   showHomePhoto(root);
+  showCredit(root, visible);
   bind(root, state, actions);
 }
 
@@ -555,6 +557,33 @@ function showPhotoIn(root: HTMLElement, selector: string, zoom: boolean): void {
     });
 }
 
+/** The photo Home's credit names, and how wide that name is drawn. */
+let creditFor = "";
+let nameWidth = 0;
+
+/**
+ * A new photo (Change now, or one from another device): only the author's name changes, rising in while its box glides
+ * from the old name's width to the new one, so "on Unsplash" after it slides along. "Photo by" stays still.
+ */
+function showCredit(root: HTMLElement, visible: boolean): void {
+  const credit = root.querySelector<HTMLElement>(".home-credit");
+  const name = credit?.querySelector<HTMLElement>(".credit-name");
+  const id = credit?.dataset.photo;
+  if (!name || !id || id === creditFor) return;
+  const from = nameWidth;
+  const changed = creditFor !== "";
+  creditFor = id;
+  nameWidth = name.offsetWidth;
+  if (!changed || !visible || !from || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  name.animate(
+    [
+      { width: `${from}px`, opacity: 0, translate: "0 0.4em", filter: "blur(3px)" },
+      { width: `${nameWidth}px`, opacity: 1, translate: "0 0", filter: "blur(0)" },
+    ],
+    { duration: 450, easing: "cubic-bezier(0.2, 0.7, 0.2, 1)" },
+  );
+}
+
 /** Moves the vertical marker to the current menu item. On the very first draw it jumps there instead of gliding in from the top. */
 function placeBar(root: HTMLElement, instant: boolean): void {
   const bar = root.querySelector<HTMLElement>(".bar");
@@ -610,6 +639,66 @@ function stopAdjusting(root: HTMLElement): void {
 
 let imageErrorsBound = false;
 
+/**
+ * The Android app's tab animations (ui/NavBar.kt), same keyframes and timings, scaled to these smaller icons: Home hops,
+ * Interests beats (like AI), the gear springs half a turn (like Settings), Help winds back a full turn (like History),
+ * Account wiggles (like Search). Compose keyframes move in straight lines between points, as these do.
+ */
+const navMotion: Record<Page, { frames: Keyframe[]; duration: number; easing?: string }> = {
+  home: {
+    frames: [
+      { transform: "translateY(0) scale(1)" },
+      { transform: "translateY(-5px) scale(1.15)", offset: 160 / 520 },
+      { transform: "translateY(0) scale(0.94)", offset: 320 / 520 },
+      { transform: "translateY(-1.5px) scale(1.03)", offset: 420 / 520 },
+      { transform: "translateY(0) scale(1)" },
+    ],
+    duration: 520,
+  },
+  interests: {
+    frames: [
+      { transform: "scale(1)" },
+      { transform: "scale(1.28)", offset: 120 / 620 },
+      { transform: "scale(0.95)", offset: 240 / 620 },
+      { transform: "scale(1.15)", offset: 360 / 620 },
+      { transform: "scale(1)", offset: 480 / 620 },
+      { transform: "scale(1)" },
+    ],
+    duration: 620,
+  },
+  // spring(dampingRatio 0.5, stiffness 110) to 180 degrees: overshoots to about 209, swings back to 175, settles.
+  settings: {
+    frames: [
+      { transform: "rotate(0)", easing: "cubic-bezier(0.3, 0.6, 0.5, 1)" },
+      { transform: "rotate(209deg)", offset: 0.32, easing: "ease-in-out" },
+      { transform: "rotate(175deg)", offset: 0.63, easing: "ease-in-out" },
+      { transform: "rotate(181deg)", offset: 0.9, easing: "ease-in-out" },
+      { transform: "rotate(180deg)" },
+    ],
+    duration: 1100,
+  },
+  help: { frames: [{ transform: "rotate(0)" }, { transform: "rotate(-360deg)" }], duration: 750, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
+  account: {
+    frames: [
+      { transform: "rotate(0)" },
+      { transform: "rotate(-20deg)", offset: 110 / 560 },
+      { transform: "rotate(16deg)", offset: 240 / 560 },
+      { transform: "rotate(-8deg)", offset: 360 / 560 },
+      { transform: "rotate(4deg)", offset: 460 / 560 },
+      { transform: "rotate(0)" },
+    ],
+    duration: 560,
+  },
+};
+
+/** Plays the clicked menu item's icon motion (Web Animations, so a redraw of the menu doesn't cut it short). */
+function playNavIcon(root: HTMLElement, id: Page): void {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const icon = root.querySelector<HTMLElement>(`.nav-item[data-v="${id}"] > svg`);
+  const { frames, duration, easing = "linear" } = navMotion[id];
+  icon?.animate(frames, { duration, easing });
+}
+
 function bind(root: HTMLElement, state: PanelState, actions: PanelActions): void {
   if (!imageErrorsBound) {
     imageErrorsBound = true;
@@ -626,10 +715,13 @@ function bind(root: HTMLElement, state: PanelState, actions: PanelActions): void
     if (!el || el instanceof HTMLInputElement) return;
     const v = el.dataset.v ?? "";
     switch (el.dataset.act) {
-      case "nav":
+      case "nav": {
+        const moved = page !== v; // the page already open doesn't play again
         page = v as Page;
         confirmingDisconnect = false;
-        return renderPanel(root, state, actions);
+        renderPanel(root, state, actions);
+        return moved ? playNavIcon(root, page) : undefined;
+      }
       case "open-app":
         return actions.openApp(); // the link itself launches Oriel; this only tells the person
       case "connect":
