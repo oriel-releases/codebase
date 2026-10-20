@@ -38,6 +38,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITopicPicker>(_ => new RandomTopicPicker());
         services.AddSingleton<UnsplashProvider>();
         services.AddSingleton<IImageProvider>(sp => sp.GetRequiredService<UnsplashProvider>());
+        services.AddSingleton<PollinationsClient>();
         services.AddSingleton<SyncPublisher>();
         services.AddSingleton<ShareService>();
         services.AddSingleton<ISyncPublisher>(sp => sp.GetRequiredService<SyncPublisher>());

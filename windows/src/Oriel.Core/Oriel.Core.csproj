@@ -45,4 +45,26 @@
     </ItemGroup>
   </Target>
 
+  <!--
+    The Pollinations key for AI wallpapers (Create page), the same way: POLLINATIONS_KEY in the environment, else in
+    the .env file. It ends up as [AssemblyMetadata("PollinationsKey", ...)] and is read by PollinationsClient.
+  -->
+  <Target Name="EmbedPollinationsKey" BeforeTargets="GetAssemblyAttributes">
+    <ReadLinesFromFile File="$(OrielEnvFile)" Condition="'$(POLLINATIONS_KEY)' == '' And Exists('$(OrielEnvFile)')">
+      <Output TaskParameter="Lines" ItemName="_OrielAiEnvLine" />
+    </ReadLinesFromFile>
+    <ItemGroup>
+      <_OrielAiKeyLine Include="@(_OrielAiEnvLine)" Condition="$([System.String]::Copy('%(Identity)').Trim().StartsWith('POLLINATIONS_KEY='))" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_OrielAiKeyLineText>@(_OrielAiKeyLine)</_OrielAiKeyLineText>
+      <_OrielAiKey>$(POLLINATIONS_KEY)</_OrielAiKey>
+      <_OrielAiKey Condition="'$(_OrielAiKey)' == '' And '$(_OrielAiKeyLineText)' != ''">$(_OrielAiKeyLineText.Trim().Substring(17).Trim().Trim('"'))</_OrielAiKey>
+    </PropertyGroup>
+    <Warning Condition="'$(_OrielAiKey)' == ''" Text="No Pollinations key: set POLLINATIONS_KEY or add it to $(OrielEnvFile). The app will build but can't create AI wallpapers." />
+    <ItemGroup>
+      <AssemblyMetadata Include="PollinationsKey" Value="$(_OrielAiKey)" Condition="'$(_OrielAiKey)' != ''" />
+    </ItemGroup>
+  </Target>
+
 </Project>

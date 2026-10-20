@@ -274,20 +274,22 @@ public sealed class FollowService(AuthService auth, FirebaseClient firebase, ISe
         {
             if (await auth.GetTokensAsync(ct) is not { } tokens) return;
             var owner = settings.FollowUid ?? tokens.Uid;
-            string? photoId;
+            CurrentPhoto? current;
             try
             {
-                photoId = await firebase.GetCurrentPhotoIdAsync(tokens, owner, ct);
+                current = await firebase.GetCurrentPhotoAsync(tokens, owner, ct);
             }
             catch (FirebaseException ex) when (ex.Failure == FirebaseFailure.Rejected && following)
             {
                 SetProblem($"{settings.FollowName ?? "Your friend"} stopped sharing their wallpaper.");
                 return;
             }
+            var (photoId, color) = (current?.PhotoId, current?.Color);
             var state = store.LoadState();
             if (photoId is null || photoId == state.FollowedPhotoId)
             {
                 if (state.FollowProblem is not null) SetProblem(null);
+                await TakeAccentAsync(photoId, color);
                 return;
             }
             // Already on this device (it published it, or showed it before): nothing to do.
@@ -295,8 +297,21 @@ public sealed class FollowService(AuthService auth, FirebaseClient firebase, ISe
             {
                 state.FollowedPhotoId = photoId;
                 store.SaveState(state);
+                await TakeAccentAsync(photoId, color);
                 return;
             }
+            // An AI wallpaper made on another device: downloaded from its public link.
+            if (Providers.PollinationsClient.IsAiPhoto(photoId))
+            {
+                if (Providers.PollinationsClient.FromLink(current!.ImageUrl ?? "", current.Description) is not { } made) return;
+                if (color is not null) wallpapers.RememberAccent(photoId, color);
+                wallpapers.ReportPhase(ApplyPhase.Receiving);
+                if ((await wallpapers.ApplyLinkedAsync(made, following ? $"from {settings.FollowName}" : "synced", following, ct)).Status
+                    != ApplyStatus.Applied) return;
+                Received(photoId, following);
+                return;
+            }
+
             wallpapers.ReportPhase(ApplyPhase.Receiving);
             PhotoCandidate photo;
             try
@@ -308,15 +323,12 @@ public sealed class FollowService(AuthService auth, FirebaseClient firebase, ISe
                 wallpapers.FinishPhase();
                 throw;
             }
+            // Its accent: the color the other device chose, so every device shows the same one.
+            if (color is not null) wallpapers.RememberAccent(photoId, color);
             // A friend's photo is passed on to this account's other devices; the account's own isn't sent back.
             var result = await wallpapers.ApplyPhotoAsync(photo, following ? $"from {settings.FollowName}" : "synced", ct, publish: following);
             if (result.Status != ApplyStatus.Applied) return;
-            state = store.LoadState();
-            state.FollowedPhotoId = photoId;
-            state.FollowProblem = null;
-            store.SaveState(state);
-            log.LogInformation(following ? "Applied the followed friend's wallpaper {Photo}" : "Applied the wallpaper set on another device {Photo}", photoId);
-            Changed?.Invoke(this, EventArgs.Empty);
+            Received(photoId, following);
         }
         catch (Exception ex) when (ex is FirebaseException or Providers.ProviderException)
         {
@@ -326,6 +338,25 @@ public sealed class FollowService(AuthService auth, FirebaseClient firebase, ISe
         {
             _check.Release();
         }
+    }
+
+    void Received(string photoId, bool following)
+    {
+        var state = store.LoadState();
+        state.FollowedPhotoId = photoId;
+        state.FollowProblem = null;
+        store.SaveState(state);
+        log.LogInformation(following ? "Applied the followed friend's wallpaper {Photo}" : "Applied the wallpaper set on another device {Photo}", photoId);
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Another device chose another accent color for the photo on screen here: it is used here too.</summary>
+    async Task TakeAccentAsync(string? photoId, string? color)
+    {
+        if (photoId is null || color is null || history?.List().FirstOrDefault()?.PhotoId != photoId) return;
+        if (string.Equals(wallpapers.ChosenAccent(photoId), color, StringComparison.OrdinalIgnoreCase)) return;
+        await wallpapers.ReceiveAccentAsync(photoId, color);
+        log.LogInformation("Using the accent color {Color} chosen on another device", color);
     }
 
     void SetProblem(string? problem)

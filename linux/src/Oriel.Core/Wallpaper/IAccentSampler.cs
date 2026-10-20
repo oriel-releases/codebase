@@ -5,4 +5,7 @@ public interface IAccentSampler
 {
     /// <summary>The photo's accent color as "#RRGGBB", or null when it can't be read.</summary>
     Task<string?> SampleAsync(string imagePath);
+
+    /// <summary>The photo's top accent colors (up to three, best first), for the user to choose from on Home.</summary>
+    Task<IReadOnlyList<string>> SampleTopAsync(string imagePath);
 }

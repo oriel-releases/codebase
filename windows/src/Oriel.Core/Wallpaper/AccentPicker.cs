@@ -7,7 +7,14 @@ public static class AccentPicker
 
     /// <summary>The photo's most striking color, adjusted so it works as a UI accent (white text stays readable).</summary>
     /// <param name="bgra">Pixels as B,G,R,A bytes (what the WinRT decoder returns).</param>
-    public static (byte R, byte G, byte B) Pick(ReadOnlySpan<byte> bgra)
+    public static (byte R, byte G, byte B) Pick(ReadOnlySpan<byte> bgra) => PickTop(bgra, 1)[0];
+
+    /// <summary>
+    /// The photo's most used striking colors, best first, each from its own part of the color wheel when the photo has
+    /// enough of them (so three blues don't fill the choice), and adjusted like <see cref="Pick"/>. Always
+    /// <paramref name="count"/>: a photo with fewer colors gets neighboring hues, then lighter and darker shades.
+    /// </summary>
+    public static IReadOnlyList<(byte R, byte G, byte B)> PickTop(ReadOnlySpan<byte> bgra, int count = 3)
     {
         var weight = new double[HueBuckets];
         var sumR = new double[HueBuckets];
@@ -31,25 +38,53 @@ public static class AccentPicker
             sumR[bucket] += r * w; sumG[bucket] += g * w; sumB[bucket] += b * w;
         }
 
-        var best = Array.IndexOf(weight, weight.Max());
-        double mr, mg, mb;
-        if (weight[best] > 0)
+        var top = weight.Max();
+        if (top <= 0)
         {
-            mr = sumR[best] / weight[best]; mg = sumG[best] / weight[best]; mb = sumB[best] / weight[best];
-        }
-        else if (n > 0)
-        {
-            mr = allR / n; mg = allG / n; mb = allB / n;   // a grayscale photo: use its average
-        }
-        else
-        {
-            return (0x00, 0x78, 0xD4);
+            if (n == 0) return Shades((0x00, 0x78, 0xD4), count);
+            var (ah, as_, av) = ToHsv(allR / n, allG / n, allB / n);   // a grayscale photo: its average, in shades
+            return Shades(FromHsv(ah, as_, Math.Clamp(av, 0.55, 0.85)), count);
         }
 
-        var (hue, sat, val) = ToHsv(mr, mg, mb);
-        if (weight[best] > 0) sat = Math.Max(sat, 0.55);
-        val = Math.Clamp(val, 0.55, 0.85);
-        return FromHsv(hue, sat, val);
+        var picked = new List<int>();
+        foreach (var bucket in Enumerable.Range(0, HueBuckets).OrderByDescending(i => weight[i]))
+        {
+            if (picked.Count == count) break;
+            // A color the photo barely has isn't worth offering.
+            if (weight[bucket] < top * 0.04) break;
+            // Its own hue: not next to one already picked (the wheel wraps around).
+            if (picked.Any(p => Math.Min(Math.Abs(p - bucket), HueBuckets - Math.Abs(p - bucket)) <= 1)) continue;
+            picked.Add(bucket);
+        }
+        // Few colors: the next most used hues, even next to one already picked.
+        foreach (var bucket in Enumerable.Range(0, HueBuckets).OrderByDescending(i => weight[i]))
+        {
+            if (picked.Count == count || weight[bucket] <= 0) break;
+            if (!picked.Contains(bucket)) picked.Add(bucket);
+        }
+
+        var colors = picked.Select(i =>
+        {
+            var (hue, sat, val) = ToHsv(sumR[i] / weight[i], sumG[i] / weight[i], sumB[i] / weight[i]);
+            return FromHsv(hue, Math.Max(sat, 0.55), Math.Clamp(val, 0.55, 0.85));
+        }).Distinct().ToList();
+        // Still short (one hue only): its lighter and darker shades.
+        foreach (var shade in Shades(colors[0], count).Skip(1))
+            if (colors.Count < count && !colors.Contains(shade)) colors.Add(shade);
+        return colors;
+    }
+
+    /// <summary>The color, then a darker and a lighter shade of it, and so on: <paramref name="count"/> in all.</summary>
+    static List<(byte R, byte G, byte B)> Shades((byte R, byte G, byte B) color, int count)
+    {
+        var (h, s, v) = ToHsv(color.R, color.G, color.B);
+        var shades = new List<(byte R, byte G, byte B)> { color };
+        for (var i = 1; shades.Count < count && i <= count; i++)
+        {
+            if (shades.Count < count) shades.Add(FromHsv(h, s, Math.Max(0.3, v - 0.2 * i)));
+            if (shades.Count < count) shades.Add(FromHsv(h, s * 0.7, Math.Min(1, v + 0.15 * i)));
+        }
+        return shades;
     }
 
     public static string ToHex((byte R, byte G, byte B) c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";

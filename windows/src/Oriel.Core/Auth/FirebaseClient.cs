@@ -22,6 +22,9 @@ public sealed record Follower(string Uid, string Name, DateTimeOffset? Since);
 
 public sealed record SessionInfo(string Platform, string DeviceName, string AppVersion);
 
+/// <summary>What another device shows now, read from <c>sync/current</c>.</summary>
+public sealed record CurrentPhoto(string PhotoId, string? Color, string? ImageUrl, string? Description);
+
 /// <summary>The wallpaper a desktop app applied last, shared through <c>users/{uid}/sync/current</c> so the browser extension can show the same photo.</summary>
 public sealed record CurrentWallpaper(string PhotoId, string ImageUrl, string PageUrl, string Photographer, string PhotographerUrl,
     string? Description, string? Topic, string Source, string? Color = null);
@@ -475,11 +478,26 @@ public sealed class FirebaseClient(HttpClient http)
     /// The photo a friend has on their desktop now (their <c>sync/current</c>), or null if they have none yet.
     /// Throws <see cref="FirebaseFailure.Rejected"/> once they stop sharing (the rules no longer let us read it).
     /// </summary>
-    public async Task<string?> GetCurrentPhotoIdAsync(FirebaseTokens tokens, string ownerUid, CancellationToken ct = default)
+    public async Task<string?> GetCurrentPhotoIdAsync(FirebaseTokens tokens, string ownerUid, CancellationToken ct = default) =>
+        (await GetCurrentPhotoAsync(tokens, ownerUid, ct))?.PhotoId;
+
+    /// <summary>
+    /// The same, with the accent color chosen for it ("#RRGGBB", when there is one), and the picture's link and words (an
+    /// AI wallpaper is downloaded from that link, not looked up on Unsplash).
+    /// </summary>
+    public async Task<CurrentPhoto?> GetCurrentPhotoAsync(FirebaseTokens tokens, string ownerUid, CancellationToken ct = default)
     {
-        var fields = await GetDocumentAsync(CurrentUrl(ownerUid) + "?mask.fieldPaths=photoId", tokens, ct);
-        return fields is { } f ? StringField(f, "photoId") : null;
+        var fields = await GetDocumentAsync(CurrentUrl(ownerUid) +
+            "?mask.fieldPaths=photoId&mask.fieldPaths=color&mask.fieldPaths=imageUrl&mask.fieldPaths=description", tokens, ct);
+        return fields is { } f && StringField(f, "photoId") is { } id
+            ? new CurrentPhoto(id, StringField(f, "color"), StringField(f, "imageUrl"), StringField(f, "description"))
+            : null;
     }
+
+    /// <summary>Changes only the accent color of <c>sync/current</c> (the user chose another one of the photo's colors).</summary>
+    public Task SetCurrentColorAsync(FirebaseTokens tokens, string color, CancellationToken ct = default) =>
+        WriteDocumentAsync(CurrentUrl(tokens.Uid) + "?updateMask.fieldPaths=color&updateMask.fieldPaths=updatedAt", tokens,
+            new Dictionary<string, object> { ["color"] = Str(color), ["updatedAt"] = Time(DateTimeOffset.UtcNow) }, ct);
 
     /// <summary>A document's fields, or null when it doesn't exist.</summary>
     async Task<JsonElement?> GetDocumentAsync(string url, FirebaseTokens tokens, CancellationToken ct)
