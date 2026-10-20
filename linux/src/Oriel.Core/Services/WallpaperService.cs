@@ -95,7 +95,9 @@ public sealed class WallpaperService(
     IAuthState? auth = null,
     ISyncPublisher? sync = null,
     ISystemTheme? theme = null,
-    ISlotClaimer? slots = null)
+    ISlotClaimer? slots = null,
+    IAccentSampler? sampler = null,
+    PollinationsClient? ai = null)
 {
     const int MaxQueriesPerTarget = 3;
 
@@ -249,6 +251,57 @@ public sealed class WallpaperService(
         return (found.Photos.FirstOrDefault(p => p.IsLandscape) ?? found.Photos.FirstOrDefault())?.ThumbnailUrl;
     }
 
+    /// <summary>The size one picture for every screen is made for (the biggest screen, or all of them when spanned).</summary>
+    public PixelSize ScreenSize() => PlanTargets(setter.GetMonitors(), settingsStore.Load(), perMonitor: false)[0].Size;
+
+    // ---------------------------------------------------------------- choosing the accent color
+
+    /// <summary>Raised after the accent color chosen for the photo on screen changed (here or on another device).</summary>
+    public event EventHandler? AccentChosen;
+
+    /// <summary>The colors offered for a photo on Home: its top three, best first (empty when it can't be read).</summary>
+    public async Task<IReadOnlyList<string>> AccentOptionsAsync(HistoryEntry entry)
+    {
+        if (sampler is null || !File.Exists(entry.FilePath)) return [];
+        try { return await sampler.SampleTopAsync(entry.FilePath); }
+        catch (Exception ex)
+        {
+            log.LogInformation("Couldn't read the colors of {Photo}: {Reason}", entry.PhotoId, ex.Message);
+            return [];
+        }
+    }
+
+    /// <summary>The accent color chosen for the photo, or null when Oriel picks it.</summary>
+    public string? ChosenAccent(string? photoId) =>
+        settingsStore.LoadState() is { AccentPhotoId: { } id, AccentColor: { } hex } && id == photoId ? hex : null;
+
+    /// <summary>
+    /// The user chose one of the photo's colors: it becomes the accent on the account's other devices (the browser
+    /// extension, Windows, Android).
+    /// </summary>
+    public async Task ChooseAccentAsync(HistoryEntry entry, string hex)
+    {
+        RememberAccent(entry.PhotoId, hex);
+        if (sync is not null) await sync.PublishColorAsync(entry, hex);
+    }
+
+    /// <summary>Another device chose this color for the photo on screen: used here too (when the accent follows the photo).</summary>
+    public Task ReceiveAccentAsync(string photoId, string hex)
+    {
+        RememberAccent(photoId, hex);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Keeps the color for the photo (before it's set, so setting it uses this color).</summary>
+    public void RememberAccent(string photoId, string hex)
+    {
+        var state = settingsStore.LoadState();
+        if (state.AccentPhotoId == photoId && string.Equals(state.AccentColor, hex, StringComparison.OrdinalIgnoreCase)) return;
+        state.AccentPhotoId = photoId;
+        state.AccentColor = hex.ToUpperInvariant();
+        settingsStore.SaveState(state);
+        AccentChosen?.Invoke(this, EventArgs.Empty);
+    }
     /// <summary>A photo someone shared with a link, looked up by its Unsplash ID.</summary>
     public Task<PhotoCandidate> GetSharedPhotoAsync(string id, CancellationToken ct = default)
     {
@@ -267,7 +320,36 @@ public sealed class WallpaperService(
         finally { FinishPhase(); }
     }
 
-    async Task<ApplyResult> ApplyPhotoNowAsync(PhotoCandidate photo, string? topic, bool publish, CancellationToken ct)
+    /// <summary>
+    /// Sets a picture Oriel already has in hand: an AI wallpaper from the Create page (shared with the account's other
+    /// devices through its public link), or one another device made.
+    /// </summary>
+    public async Task<ApplyResult> ApplyCreatedAsync(PhotoCandidate photo, byte[] image, string topic = "created", bool publish = true,
+        CancellationToken ct = default)
+    {
+        try { return await ApplyPhotoNowAsync(photo, topic, publish, ct, image); }
+        finally { FinishPhase(); }
+    }
+
+    /// <summary>An AI wallpaper made on another device (or a favorite of one): downloaded from its public link, then set.</summary>
+    public async Task<ApplyResult> ApplyLinkedAsync(PhotoCandidate photo, string topic, bool publish, CancellationToken ct = default)
+    {
+        if (ai is null) return new(ApplyStatus.Failed, [], "This build of Oriel can't show AI wallpapers.");
+        byte[] image;
+        try
+        {
+            PhaseChanged?.Invoke(this, ApplyPhase.Downloading);
+            image = await ai.DownloadAsync(photo, ct);
+        }
+        catch (ProviderException ex)
+        {
+            FinishPhase();
+            return new(ApplyStatus.Failed, [], ex.Message, ex.Kind);
+        }
+        return await ApplyCreatedAsync(photo, image, topic, publish, ct);
+    }
+
+    async Task<ApplyResult> ApplyPhotoNowAsync(PhotoCandidate photo, string? topic, bool publish, CancellationToken ct, byte[]? image = null)
     {
         if (auth is { IsSignedIn: false }) return SignInRequired;
 
@@ -278,11 +360,16 @@ public sealed class WallpaperService(
         try
         {
             var size = PlanTargets(setter.GetMonitors(), settings, perMonitor: false)[0].Size;
-            PhaseChanged?.Invoke(this, ApplyPhase.Downloading);
-            var bytes = await provider.DownloadAsync(photo, size, ct);
-            if (!LooksLikeJpeg(bytes))
+            var bytes = image;
+            if (bytes is null)
+            {
+                PhaseChanged?.Invoke(this, ApplyPhase.Downloading);
+                bytes = await provider.DownloadAsync(photo, size, ct);
+            }
+            if (!(image is null ? LooksLikeJpeg(bytes) : PollinationsClient.IsImage(bytes)))
                 throw new WallpaperException("Downloaded file isn't a valid image; keeping your current wallpaper.");
-            var file = await SaveAsync(photo, bytes, 0, paths.WallpaperFolder(settings), ct);
+            var file = await SaveAsync(photo, bytes, 0, paths.WallpaperFolder(settings), ct,
+                PollinationsClient.IsPng(bytes) ? ".png" : ".jpg");
             PhaseChanged?.Invoke(this, ApplyPhase.Changing);
 
             // Lock screen first: it is the slow one, and the desktop changing is the user's "done" signal.
@@ -297,7 +384,7 @@ public sealed class WallpaperService(
             }
 
             var entry = RecordEntry(photo, file, topic ?? "search", null, clock.Now);
-            await AfterChange(() => provider.TrackUsageAsync(photo, CancellationToken.None));
+            if (image is null) await AfterChange(() => provider.TrackUsageAsync(photo, CancellationToken.None));
 
             // Counts as today's change, so the scheduler doesn't replace it right away.
             var state = settingsStore.LoadState();
@@ -485,6 +572,13 @@ public sealed class WallpaperService(
     public async Task ReapplyAsync(HistoryEntry entry)
     {
         // A favorite from another device (or a file cleaned up since): fetched again, like a shared photo.
+        if (!File.Exists(entry.FilePath) && entry.Provider == PollinationsClient.Provider
+            && PollinationsClient.FromLink(entry.ThumbnailUrl, entry.Description) is { } made)
+        {
+            var result = await ApplyLinkedAsync(made, entry.Topic ?? "favorite", publish: true);
+            if (result.Status != ApplyStatus.Applied) throw new WallpaperException(result.Error ?? "Couldn't set it. Try again.");
+            return;
+        }
         if (!File.Exists(entry.FilePath) && entry.Provider == "unsplash")
         {
             var photo = await GetSharedPhotoAsync(entry.PhotoId);
@@ -810,11 +904,11 @@ public sealed class WallpaperService(
         return [new Target(0, null, new PixelSize(biggest.Width, biggest.Height))];
     }
 
-    async Task<string> SaveAsync(PhotoCandidate photo, byte[] bytes, int index, string folder, CancellationToken ct)
+    async Task<string> SaveAsync(PhotoCandidate photo, byte[] bytes, int index, string folder, CancellationToken ct, string extension = ".jpg")
     {
         Directory.CreateDirectory(folder);
         var suffix = index > 0 ? $"_{index}" : "";
-        var name = $"{clock.Now:yyyy-MM-dd}_{photo.Provider}_{Sanitize(photo.Id)}{suffix}.jpg";
+        var name = $"{clock.Now:yyyy-MM-dd}_{photo.Provider}_{Sanitize(photo.Id)}{suffix}{extension}";
         var file = Path.Combine(folder, name);
         var tmp = file + ".part";
         await File.WriteAllBytesAsync(tmp, bytes, ct);

@@ -157,4 +157,11 @@ public sealed class OrielState
     public string? FollowedPhotoId { get; set; }
     /// <summary>Why following doesn't work right now (the friend stopped sharing), for the UI.</summary>
     public string? FollowProblem { get; set; }
+
+    /// <summary>
+    /// The accent color chosen for a photo (on Home here, or on another device of the account), used instead of the one
+    /// Oriel picks itself. Only the photo on screen matters, so one is kept.
+    /// </summary>
+    public string? AccentPhotoId { get; set; }
+    public string? AccentColor { get; set; }
 }

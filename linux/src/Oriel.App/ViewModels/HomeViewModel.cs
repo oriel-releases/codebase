@@ -44,6 +44,8 @@ public sealed partial class HomeViewModel : ObservableObject
         _settings.SettingsChanged += (_, _) => Dispatcher.UIThread.Post(() => _ = RefreshAsync());
         // Whatever is changing the wallpaper (this button, the schedule, the tray, another device), the button says so.
         _wallpapers.PhaseChanged += (_, p) => Dispatcher.UIThread.Post(() => OnPhase(p));
+        // An accent color chosen here or on another device: its swatch gets the ring.
+        _wallpapers.AccentChosen += (_, _) => Dispatcher.UIThread.Post(MarkChosenAccent);
     }
 
     public InfoState Info { get; } = new();
@@ -54,6 +56,47 @@ public sealed partial class HomeViewModel : ObservableObject
     public partial bool HasCurrent { get; set; }
     public bool HasNoCurrent => !HasCurrent;
     [ObservableProperty] public partial string PhotographerName { get; set; } = "";
+    // ---- The accent color: the photo's top three, one of them chosen ----
+
+    public System.Collections.ObjectModel.ObservableCollection<AccentSwatchViewModel> Accents { get; } = [];
+    [ObservableProperty] public partial bool HasAccents { get; set; }
+    HistoryEntry? _accentEntry;
+
+    async Task LoadAccentsAsync(HistoryEntry entry)
+    {
+        _accentEntry = entry;
+        var options = await _wallpapers.AccentOptionsAsync(entry);
+        if (_accentEntry != entry) return; // a newer photo came meanwhile
+        Accents.Clear();
+        foreach (var hex in options) Accents.Add(new AccentSwatchViewModel(this, hex));
+        // The chosen color may be one picked from another device's copy: shown first when it isn't among these.
+        if (_wallpapers.ChosenAccent(entry.PhotoId) is { } chosen && !Accents.Any(a => a.Is(chosen)))
+        {
+            Accents.Insert(0, new AccentSwatchViewModel(this, chosen));
+            if (Accents.Count > 3) Accents.RemoveAt(3);
+        }
+        HasAccents = Accents.Count > 0;
+        MarkChosenAccent();
+    }
+
+    void MarkChosenAccent()
+    {
+        var chosen = _accentEntry is { } e ? _wallpapers.ChosenAccent(e.PhotoId) : null;
+        for (var i = 0; i < Accents.Count; i++)
+            Accents[i].IsChosen = chosen is null ? i == 0 : Accents[i].Is(chosen);
+    }
+
+    internal async Task ChooseAccentAsync(AccentSwatchViewModel swatch)
+    {
+        if (_accentEntry is not { } entry || swatch.IsChosen) return;
+        foreach (var a in Accents) a.IsChosen = a == swatch;
+        await Task.Run(() => _wallpapers.ChooseAccentAsync(entry, swatch.Hex));
+    }
+    /// <summary>An Unsplash photo ("Photo by … on Unsplash"), not one made with AI on the Create page.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CreditLead))]
+    public partial bool IsPhoto { get; set; } = true;
+    public string CreditLead => IsPhoto ? "Photo by" : "Made with";
     [ObservableProperty] public partial Uri? PhotographerUri { get; set; }
     [ObservableProperty] public partial Uri? PhotoPageUri { get; set; }
     [ObservableProperty] public partial string Caption { get; set; } = "";
@@ -167,6 +210,7 @@ public sealed partial class HomeViewModel : ObservableObject
             if (latest is not null)
             {
                 IsFavorite = latest.IsFavorite;
+                IsPhoto = latest.Provider != Oriel.Core.Providers.PollinationsClient.Provider;
                 PhotographerName = latest.PhotographerName;
                 PhotographerUri = new Uri(latest.PhotographerUrl);
                 PhotoPageUri = new Uri(latest.PhotoPageUrl);
@@ -180,6 +224,7 @@ public sealed partial class HomeViewModel : ObservableObject
                     var old = Preview;
                     Preview = await ImageLoader.LoadAsync(latest.FilePath, latest.ThumbnailUrl, 1200);
                     old?.Dispose();
+                    await LoadAccentsAsync(latest);
                 }
             }
 
@@ -365,4 +410,21 @@ public sealed partial class HomeViewModel : ObservableObject
     }
 
     static string Cap(string s) => s.Length == 0 ? s : char.ToUpper(s[0]) + s[1..];
+}
+
+/// <summary>One of the photo's colors on Home; choosing it makes it the accent on the account's other devices.</summary>
+public sealed partial class AccentSwatchViewModel(HomeViewModel owner, string hex) : ObservableObject
+{
+    public string Hex { get; } = hex.ToUpperInvariant();
+    public Avalonia.Media.IBrush Brush { get; } = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(hex));
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RingOpacity))]
+    public partial bool IsChosen { get; set; }
+    /// <summary>The ring around the chosen color.</summary>
+    public double RingOpacity => IsChosen ? 1 : 0;
+
+    public bool Is(string other) => string.Equals(Hex, other, StringComparison.OrdinalIgnoreCase);
+
+    [RelayCommand] Task Choose() => owner.ChooseAccentAsync(this);
 }

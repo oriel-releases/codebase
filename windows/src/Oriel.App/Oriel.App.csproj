@@ -24,7 +24,7 @@
     <!-- We own Main() so the same exe can run headless (apply-today CLI mode). -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
 
-    <Version>1.0.8</Version>
+    <Version>1.1.0</Version>
     <Product>Oriel</Product>
   </PropertyGroup>
 

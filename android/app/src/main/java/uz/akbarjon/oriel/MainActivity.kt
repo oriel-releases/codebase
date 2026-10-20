@@ -55,7 +55,6 @@ import uz.akbarjon.oriel.data.Photo
 import uz.akbarjon.oriel.data.Unsplash
 import uz.akbarjon.oriel.ui.HistoryScreen
 import uz.akbarjon.oriel.ui.HomeScreen
-import uz.akbarjon.oriel.ui.FriendsScreen
 import uz.akbarjon.oriel.ui.LocalSnackbar
 import uz.akbarjon.oriel.ui.NavBar
 import uz.akbarjon.oriel.ui.OrielTheme
@@ -195,8 +194,8 @@ class MainActivity : ComponentActivity() {
                         CompositionLocalProvider(LocalNavOnSide provides side) { when (t) {
                             Tab.Home -> HomeScreen()
                             Tab.Search -> SearchScreen()
+                            Tab.Create -> uz.akbarjon.oriel.ui.CreateScreen()
                             Tab.History -> HistoryScreen()
-                            Tab.Friends -> FriendsScreen()
                             Tab.Settings -> SettingsScreen(onSignedOut = { tab = Tab.Home })
                         } }
                     }

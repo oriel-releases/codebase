@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The development app sits next to the real one on a phone: its own name tells them apart. -->
+<resources>
+    <string name="app_name">Oriel (Dev)</string>
+</resources>

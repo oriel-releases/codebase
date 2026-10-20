@@ -78,7 +78,7 @@ private enum class Mode { Smart, Center, Custom }
  * CDN does the cropping, so it stays full quality) and remembers it for this photo. Only this phone's.
  */
 @Composable
-fun PositionEditor(photo: Photo, onDismiss: () -> Unit) {
+fun PositionEditor(photo: Photo, onSet: (suspend (Position) -> ChangeResult)? = null, onDismiss: () -> Unit) {
     val snackbar = LocalSnackbar.current
     val haptics = LocalHapticFeedback.current
     val busy by Oriel.wallpapers.busy.collectAsState()
@@ -100,10 +100,7 @@ fun PositionEditor(photo: Photo, onDismiss: () -> Unit) {
         Box(Modifier.fillMaxSize().background(Color(0xFF0B0B0D))) {
             Column(Modifier.fillMaxSize().systemBarsPadding().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Position", style = MaterialTheme.typography.titleLarge, color = White)
-                        Text("Drag to choose what your screen shows", style = MaterialTheme.typography.bodySmall, color = White.copy(alpha = 0.6f))
-                    }
+                    Text("Position", style = MaterialTheme.typography.titleLarge, color = White, modifier = Modifier.weight(1f))
                     Box(Modifier.size(40.dp).clip(CircleShape).background(White.copy(alpha = 0.12f)).springClick(!busy, onClick = onDismiss),
                         contentAlignment = Alignment.Center) { Icon(OrielIcons.Close, "Close", tint = White, modifier = Modifier.size(18.dp)) }
                 }
@@ -211,7 +208,8 @@ fun PositionEditor(photo: Photo, onDismiss: () -> Unit) {
                             Mode.Custom -> Position.Focus(focus, focusY)
                         }
                         Oriel.scope.launch(Dispatchers.Main) {
-                            when (val result = Oriel.wallpapers.reposition(photo, position)) {
+                            // A picture not set yet (the AI tab) is set with this crop; the wallpaper on screen is cropped again.
+                            when (val result = onSet?.invoke(position) ?: Oriel.wallpapers.reposition(photo, position)) {
                                 is ChangeResult.Applied -> { onDismiss(); snackbar.showSnackbar("Position set") }
                                 is ChangeResult.Failed -> snackbar.showSnackbar(result.message)
                                 ChangeResult.Skipped -> Unit

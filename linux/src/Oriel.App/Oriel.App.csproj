@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>1.0.3</Version>
+    <Version>1.1.0</Version>
     <Product>Oriel</Product>
 
     <!-- Bindings are checked at build time and need no reflection at run time. -->

@@ -1,5 +1,9 @@
 package uz.akbarjon.oriel.ui
 
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.Alignment
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.LruCache
@@ -54,9 +58,16 @@ private object Thumbnails {
 /** A photo from the network as a bitmap (through the same caches), for screens that draw it themselves. */
 suspend fun loadBitmap(url: String): ImageBitmap? = Thumbnails.load(url)
 
-/** A photo from the network, over its own color until it arrives. */
+/**
+ * A photo from the network, over its own color until it arrives. [focus] (0..1 across and down) is the point the crop is
+ * centered on, kept inside the photo: the same rule the phone uses to crop an AI wallpaper ([Wallpapers.fetch]), so a
+ * preview shows exactly what the screen does. Without it the middle shows.
+ */
 @Composable
-fun RemoteImage(url: String?, contentDescription: String?, modifier: Modifier = Modifier, placeholder: Color = Palette.colors.surface) {
+fun RemoteImage(
+    url: String?, contentDescription: String?, modifier: Modifier = Modifier, placeholder: Color = Palette.colors.surface,
+    focus: Pair<Float, Float>? = null,
+) {
     val bitmap by produceState(url?.let { Thumbnails.cached(it) }, url) {
         value = url?.let { Thumbnails.cached(it) }
         if (value == null && url != null) value = Thumbnails.load(url)
@@ -65,7 +76,17 @@ fun RemoteImage(url: String?, contentDescription: String?, modifier: Modifier = 
     val alpha by animateFloatAsState(if (bitmap != null) 1f else 0f, tween(220), label = "fade")
     Box(modifier.background(placeholder)) {
         bitmap?.let {
-            Image(it, contentDescription, Modifier.matchParentSize().alpha(alpha), contentScale = ContentScale.Crop)
+            Image(it, contentDescription, Modifier.matchParentSize().alpha(alpha), contentScale = ContentScale.Crop,
+                alignment = focus?.let { (fx, fy) -> FocusAlignment(fx, fy) } ?: Alignment.Center)
         }
+    }
+}
+
+/** Puts the photo's point ([x], [y], 0..1) in the middle of the frame, as far as the photo's edges allow. */
+private class FocusAlignment(private val x: Float, private val y: Float) : Alignment {
+    override fun align(size: IntSize, space: IntSize, layoutDirection: LayoutDirection): IntOffset {
+        val ox = (size.width * x - space.width / 2f).coerceIn(0f, (size.width - space.width).coerceAtLeast(0).toFloat())
+        val oy = (size.height * y - space.height / 2f).coerceIn(0f, (size.height - space.height).coerceAtLeast(0).toFloat())
+        return IntOffset(-ox.toInt(), -oy.toInt())
     }
 }

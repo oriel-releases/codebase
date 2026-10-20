@@ -110,18 +110,23 @@ public sealed class FavoritesSync(AuthService auth, FirebaseClient firebase, IHi
         var at = newest is { } n && change.UpdatedAt >= n ? n.AddSeconds(-1) : change.UpdatedAt;
         var id = history.Add(new HistoryEntry
         {
-            Provider = "unsplash", PhotoId = change.PhotoId, FilePath = "",
-            ThumbnailUrl = change.ImageUrl + (change.ImageUrl.Contains('?') ? "&" : "?") + "w=640&q=80&fm=jpg&fit=max",
+            // An AI wallpaper made on another device has no smaller copy: its own link is the thumbnail.
+            Provider = Providers.PollinationsClient.IsAiPhoto(change.PhotoId) ? Providers.PollinationsClient.Provider : "unsplash",
+            PhotoId = change.PhotoId, FilePath = "",
+            ThumbnailUrl = Providers.PollinationsClient.IsMediaLink(change.ImageUrl) ? change.ImageUrl
+                : change.ImageUrl + (change.ImageUrl.Contains('?') ? "&" : "?") + "w=640&q=80&fm=jpg&fit=max",
             PhotoPageUrl = change.PageUrl, PhotographerName = change.Photographer, PhotographerUrl = change.PhotographerUrl,
             Description = change.Description, Topic = "favorite", AppliedAt = at, IsFavorite = true,
         });
         history.SetFavorite(id, true);
     }
 
-    /// <summary>Only Unsplash photos can be shared between devices (every device fetches its own copy).</summary>
+    /// <summary>Unsplash photos and AI wallpapers (their public link) can be shared between devices; each fetches its own copy.</summary>
     static SyncedFavorite? ToSynced(HistoryEntry e, DateTimeOffset at) =>
         Uri.TryCreate(e.ThumbnailUrl, UriKind.Absolute, out var image) && image.Host == "images.unsplash.com"
             ? new SyncedFavorite(e.PhotoId, $"https://images.unsplash.com{image.AbsolutePath}", e.PhotoPageUrl, e.PhotographerName,
                 e.PhotographerUrl, e.Description, e.IsFavorite, at)
-            : null;
+            : Providers.PollinationsClient.IsMediaLink(e.ThumbnailUrl)
+                ? new SyncedFavorite(e.PhotoId, e.ThumbnailUrl, e.PhotoPageUrl, e.PhotographerName, e.PhotographerUrl, e.Description, e.IsFavorite, at)
+                : null;
 }

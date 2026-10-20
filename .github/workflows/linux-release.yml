@@ -4,6 +4,8 @@
 #
 # Repository secrets (Settings > Secrets and variables > Actions):
 #   LINUX_UNSPLASH_ACCESS_KEY   the Unsplash access key the Linux app is built with (UNSPLASH_ACCESS_KEY in linux/.env)
+#   LINUX_POLLINATIONS_KEY      the Pollinations key for AI wallpapers (POLLINATIONS_KEY in linux/.env; optional:
+#                               without it the Create page says it isn't available)
 #   LINUX_RELEASES_TOKEN        a fine-grained token with Contents: read and write on oriel-releases/linux
 #                               (optional: without it, RELEASES_TOKEN is used, if it also covers oriel-releases/linux)
 name: Linux release
@@ -47,6 +49,7 @@ jobs:
       - name: Build, pack and publish
         env:
           UNSPLASH_ACCESS_KEY: ${{ secrets.LINUX_UNSPLASH_ACCESS_KEY }}
+          POLLINATIONS_KEY: ${{ secrets.LINUX_POLLINATIONS_KEY }}
           GITHUB_TOKEN: ${{ secrets.LINUX_RELEASES_TOKEN || secrets.RELEASES_TOKEN }}
         run: |
           if [[ -z "$UNSPLASH_ACCESS_KEY" ]]; then

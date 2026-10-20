@@ -38,4 +38,36 @@ public sealed class AccentPickerTests
 
     [Fact]
     public void Hex_is_uppercase_rrggbb() => Assert.Equal("#0078D4", AccentPicker.ToHex((0, 120, 212)));
+
+    [Fact]
+    public void Top_colors_come_from_different_hues_most_used_first()
+    {
+        var blue = Solid(20, 90, 220, 600);
+        var orange = Solid(230, 120, 20, 300);
+        var green = Solid(40, 180, 60, 100);
+        var bluish = Solid(30, 110, 230, 200); // next to blue: not offered on its own
+        var top = AccentPicker.PickTop(blue.Concat(orange).Concat(green).Concat(bluish).ToArray());
+        Assert.Equal(3, top.Count);
+        Assert.True(top[0].B > top[0].R, "blue first");
+        Assert.True(top[1].R > top[1].B, "orange second");
+        Assert.True(top[2].G > top[2].R && top[2].G > top[2].B, "green third");
+        Assert.Equal(top[0], AccentPicker.Pick(blue.Concat(orange).Concat(green).Concat(bluish).ToArray()));
+    }
+
+    [Fact]
+    public void A_photo_of_one_color_still_offers_three()
+    {
+        var top = AccentPicker.PickTop(Solid(20, 90, 220, 1000).ToArray());
+        Assert.Equal(3, top.Count);
+        Assert.Equal(3, top.Distinct().Count());
+        Assert.Equal(3, AccentPicker.PickTop(Solid(100, 100, 100, 500)).Distinct().Count());
+    }
+
+    [Fact]
+    public void Ai_pictures_keep_the_screen_shape_at_most_2048_wide()
+    {
+        Assert.Equal(new Models.PixelSize(2048, 1152), Providers.PollinationsClient.SizeFor(new Models.PixelSize(3840, 2160)));
+        Assert.Equal(new Models.PixelSize(1920, 1088), Providers.PollinationsClient.SizeFor(new Models.PixelSize(1920, 1080)));
+        Assert.Equal(new Models.PixelSize(2048, 864), Providers.PollinationsClient.SizeFor(new Models.PixelSize(3440, 1440)));
+    }
 }

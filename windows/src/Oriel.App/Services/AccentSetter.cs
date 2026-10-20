@@ -19,21 +19,38 @@ public sealed class AccentSetter(IAccentSampler sampler, ILogger<AccentSetter> l
     {
         try
         {
-            if (await sampler.SampleAsync(imagePath) is not { } hex) return;
-            var color = (R: Convert.ToByte(hex[1..3], 16), G: Convert.ToByte(hex[3..5], 16), B: Convert.ToByte(hex[5..7], 16));
-            // Telling Windows makes every open app redraw its colors: only worth it for a change you can see.
-            if (Current() is { } now && Math.Abs(now.R - color.R) + Math.Abs(now.G - color.G) + Math.Abs(now.B - color.B) < 24)
-            {
-                log.LogInformation("Accent color kept: the photo's is about the same");
-                return;
-            }
-            SetColor(color);
-            Broadcast();
+            if (await sampler.SampleAsync(imagePath) is { } hex) Apply(hex);
         }
         catch (Exception ex)
         {
             log.LogWarning(ex, "Couldn't change the accent color");
         }
+    }
+
+    public Task ApplyColorAsync(string hex)
+    {
+        try
+        {
+            Apply(hex);
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning(ex, "Couldn't change the accent color");
+        }
+        return Task.CompletedTask;
+    }
+
+    void Apply(string hex)
+    {
+        var color = (R: Convert.ToByte(hex[1..3], 16), G: Convert.ToByte(hex[3..5], 16), B: Convert.ToByte(hex[5..7], 16));
+        // Telling Windows makes every open app redraw its colors: only worth it for a change you can see.
+        if (Current() is { } now && Math.Abs(now.R - color.R) + Math.Abs(now.G - color.G) + Math.Abs(now.B - color.B) < 24)
+        {
+            log.LogInformation("Accent color kept: the photo's is about the same");
+            return;
+        }
+        SetColor(color);
+        Broadcast();
     }
 
     /// <summary>The accent color Windows has now (as we last set it), or null.</summary>

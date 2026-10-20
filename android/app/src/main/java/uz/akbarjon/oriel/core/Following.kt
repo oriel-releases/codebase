@@ -61,8 +61,9 @@ class Following {
         val s = store.settings.value
         val friend = s.source == Source.Friend
         val owner = (if (friend) s.followUid else Oriel.auth.account.value?.uid) ?: return true
-        val tokens = Oriel.auth.tokens() ?: return true
         val current = try {
+            // Offline, even getting a fresh token fails: handled below like any other failure, never a crash.
+            val tokens = Oriel.auth.tokens() ?: return true
             Firebase.getCurrent(tokens, owner)
         } catch (e: FirebaseException) {
             if (e.failure == FirebaseFailure.Rejected && friend) {

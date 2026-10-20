@@ -24,15 +24,42 @@
             <!--  Credit (required by Unsplash guidelines) and actions  -->
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                 <StackPanel Margin="4,0,0,0" Orientation="Horizontal" VerticalAlignment="Center" IsVisible="{Binding HasCurrent}">
-                    <TextBlock VerticalAlignment="Center" Text="Photo by" />
+                    <TextBlock VerticalAlignment="Center" Text="{Binding CreditLead}" />
                     <Button Classes="link" Content="{Binding PhotographerName}"
                             Command="{Binding OpenUrlCommand}" CommandParameter="{Binding PhotographerUri}" />
-                    <TextBlock VerticalAlignment="Center" Text="on" />
-                    <Button Classes="link" Content="Unsplash"
+                    <TextBlock VerticalAlignment="Center" Text="on" IsVisible="{Binding IsPhoto}" />
+                    <Button Classes="link" Content="Unsplash" IsVisible="{Binding IsPhoto}"
                             Command="{Binding OpenUrlCommand}" CommandParameter="{Binding PhotoPageUri}" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
+                    <!--  The photo's top three colors, in one pill like the buttons beside it: the ringed one is the accent on the other devices.  -->
+                    <Border Height="36" Margin="0,0,2,0" Padding="5,0" VerticalAlignment="Center" CornerRadius="18"
+                            Background="{DynamicResource OrielSurfaceBrush}" IsVisible="{Binding HasAccents}">
+                        <ItemsControl VerticalAlignment="Center" ItemsSource="{Binding Accents}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="1" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AccentSwatchViewModel">
+                                    <Button Classes="swatch" Command="{Binding ChooseCommand}" ToolTip.Tip="Use as accent color">
+                                        <Panel Width="24" Height="24">
+                                            <Ellipse Stroke="{DynamicResource OrielInkBrush}" StrokeThickness="1.75" Opacity="{Binding RingOpacity}">
+                                                <Ellipse.Transitions>
+                                                    <Transitions>
+                                                        <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+                                                    </Transitions>
+                                                </Ellipse.Transitions>
+                                            </Ellipse>
+                                            <Ellipse Width="16" Height="16" Fill="{Binding Brush}" />
+                                        </Panel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
                     <!--  Linux has no system share sheet: a small menu with the usual places instead.  -->
                     <Button Classes="icon" IsEnabled="{Binding HasShareLink}"
                             ToolTip.Tip="Share this wallpaper. Whoever opens the link can set it in one click.">

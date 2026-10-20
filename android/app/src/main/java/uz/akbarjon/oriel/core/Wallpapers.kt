@@ -2,16 +2,20 @@ package uz.akbarjon.oriel.core
 
 import android.app.WallpaperManager
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.hardware.display.DisplayManager
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Display
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
 import uz.akbarjon.oriel.Oriel
 import uz.akbarjon.oriel.data.CurrentWallpaper
 import uz.akbarjon.oriel.data.Firebase
@@ -119,7 +123,7 @@ class Wallpapers(private val context: Context) {
         val file = File(context.cacheDir, "wallpaper.jpg")
         try {
             _phase.value = Phase.Downloading
-            Http.download(photo.sized(w, h, position = Positions.of(photo.id)), file)
+            fetch(photo, w, h, Positions.of(photo.id), file)
             if (!looksLikeJpeg(file)) throw OrielException("The photo didn't download properly. Your wallpaper wasn't changed.", transient = true)
             _phase.value = Phase.Changing
             setWallpaper(file, store.settings.value.screen)
@@ -127,6 +131,43 @@ class Wallpapers(private val context: Context) {
             file.delete()
         }
         photo
+    }
+
+    /**
+     * The photo as this screen shows it, [w] x [h], around [position], into [file]. Unsplash's CDN crops its photos; an AI
+     * wallpaper has one size only (often a desktop's shape), so it is cropped here: decoded once, cut, scaled, saved.
+     */
+    private suspend fun fetch(photo: Photo, w: Int, h: Int, position: Position, file: File) {
+        if (!photo.isAi) {
+            fetch(photo, w, h, position, file)
+            return
+        }
+        val whole = File(context.cacheDir, "ai-whole.jpg")
+        try {
+            Http.download(photo.rawUrl, whole)
+            withContext(Dispatchers.Default) {
+                val source = BitmapFactory.decodeFile(whole.path)
+                    ?: throw OrielException("The picture didn't download properly. Your wallpaper wasn't changed.", transient = true)
+                val (fx, fy) = when (position) {
+                    is Position.Focus -> position.x to position.y
+                    else -> 0.5f to 0.5f
+                }
+                // The largest window of the screen's shape that fits, centered on the chosen point.
+                val aspect = w.toFloat() / h
+                val cw = minOf(source.width.toFloat(), source.height * aspect).toInt()
+                val ch = minOf(source.height.toFloat(), source.width / aspect).toInt()
+                val x = (source.width * fx - cw / 2f).toInt().coerceIn(0, source.width - cw)
+                val y = (source.height * fy - ch / 2f).toInt().coerceIn(0, source.height - ch)
+                val cut = Bitmap.createBitmap(source, x, y, cw, ch)
+                val sized = if (cw > w) Bitmap.createScaledBitmap(cut, w, h, true) else cut
+                file.outputStream().use { sized.compress(Bitmap.CompressFormat.JPEG, 95, it) }
+                if (sized !== cut) sized.recycle()
+                if (cut !== source) cut.recycle()
+                source.recycle()
+            }
+        } finally {
+            whole.delete()
+        }
     }
 
     private suspend fun run(manual: Boolean, block: suspend () -> Photo): ChangeResult {

@@ -29,6 +29,10 @@ object Http {
     suspend fun post(url: String, body: String, contentType: String = "application/json", headers: Map<String, String> = emptyMap()) =
         send("POST", url, headers + ("Content-Type" to contentType), body)
 
+    /** A POST whose answer takes a while to make (an AI picture: often 10 s, sometimes a minute). */
+    suspend fun postSlow(url: String, body: String, headers: Map<String, String> = emptyMap()) =
+        send("POST", url, headers + ("Content-Type" to "application/json"), body, readTimeoutMs = 90_000)
+
     suspend fun delete(url: String, headers: Map<String, String> = emptyMap()) = send("DELETE", url, headers, null)
 
     suspend fun put(url: String, body: String, contentType: String = "application/json") =
@@ -38,9 +42,11 @@ object Http {
     suspend fun patch(url: String, body: String) =
         send("POST", url, mapOf("Content-Type" to "application/json", "X-HTTP-Method-Override" to "PATCH"), body)
 
-    private suspend fun send(method: String, url: String, headers: Map<String, String>, body: String?): HttpResponse =
+    private suspend fun send(method: String, url: String, headers: Map<String, String>, body: String?,
+        readTimeoutMs: Int = TIMEOUT_MS): HttpResponse =
         withContext(Dispatchers.IO) {
             val conn = open(url)
+            conn.readTimeout = readTimeoutMs
             try {
                 conn.requestMethod = method
                 headers.forEach { (k, v) -> conn.setRequestProperty(k, v) }

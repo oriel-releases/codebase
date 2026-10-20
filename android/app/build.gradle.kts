@@ -10,20 +10,26 @@ plugins {
  * The Unsplash access key is baked in at build time, like the desktop apps: the UNSPLASH_ACCESS_KEY environment
  * variable, else `android/.env`, else the Windows app's `windows/.env` (all git-ignored).
  */
-fun unsplashKey(): String {
-    System.getenv("UNSPLASH_ACCESS_KEY")?.takeIf { it.isNotBlank() }?.let { return it }
+fun envKey(name: String): String? {
+    System.getenv(name)?.takeIf { it.isNotBlank() }?.let { return it }
     for (path in listOf("../.env", "../../windows/.env")) {
         val file = project.file(path)
         if (!file.exists()) continue
         file.readLines().map { it.trim() }
-            .firstOrNull { it.startsWith("UNSPLASH_ACCESS_KEY=") }
+            .firstOrNull { it.startsWith("$name=") }
             ?.substringAfter("=")?.trim()?.trim('"')
             ?.takeIf { it.isNotEmpty() }
             ?.let { return it }
     }
-    logger.warn("No UNSPLASH_ACCESS_KEY: the app builds but can't fetch photos.")
-    return ""
+    return null
 }
+
+fun unsplashKey(): String = envKey("UNSPLASH_ACCESS_KEY")
+    ?: "".also { logger.warn("No UNSPLASH_ACCESS_KEY: the app builds but can't fetch photos.") }
+
+/** The Pollinations key for AI wallpapers (the Create tab), found the same way: POLLINATIONS_KEY. */
+fun pollinationsKey(): String = envKey("POLLINATIONS_KEY")
+    ?: "".also { logger.warn("No POLLINATIONS_KEY: the app builds but can't create AI wallpapers.") }
 
 /** Release signing from `android/keystore.properties` (git-ignored): storeFile, storePassword, keyAlias, keyPassword. */
 val signing = Properties().apply {
@@ -45,6 +51,7 @@ android {
         versionCode = major * 10_000 + minor * 100 + patch
         versionName = version
         buildConfigField("String", "UNSPLASH_ACCESS_KEY", "\"${unsplashKey()}\"")
+        buildConfigField("String", "POLLINATIONS_KEY", "\"${pollinationsKey()}\"")
     }
 
     signingConfigs {

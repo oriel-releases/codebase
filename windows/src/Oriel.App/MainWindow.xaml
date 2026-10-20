@@ -55,6 +55,11 @@
                         <FontIcon Glyph="&#xE721;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="AI" Tag="create">
+                    <NavigationViewItem.Icon>
+                        <PathIcon Data="M12.67,0.67L11.83,2.5L10,3.33L11.83,4.17L12.67,6L13.5,4.17L15.33,3.33L13.5,2.5M6,2.67L4.33,6.33L0.67,8L4.33,9.67L6,13.33L7.67,9.67L11.33,8L7.67,6.33M12.67,10L11.83,11.83L10,12.67L11.83,13.5L12.67,15.33L13.5,13.5L15.33,12.67L13.5,11.83" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem Content="History" Tag="history">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE81C;" />

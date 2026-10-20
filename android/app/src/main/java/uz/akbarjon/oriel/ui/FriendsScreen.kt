@@ -1,5 +1,6 @@
 package uz.akbarjon.oriel.ui
 
+import androidx.compose.ui.graphics.graphicsLayer
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -58,7 +59,8 @@ private enum class FriendsSheet { Follow, Followers, StopSharing, Unfollow }
 
 /** Friends, like the desktop apps: whose wallpaper you follow, sharing yours with a code, and who follows you. */
 @Composable
-fun FriendsScreen() {
+/** Friends, opened from Settings: [onBack] returns there. */
+fun FriendsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = LocalSnackbar.current
@@ -85,8 +87,14 @@ fun FriendsScreen() {
         }
     }
 
+    androidx.activity.compose.BackHandler(onBack = onBack)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        ScreenTitle("Friends")
+        Row(Modifier.fillMaxWidth().height(72.dp).padding(start = 8.dp, end = 24.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.IconButton(onBack) {
+                Icon(OrielIcons.ChevronRight, "Back", Modifier.size(24.dp).graphicsLayer { rotationZ = 180f })
+            }
+            Text("Friends", style = MaterialTheme.typography.headlineMedium)
+        }
 
         // Following someone: their wallpaper is on this phone (and the account's other devices).
         if (settings.source == Source.Friend) {

@@ -31,7 +31,8 @@ object FavoritesSync {
     }
 
     private suspend fun push(photo: Photo, favorite: Boolean, ring: Boolean) {
-        if (!photo.rawUrl.startsWith("https://images.unsplash.com/")) return
+        // Unsplash photos, and AI wallpapers made on a desktop (kept on Pollinations' media host).
+        if (!photo.rawUrl.startsWith("https://images.unsplash.com/") && !photo.rawUrl.startsWith("https://media.pollinations.ai/")) return
         try {
             val tokens = Oriel.auth.tokens() ?: return
             val device = Oriel.auth.account.value?.sessionId.orEmpty()

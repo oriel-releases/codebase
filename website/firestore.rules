@@ -28,7 +28,7 @@ service cloud.firestore {
               'description', 'favorite', 'updatedAt', 'device'])
           && request.resource.data.photoId == photoId
           && request.resource.data.imageUrl is string
-          && request.resource.data.imageUrl.matches('https://images[.]unsplash[.]com/.*')
+          && validImage(request.resource.data.imageUrl)
           && request.resource.data.favorite is bool
           && request.resource.data.updatedAt is timestamp;
       }
@@ -103,13 +103,19 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
 
+    // A wallpaper's picture: an Unsplash photo, or an AI wallpaper made on a desktop (the Create page), which Pollinations
+    // keeps at media.pollinations.ai/{id}.
+    function validImage(url) {
+      return url.matches('https://images[.]unsplash[.]com/.*') || url.matches('https://media[.]pollinations[.]ai/[0-9a-f]{16,128}');
+    }
+
     function validCurrent(d) {
       return d.keys().hasAll(['photoId', 'imageUrl', 'source', 'updatedAt'])
         && d.keys().hasOnly(['photoId', 'imageUrl', 'pageUrl', 'photographer', 'photographerUrl', 'description', 'topic',
             'color', 'source', 'updatedAt'])
         && d.photoId is string
         && d.imageUrl is string
-        && d.imageUrl.matches('https://images\\.unsplash\\.com/.*')
+        && validImage(d.imageUrl)
         && d.source in ['windows', 'linux', 'android', 'extension', 'macos']
         && d.updatedAt is timestamp;
     }
