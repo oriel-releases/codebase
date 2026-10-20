@@ -121,19 +121,30 @@ extension OrielState: Defaultable {}
 
 /// ISO 8601 in UTC with milliseconds ("2026-10-14T09:00:00.123Z"), reading it with or without the fraction.
 public enum ISO8601 {
+    /// Rounded to the millisecond, not cut: a time parsed from ".539" is 0.53899999… as a number, and cutting it would
+    /// write ".538" (then "changed since" asks for the same change again and again).
     public static func format(_ date: Date) -> String {
-        Date.ISO8601FormatStyle(includingFractionalSeconds: true).format(date)
+        let ms = Int64((date.timeIntervalSince1970 * 1000).rounded())
+        let seconds = Date(timeIntervalSince1970: Double(ms.quotient(1000)))
+        let base = Date.ISO8601FormatStyle().format(seconds) // "2026-10-15T18:45:21Z"
+        return base.dropLast() + String(format: ".%03lldZ", ms.remainder(1000))
     }
 
+    /// Keeps every fractional digit: Firestore writes microseconds, and "changed since" queries compare exactly.
     public static func parse(_ text: String) -> Date? {
-        if let d = try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(text) { return d }
-        if let d = try? Date.ISO8601FormatStyle().parse(text) { return d }
-        // Firestore and .NET write up to 9 fractional digits; keep 3.
-        if let dot = text.firstIndex(of: "."), let end = text[dot...].firstIndex(where: { !$0.isNumber && $0 != "." }) {
+        if let dot = text.firstIndex(of: "."),
+           let end = text[text.index(after: dot)...].firstIndex(where: { !$0.isNumber }) {
             let digits = text[text.index(after: dot)..<end]
-            let trimmed = text[..<dot] + "." + digits.prefix(3).padding(toLength: 3, withPad: "0", startingAt: 0) + text[end...]
-            return try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(String(trimmed))
+            if let base = try? Date.ISO8601FormatStyle().parse(String(text[..<dot] + text[end...])), let fraction = Double("0." + digits) {
+                return base.addingTimeInterval(fraction)
+            }
         }
-        return nil
+        return try? Date.ISO8601FormatStyle().parse(text)
     }
+}
+
+extension Int64 {
+    /// Floor division and its remainder, also for times before 1970.
+    func quotient(_ d: Int64) -> Int64 { (self - remainder(d)) / d }
+    func remainder(_ d: Int64) -> Int64 { ((self % d) + d) % d }
 }

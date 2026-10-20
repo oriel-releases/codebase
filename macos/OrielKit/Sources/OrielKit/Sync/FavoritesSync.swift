@@ -78,9 +78,9 @@ public final class FavoritesSync: Sendable {
                 }
                 try await firebase.ringFavorites(tokens, device: auth.current?.sessionId ?? "")
             }
-            store.updateState {
-                $0.favoritesSyncedAt = changes.map(\.updatedAt).max() ?? since ?? Date(timeIntervalSince1970: 0)
-            }
+            // Rounded up to the millisecond the state file keeps, so the next "since" never asks for the newest again.
+            let newest = changes.map(\.updatedAt).max().map { Date(timeIntervalSince1970: ($0.timeIntervalSince1970 * 1000).rounded(.up) / 1000) }
+            store.updateState { $0.favoritesSyncedAt = newest ?? since ?? Date(timeIntervalSince1970: 0) }
             if !changes.isEmpty { Log.favorites.info("Took \(changes.count) favorite change(s) from your other devices") }
         } catch {
             quiet.withLock { $0 = false }
