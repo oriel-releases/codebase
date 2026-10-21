@@ -9,7 +9,7 @@
                 <TextBlock Classes="title" Text="Friends" />
 
                 <!--  Following someone: their wallpaper is the card. Always dark underneath, so the white text reads in both themes.  -->
-                <Border Height="260" CornerRadius="20" ClipToBounds="True" Background="#1C1C1C" IsVisible="{Binding IsFollowing}">
+                <Border Height="220" CornerRadius="20" ClipToBounds="True" Background="#1C1C1C" IsVisible="{Binding IsFollowing}">
                     <Panel>
                         <Border Width="80" Height="80" Margin="0,0,0,50" CornerRadius="40" Background="#33FFFFFF"
                                 HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding HasNoFriendWallpaper}">
@@ -43,18 +43,18 @@
                 <!--  The three things to do, as one list  -->
                 <Border CornerRadius="20" Background="{DynamicResource OrielSurfaceBrush}">
                     <StackPanel>
-                        <Grid Margin="20,16" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
-                            <Border Width="40" Height="40" CornerRadius="12" Background="{DynamicResource OrielPaperBrush}">
-                                <PathIcon Data="{StaticResource IconShare}" Width="16" Height="16" />
+                        <Grid Margin="16,10" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                            <Border Width="32" Height="32" CornerRadius="{DynamicResource OrielTile}" Background="{DynamicResource OrielPaperBrush}">
+                                <PathIcon Data="{StaticResource IconShare}" Width="14" Height="14" />
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock FontWeight="SemiBold" Text="Share my wallpaper" />
                                 <TextBlock Classes="muted small" Text="{Binding ShareDetail}" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                            <Button Height="36" VerticalContentAlignment="Center" Content="Turn off" Command="{Binding TurnOffSharingCommand}" IsVisible="{Binding IsSharing}" />
+                            <Button Height="32" VerticalContentAlignment="Center" Content="Turn off" Command="{Binding TurnOffSharingCommand}" IsVisible="{Binding IsSharing}" />
                             <!--  Like Share on Home: copy the link or send it straight to a chat  -->
-                            <Button Classes="primary" Height="36" VerticalContentAlignment="Center" MinWidth="96" HorizontalContentAlignment="Center" Content="{Binding ShareText}">
+                            <Button Classes="primary" Height="32" VerticalContentAlignment="Center" MinWidth="88" HorizontalContentAlignment="Center" Content="{Binding ShareText}">
                                 <Button.Flyout>
                                     <MenuFlyout Placement="BottomEdgeAlignedRight">
                                         <MenuItem Header="Copy link" Click="CopyLink_Click" />
@@ -68,30 +68,30 @@
                         </Grid>
 
                         <StackPanel IsVisible="{Binding IsNotFollowing}">
-                            <Border Height="1" Margin="76,0,20,0" Background="{DynamicResource OrielLineBrush}" />
-                            <Grid Margin="20,16" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
-                                <Border Width="40" Height="40" CornerRadius="12" Background="{DynamicResource OrielPaperBrush}">
-                                    <PathIcon Data="{StaticResource IconPlus}" Width="16" Height="16" />
+                            <Border Height="1" Margin="62,0,16,0" Background="{DynamicResource OrielLineBrush}" />
+                            <Grid Margin="16,10" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                                <Border Width="32" Height="32" CornerRadius="{DynamicResource OrielTile}" Background="{DynamicResource OrielPaperBrush}">
+                                    <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" />
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock FontWeight="SemiBold" Text="Follow a friend" />
                                     <TextBlock Classes="muted small" Text="Use a friend's wallpaper." />
                                 </StackPanel>
-                                <Button Grid.Column="2" Height="36" VerticalContentAlignment="Center" MinWidth="96" HorizontalContentAlignment="Center" Content="Enter code" Click="EnterCode_Click" />
+                                <Button Grid.Column="2" Height="32" VerticalContentAlignment="Center" MinWidth="88" HorizontalContentAlignment="Center" Content="Enter code" Click="EnterCode_Click" />
                             </Grid>
                         </StackPanel>
 
                         <StackPanel IsVisible="{Binding HasFollowers}">
-                            <Border Height="1" Margin="76,0,20,0" Background="{DynamicResource OrielLineBrush}" />
-                            <Grid Margin="20,16" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
-                                <Border Width="40" Height="40" CornerRadius="12" Background="{DynamicResource OrielPaperBrush}">
-                                    <PathIcon Data="{StaticResource IconPeople}" Width="16" Height="16" />
+                            <Border Height="1" Margin="62,0,16,0" Background="{DynamicResource OrielLineBrush}" />
+                            <Grid Margin="16,10" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                                <Border Width="32" Height="32" CornerRadius="{DynamicResource OrielTile}" Background="{DynamicResource OrielPaperBrush}">
+                                    <PathIcon Data="{StaticResource IconPeople}" Width="14" Height="14" />
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock FontWeight="SemiBold" Text="Followers" />
                                     <TextBlock Classes="muted small" Text="{Binding FollowersDetail}" />
                                 </StackPanel>
-                                <Button Grid.Column="2" Height="36" VerticalContentAlignment="Center" MinWidth="96" HorizontalContentAlignment="Center" Content="See all" Command="{Binding OpenFollowersCommand}" />
+                                <Button Grid.Column="2" Height="32" VerticalContentAlignment="Center" MinWidth="88" HorizontalContentAlignment="Center" Content="See all" Command="{Binding OpenFollowersCommand}" />
                             </Grid>
                         </StackPanel>
                     </StackPanel>

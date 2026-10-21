@@ -251,13 +251,15 @@ public sealed partial class OnboardingViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanGoBack))]
     void Back() => Step--;
 
-    /// <summary>"Skip setup": keep every default and go to the app.</summary>
+    /// <summary>"Skip setup": keep every default and go to the app, with a first wallpaper.</summary>
     [RelayCommand]
     void Skip()
     {
         _settings.Update(s => s.OnboardingDone = true);
         _dismissed = true;
         Finished?.Invoke(this, EventArgs.Empty);
+        // Skipped, but still a first wallpaper (unless a shared one is waiting to be set).
+        if (_history.List().Count == 0 && !_shared.IsOpen) _ = _home.ChangeAsync();
     }
 
     /// <summary>Saves the answers. <paramref name="changeNow"/> also sets the first wallpaper.</summary>

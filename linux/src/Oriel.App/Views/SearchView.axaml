@@ -6,9 +6,9 @@
              x:Class="Oriel.UI.Views.SearchView"
              x:DataType="vm:CollectionsViewModel">
 
-    <ScrollViewer>
+    <ScrollViewer x:Name="Scroller">
         <Panel>
-            <!--  ============ Search ============  -->
+            <!--  ============ Explore: search at the top, then this hour's wallpapers ============  -->
             <StackPanel MaxWidth="960" Margin="40,32,40,40" IsVisible="{Binding IsSearchShown}">
 
                 <!--  One rounded bar at the top, button inside  -->
@@ -38,55 +38,39 @@
 
                 <views:InfoBanner Margin="0,12,0,0" DataContext="{Binding Info}" />
 
-                <!--  Start: ideas to search for (gone once you search)  -->
-                <StackPanel Margin="0,22,0,0" IsVisible="{Binding ShowStart}">
-                    <Border Padding="20" CornerRadius="20" Background="{DynamicResource OrielSurfaceBrush}">
-                        <StackPanel Spacing="14">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Need an idea?" />
-                                <Button Grid.Column="1" Command="{Binding ShuffleSuggestionsCommand}" ToolTip.Tip="Other ideas">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" />
-                                        <TextBlock VerticalAlignment="Center" Text="Shuffle" />
-                                    </StackPanel>
-                                </Button>
-                            </Grid>
-                            <!--  Each idea as wide as its words  -->
-                            <ItemsControl ItemsSource="{Binding Suggestions}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="x:String">
-                                        <Button Margin="0,0,8,8" Background="{DynamicResource OrielPaperBrush}"
-                                                Command="{Binding $parent[ItemsControl].((vm:CollectionsViewModel)DataContext).SearchForCommand}"
-                                                CommandParameter="{Binding}">
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <PathIcon Data="{StaticResource IconSearch}" Width="12" Height="12" Foreground="{DynamicResource OrielMutedBrush}" />
-                                                <TextBlock VerticalAlignment="Center" Text="{Binding}" />
-                                            </StackPanel>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-
-                <!--  Interests: a row that opens its own page, like a Settings category  -->
-                <Button MinHeight="68" Margin="0,22,0,0" Padding="20,14,16,14" HorizontalAlignment="Stretch" IsVisible="{Binding ShowStart}"
-                        HorizontalContentAlignment="Stretch" CornerRadius="16" Command="{Binding OpenMixCommand}">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
-                        <PathIcon Data="{StaticResource IconHeart}" Width="18" Height="18" Foreground="{DynamicResource OrielMutedBrush}" />
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                <!--  Interests: a compact row that opens its own page, like the Friends and Settings rows  -->
+                <Button MinHeight="56" Margin="0,16,0,0" Padding="16,10,14,10" HorizontalAlignment="Stretch" IsVisible="{Binding ShowStart}"
+                        HorizontalContentAlignment="Stretch" CornerRadius="{DynamicResource OrielLarge}" Command="{Binding OpenMixCommand}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                        <Border Width="32" Height="32" VerticalAlignment="Center" CornerRadius="{DynamicResource OrielTile}" Background="{DynamicResource OrielPaperBrush}">
+                            <PathIcon Data="{StaticResource IconHeart}" Width="14" Height="14" />
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock FontWeight="SemiBold" Text="Interests" />
                             <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding MixSummary}" />
                         </StackPanel>
                         <PathIcon Grid.Column="2" Data="{StaticResource IconChevron}" Width="12" Height="12" Foreground="{DynamicResource OrielMutedBrush}" />
                     </Grid>
                 </Button>
+
+                <!--  This hour's wallpapers, the same for everyone (gone while searching)  -->
+                <StackPanel Margin="0,28,0,0" IsVisible="{Binding ShowStart}">
+                    <TextBlock Classes="section" Margin="2,0,0,12" Text="Fresh picks for you" />
+                    <Arc Classes="spinner" Classes.busy="{Binding IsExploreLoading}" Width="24" Height="24" Margin="0,24"
+                         HorizontalAlignment="Center" />
+                    <TextBlock Classes="muted" Margin="2,0,0,0" TextWrapping="Wrap" IsVisible="{Binding ExploreUnavailable}"
+                               Text="Fresh picks couldn't load right now. Check your connection, or search for something above." />
+                    <ItemsRepeater ItemsSource="{Binding Explore}">
+                        <ItemsRepeater.Layout>
+                            <UniformGridLayout ItemsStretch="Fill" MinColumnSpacing="14" MinItemWidth="280" MinRowSpacing="14" />
+                        </ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PhotoResultViewModel">
+                                <views:PhotoResultCard />
+                            </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
+                </StackPanel>
 
                 <!--  Results: photo first, credit and action on the photo  -->
                 <StackPanel Margin="0,8,0,0" IsVisible="{Binding HasSearched}">
@@ -192,7 +176,7 @@
                         </ItemsRepeater.ItemTemplate>
                     </ItemsRepeater>
 
-                <!--  Your own: added from Search (search first, then Add to Interests)  -->
+                <!--  Your own: added from Explore's search (search first, then Add to Interests)  -->
                 <StackPanel Margin="0,8,0,0" Spacing="12">
                     <TextBlock Margin="2,0,0,0" FontSize="15" FontWeight="SemiBold" Text="Your own" />
                     <TextBlock Classes="muted" Margin="2,0,0,0" TextWrapping="Wrap"

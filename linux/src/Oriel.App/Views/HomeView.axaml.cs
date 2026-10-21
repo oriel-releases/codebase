@@ -14,6 +14,8 @@ public partial class HomeView : UserControl
     public HomeView()
     {
         InitializeComponent();
+        // The Wallpaper of the day card opens its photo page (sharp, loading on hover), like Explore's cards.
+        PhotoDetailView.Wire(TodayCard, () => TodayThumb);
         // Shown: the preview image is worth loading again.
         AttachedToVisualTree += (_, _) => _ = (DataContext as HomeViewModel)?.ActivateAsync();
         DataContextChanged += (_, _) => Watch(DataContext as HomeViewModel);
@@ -121,7 +123,6 @@ public partial class HomeView : UserControl
     {
         if (DataContext is not HomeViewModel vm || await vm.CreateShareLinkAsync() is not { } link) return;
         if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard) await clipboard.SetTextAsync(link);
-        vm.CountShare();
         await vm.MarkLinkCopiedAsync();
     }
 
@@ -138,6 +139,5 @@ public partial class HomeView : UserControl
     {
         if (DataContext is not HomeViewModel vm || await vm.CreateShareLinkAsync() is not { } link) return;
         Oriel.UI.Services.Launcher.OpenUrl(new Uri(build(link)));
-        vm.CountShare();
     }
 }

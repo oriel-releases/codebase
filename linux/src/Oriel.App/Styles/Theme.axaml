@@ -10,6 +10,9 @@
         <CornerRadius x:Key="OrielCard">16</CornerRadius>
         <CornerRadius x:Key="OrielLarge">20</CornerRadius>
         <CornerRadius x:Key="OrielBar">26</CornerRadius>
+        <!--  The small icon tile at the start of a row (Settings, Friends, Interests) and Home's today thumbnail.  -->
+        <CornerRadius x:Key="OrielTile">10</CornerRadius>
+        <CornerRadius x:Key="OrielTabItem">9</CornerRadius>
         <SolidColorBrush x:Key="OrielStarBrush" Color="#F5B301" />
         <!--  Dark fade at the bottom of a photo: keeps white text and buttons readable on any picture  -->
         <LinearGradientBrush x:Key="OrielPhotoScrimBrush" StartPoint="0%,0%" EndPoint="0%,100%">
@@ -22,17 +25,23 @@
         <ControlTheme x:Key="{x:Type controls:SettingRow}" TargetType="controls:SettingRow">
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Classes="card" MinHeight="64" Padding="20,12,16,12">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                            <StackPanel VerticalAlignment="Center" Spacing="2">
-                                <ContentPresenter Content="{TemplateBinding Header}" />
+                    <Panel>
+                        <!--  The line between rows, from where the text starts; the group's first row has none.  -->
+                        <Border Height="1" Margin="62,0,16,0" VerticalAlignment="Top" Background="{DynamicResource OrielLineBrush}"
+                                IsVisible="{Binding !First, RelativeSource={RelativeSource TemplatedParent}}" />
+                        <Grid MinHeight="56" Margin="16,10" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                            <Border Width="32" Height="32" VerticalAlignment="Center" CornerRadius="{StaticResource OrielTile}" Background="{DynamicResource OrielPaperBrush}">
+                                <PathIcon Width="14" Height="14" Data="{TemplateBinding Icon}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <ContentPresenter FontWeight="SemiBold" Content="{TemplateBinding Header}" />
                                 <TextBlock Classes="muted small" TextWrapping="Wrap"
                                            Text="{TemplateBinding Description}"
                                            IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                             </StackPanel>
-                            <ContentPresenter Grid.Column="1" VerticalAlignment="Center" Content="{TemplateBinding Content}" />
+                            <ContentPresenter Grid.Column="2" VerticalAlignment="Center" Content="{TemplateBinding Content}" />
                         </Grid>
-                    </Border>
+                    </Panel>
                 </ControlTemplate>
             </Setter>
         </ControlTheme>
@@ -188,9 +197,22 @@
         <Setter Property="Foreground" Value="{DynamicResource OrielPaperBrush}" />
     </Style>
 
-    <!--  Segmented choice (grid / list): ink when picked  -->
-    <Style Selector="ToggleButton.seg:checked /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource OrielInkBrush}" />
+    <!--  Segmented choice (grid / list): the ink pill slides behind the pick (see HistoryView), the options stay clear  -->
+    <Style Selector="ToggleButton.seg">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{DynamicResource OrielMutedBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.seg:pointerover /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.seg:pressed /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.seg:checked /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.seg:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ToggleButton.seg:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource OrielInkBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.seg:checked /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.seg:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Foreground" Value="{DynamicResource OrielPaperBrush}" />
     </Style>
 

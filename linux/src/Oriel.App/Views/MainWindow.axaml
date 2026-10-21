@@ -32,10 +32,10 @@
                             <TextBlock Text="Home" />
                         </StackPanel>
                     </Button>
-                    <Button Classes="nav" Classes.selected="{Binding IsSearch}" Command="{Binding NavigateCommand}" CommandParameter="search">
+                    <Button Classes="nav" Classes.selected="{Binding IsExplore}" Command="{Binding NavigateCommand}" CommandParameter="explore">
                         <StackPanel Orientation="Horizontal" Spacing="12">
-                            <PathIcon Data="{StaticResource IconSearch}" Width="16" Height="16" />
-                            <TextBlock Text="Search" />
+                            <PathIcon Data="{StaticResource IconCompass}" Width="16" Height="16" />
+                            <TextBlock Text="Explore" />
                         </StackPanel>
                     </Button>
                     <Button Classes="nav" Classes.selected="{Binding IsCreate}" Command="{Binding NavigateCommand}" CommandParameter="create">
@@ -66,7 +66,7 @@
             </DockPanel>
 
             <!--  The page. Each is created when shown and thrown away when left, so nothing stays in memory.  -->
-            <ContentControl Grid.Column="1" Content="{Binding CurrentPage}">
+            <ContentControl x:Name="PageHost" Grid.Column="1" Content="{Binding CurrentPage}">
                 <ContentControl.DataTemplates>
                     <DataTemplate DataType="vm:HomeViewModel"><views:HomeView /></DataTemplate>
                     <DataTemplate DataType="vm:CollectionsViewModel"><views:SearchView /></DataTemplate>
@@ -76,6 +76,9 @@
                     <DataTemplate DataType="vm:FriendsViewModel"><views:FriendsView /></DataTemplate>
                 </ContentControl.DataTemplates>
             </ContentControl>
+
+            <!--  A photo opened from Explore, History or Favorites, over its page (which keeps its place underneath).  -->
+            <views:PhotoDetailView x:Name="PhotoDetail" Grid.Column="1" IsVisible="False" />
         </Grid>
 
         <!--  A photo a friend shared with a link: one button sets it as the wallpaper.  -->
