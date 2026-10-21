@@ -50,8 +50,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<FavoritesSync>();
         services.AddSingleton<ISlotClaimer, SlotClaimer>();
         services.AddSingleton<TodayService>();
-        services.AddSingleton<StatsReporter>();
-        services.AddSingleton<IStats>(sp => sp.GetRequiredService<StatsReporter>());
+        services.AddSingleton<ExploreService>();
         services.AddSingleton<RetentionService>();
         services.AddSingleton<WallpaperFolderMover>();
         services.AddSingleton<IStartupRegistration, AutostartRegistration>();

@@ -1,5 +1,11 @@
 package uz.akbarjon.oriel
 
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import uz.akbarjon.oriel.ui.Motion
+import uz.akbarjon.oriel.ui.Motion.fadeThrough
+import uz.akbarjon.oriel.ui.Motion.slideThrough
 import androidx.compose.foundation.layout.BoxWithConstraints
 import uz.akbarjon.oriel.ui.LocalNavOnSide
 import android.content.Intent
@@ -35,6 +41,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -60,7 +67,7 @@ import uz.akbarjon.oriel.ui.NavBar
 import uz.akbarjon.oriel.ui.OrielTheme
 import uz.akbarjon.oriel.ui.Palette
 import uz.akbarjon.oriel.ui.PhotoSheet
-import uz.akbarjon.oriel.ui.SearchScreen
+import uz.akbarjon.oriel.ui.ExploreScreen
 import uz.akbarjon.oriel.ui.SettingsScreen
 import uz.akbarjon.oriel.ui.SignInScreen
 import uz.akbarjon.oriel.ui.SignInState
@@ -157,20 +164,38 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
     @Composable
     private fun App() {
         val account by Oriel.auth.account.collectAsState()
         val snackbar = remember { SnackbarHostState() }
         var tab by rememberSaveable { mutableStateOf(Tab.Home) }
 
-        CompositionLocalProvider(LocalSnackbar provides snackbar) {
+        // One shared-transition layout around everything: a tapped photo flies from its tile into its page (PhotoPageHost).
+        androidx.compose.animation.SharedTransitionLayout {
+        CompositionLocalProvider(LocalSnackbar provides snackbar, uz.akbarjon.oriel.ui.LocalSharedScope provides this) {
             BoxWithConstraints(Modifier.fillMaxSize().background(Palette.colors.paper)) {
                 // On its side, the phone gets the navigation bar on the right edge.
                 val side = maxWidth > maxHeight
                 val sideSpace = if (side) NavBarHeight + NavBarMargin * 2 else 0.dp
+                // The first-run tour: once, on a phone that never had an Oriel wallpaper; phones that had one skip it.
+                val uid = account?.uid
+                var touring by rememberSaveable(uid) {
+                    val state = Oriel.store.state.value
+                    mutableStateOf(uid != null && !state.onboardingDone && state.lastAppliedAt == 0L)
+                }
+                LaunchedEffect(uid) {
+                    val state = Oriel.store.state.value
+                    if (uid != null && !state.onboardingDone && state.lastAppliedAt != 0L) Oriel.store.updateState { it.copy(onboardingDone = true) }
+                }
                 if (account == null) {
                     SignInScreen()
+                } else if (touring) {
+                    uz.akbarjon.oriel.ui.OnboardingScreen(onDone = { touring = false; tab = Tab.Home })
                 } else {
+                    // Back (the button or the edge swipe) from another tab goes Home; only Home leaves the app. What's open
+                    // inside a tab (Interests, Friends, a sheet) handles back first, since it registers later.
+                    androidx.activity.compose.BackHandler(enabled = tab != Tab.Home) { tab = Tab.Home }
                     // Home sits on its wallpaper, blurred, edge to edge; the other tabs on plain paper.
                     val onHome = tab == Tab.Home
                     val photo = currentPhoto()
@@ -183,26 +208,28 @@ class MainActivity : ComponentActivity() {
                     }
                     // Everything under the navigation bar is its blur source.
                     Box(Modifier.fillMaxSize().hazeSource(haze)) {
-                    AnimatedVisibility(onHome, enter = fadeIn(tween(300)), exit = fadeOut(tween(200))) { HomeBackdrop(photo) }
-                    AnimatedContent(
-                        tab, Modifier.fillMaxSize().statusBarsPadding().padding(end = sideSpace),
-                        transitionSpec = {
-                            (fadeIn(tween(220, delayMillis = 40)) + scaleIn(tween(280), initialScale = 0.985f)) togetherWith fadeOut(tween(120))
-                        },
-                        label = "tab",
-                    ) { t ->
-                        CompositionLocalProvider(LocalNavOnSide provides side) { when (t) {
+                    // The picked tab just shows: no animation between tabs.
+                    val t = tab
+                    run {
+                        // Home's blurred wallpaper sits behind Home, edge to edge under the status bar.
+                        Box(Modifier.fillMaxSize().clipToBounds()) {
+                        if (t == Tab.Home) HomeBackdrop(photo)
+                        CompositionLocalProvider(LocalNavOnSide provides side) {
+                            Box(Modifier.fillMaxSize().statusBarsPadding().padding(end = sideSpace)) { when (t) {
                             Tab.Home -> HomeScreen()
-                            Tab.Search -> SearchScreen()
+                            Tab.Explore -> ExploreScreen()
                             Tab.Create -> uz.akbarjon.oriel.ui.CreateScreen()
                             Tab.History -> HistoryScreen()
                             Tab.Settings -> SettingsScreen(onSignedOut = { tab = Tab.Home })
-                        } }
+                        } } }
+                        }
                     }
                     }
                     NavBar(tab, { tab = it }, haze, Modifier.align(if (side) Alignment.CenterEnd else Alignment.BottomCenter),
                         onPhoto = onHome, vertical = side)
                 }
+                // A photo's own page, over the tabs and the navigation bar.
+                if (account != null) uz.akbarjon.oriel.ui.PhotoPageHost()
                 SnackbarHost(
                     snackbar,
                     Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
@@ -213,6 +240,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             if (account != null) shared?.let { link -> SharedSheet(link) { shared = null } }
+        }
         }
     }
 

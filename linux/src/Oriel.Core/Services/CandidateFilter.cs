@@ -10,7 +10,8 @@ public static class CandidateFilter
     {
         if (!c.IsLandscape) return "portrait";
         if (c.Width < target.Width || c.Height < target.Height) return "too small";
-        if (s.SkipLowLikes && c.Likes < s.MinLikes) return "low likes";
+        // 300 is the least the slider goes down to; older settings may hold less.
+        if (s.SkipLowLikes && c.Likes < Math.Max(300, s.MinLikes)) return "low likes";
         return null;
     }
 }

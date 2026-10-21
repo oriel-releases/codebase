@@ -86,7 +86,11 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     // Quality
     [ObservableProperty] public partial bool SkipLowLikes { get; set; }
-    [ObservableProperty] public partial double MinLikes { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MinLikesText))]
+    public partial double MinLikes { get; set; }
+    /// <summary>Beside the slider: "300 likes" up to "1,000+ likes".</summary>
+    public string MinLikesText => MinLikes >= 1000 ? "1,000+ likes" : $"{MinLikes:N0} likes";
 
     // Storage & app
     [ObservableProperty] public partial bool StartAtLogin { get; set; }
@@ -146,13 +150,14 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         var s = _settings.Load();
         DailyTime = s.GetDailyTime().ToTimeSpan();
         IntervalIndex = Math.Max(0, Array.IndexOf(IntervalMinutes, s.IntervalMinutes));
+        ShowZone(s.TimeZone);
         SourceIndex = s.FavoritesOnly ? 1 : 0;
         Shortcut = s.Hotkey;
         ShortcutNote = DefaultShortcutNote();
         ApplyAtLogin = s.ApplyAtLogin;
         FitIndex = (int)s.Fit;
         SkipLowLikes = s.SkipLowLikes;
-        MinLikes = Math.Round(s.MinLikes / 50.0) * 50;
+        MinLikes = Math.Clamp(Math.Round(s.MinLikes / 50.0) * 50, 300, 1000);
         StartAtLogin = s.StartAtLogin;
         PicturesFolder = _paths.WallpaperFolder(s);
         ApplyToIndex = s.ChangeLockScreen ? 1 : 0;
@@ -164,6 +169,28 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     [RelayCommand] void OpenAccount() => Launcher.OpenUrl(new Uri(OrielLinks.Account));
 
     [RelayCommand] void OpenSupport() => Launcher.OpenUrl(new Uri(OrielLinks.Support));
+    [RelayCommand] void OpenPrivacy() => Launcher.OpenUrl(new Uri(OrielLinks.Privacy));
+    [RelayCommand] void OpenUnsplash() => Launcher.OpenUrl(new Uri(OrielLinks.Unsplash));
+    [RelayCommand] void OpenPollinations() => Launcher.OpenUrl(new Uri(OrielLinks.Pollinations));
+
+    /// <summary>The shared schedule's time zone, by IANA name like the phone's picker; it syncs to every device.</summary>
+    public IReadOnlyList<ZoneChoice> Zones { get; private set; } = [];
+    [ObservableProperty] public partial int ZoneIndex { get; set; } = -1;
+
+    partial void OnZoneIndexChanged(int value)
+    {
+        if (value >= 0 && value < Zones.Count) Save(s => s.TimeZone = Zones[value].Id);
+    }
+
+    void ShowZone(string zone)
+    {
+        if (!Zones.Any(z => z.Id == zone))
+        {
+            Zones = TimeZones.All(zone);
+            OnPropertyChanged(nameof(Zones));
+        }
+        ZoneIndex = Zones.Select((z, i) => z.Id == zone ? i : -1).FirstOrDefault(i => i >= 0, -1);
+    }
 
     [RelayCommand] void OpenPicturesFolder() => Launcher.OpenFolder(PicturesFolder);
 

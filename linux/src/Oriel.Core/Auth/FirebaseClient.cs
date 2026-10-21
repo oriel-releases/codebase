@@ -92,7 +92,16 @@ public sealed class FirebaseClient(HttpClient http)
             $"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={ApiKey}", new { idToken = tokens.IdToken }, ct));
         var r = await ReadAsync<LookupResponse>(response, ct);
         var user = r.Users?.FirstOrDefault() ?? throw new FirebaseException(FirebaseFailure.Rejected, "Account not found.");
-        return new FirebaseProfile(tokens.Uid, user.Email ?? "", user.DisplayName ?? "", user.PhotoUrl ?? "", tokens);
+        return new FirebaseProfile(tokens.Uid, user.Email ?? "", user.DisplayName ?? "", user.Photo, tokens);
+    }
+
+    /// <summary>The account's profile picture, or "" when it has none.</summary>
+    public async Task<string> GetPhotoUrlAsync(FirebaseTokens tokens, CancellationToken ct = default)
+    {
+        using var response = await SendAsync(() => http.PostAsJsonAsync(
+            $"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={ApiKey}", new { idToken = tokens.IdToken }, ct));
+        var r = await ReadAsync<LookupResponse>(response, ct);
+        return r.Users?.FirstOrDefault()?.Photo ?? "";
     }
 
     public async Task<FirebaseTokens> RefreshAsync(string refreshToken, CancellationToken ct = default)
@@ -177,32 +186,6 @@ public sealed class FirebaseClient(HttpClient http)
         if (response.StatusCode == HttpStatusCode.NotFound) return false;
         await EnsureOkAsync(response, ct);
         return true;
-    }
-
-    // ---------------------------------------------------------------- anonymous daily counts
-
-    /// <summary>
-    /// Adds 1 to each of <paramref name="fields"/> in <c>stats/{day}</c>, created on first use. Counts only: no user IDs,
-    /// one small document per day (firestore.rules allows exactly this).
-    /// </summary>
-    public async Task IncrementStatsAsync(FirebaseTokens tokens, DateOnly day, IReadOnlyCollection<string> fields, CancellationToken ct = default)
-    {
-        var body = new
-        {
-            writes = new[]
-            {
-                new
-                {
-                    update = new { name = $"{DocumentsPath}/stats/{day.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}", fields = new Dictionary<string, object>() },
-                    updateMask = new { fieldPaths = Array.Empty<string>() },
-                    updateTransforms = fields.Select(f => new { fieldPath = f, increment = new { integerValue = "1" } }).ToArray(),
-                },
-            },
-        };
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"{DocumentsUrl}:commit") { Content = JsonContent.Create(body) };
-        request.Headers.Authorization = new("Bearer", tokens.IdToken);
-        using var response = await SendAsync(() => http.SendAsync(request, ct));
-        await EnsureOkAsync(response, ct);
     }
 
     // ---------------------------------------------------------------- shared settings and the schedule's slot
@@ -606,6 +589,19 @@ public sealed class FirebaseClient(HttpClient http)
     sealed record LookupUser(
         [property: JsonPropertyName("email")] string? Email,
         [property: JsonPropertyName("displayName")] string? DisplayName,
+        [property: JsonPropertyName("photoUrl")] string? PhotoUrl,
+        [property: JsonPropertyName("providerUserInfo")] List<ProviderInfo>? Providers)
+    {
+        /// <summary>
+        /// The account's picture; for one made with email and password and later signed in with Google, Google's
+        /// picture is only on its Google sign-in, not on the account itself.
+        /// </summary>
+        public string Photo => !string.IsNullOrEmpty(PhotoUrl) ? PhotoUrl
+            : Providers?.OrderByDescending(p => p.ProviderId == "google.com").FirstOrDefault(p => !string.IsNullOrEmpty(p.PhotoUrl))?.PhotoUrl ?? "";
+    }
+
+    sealed record ProviderInfo(
+        [property: JsonPropertyName("providerId")] string? ProviderId,
         [property: JsonPropertyName("photoUrl")] string? PhotoUrl);
 
     sealed record RefreshResponse(

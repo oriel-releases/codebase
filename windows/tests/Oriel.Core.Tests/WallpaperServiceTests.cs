@@ -133,15 +133,16 @@ public sealed class WallpaperServiceTests : IDisposable
     {
         var s = _store.Load();
         s.SkipLowLikes = true;
+        // Older settings may hold less than 300, the least the slider goes down to: 300 still applies.
         s.MinLikes = 10;
         _store.Save(s);
 
         _provider.Responses.Enqueue(() =>
         [
-            FakeProvider.Photo("small", 1920, 1080),
-            FakeProvider.Photo("portrait", 4000, 6000),
-            FakeProvider.Photo("unloved", likes: 2),
-            FakeProvider.Photo("good"),
+            FakeProvider.Photo("small", 1920, 1080, likes: 500),
+            FakeProvider.Photo("portrait", 4000, 6000, likes: 500),
+            FakeProvider.Photo("unloved", likes: 120),
+            FakeProvider.Photo("good", likes: 500),
         ]);
 
         var r = await _svc.ApplyAsync(true);

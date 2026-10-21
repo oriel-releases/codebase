@@ -67,6 +67,29 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     async Task OpenSupport() => await Windows.System.Launcher.LaunchUriAsync(new Uri(OrielLinks.Support));
 
+    [RelayCommand] async Task OpenPrivacy() => await Windows.System.Launcher.LaunchUriAsync(new Uri(OrielLinks.Privacy));
+    [RelayCommand] async Task OpenUnsplash() => await Windows.System.Launcher.LaunchUriAsync(new Uri(OrielLinks.Unsplash));
+    [RelayCommand] async Task OpenPollinations() => await Windows.System.Launcher.LaunchUriAsync(new Uri(OrielLinks.Pollinations));
+
+    /// <summary>The shared schedule's time zone, by IANA name like the phone's picker; it syncs to every device.</summary>
+    public IReadOnlyList<ZoneChoice> Zones { get; private set; } = [];
+    [ObservableProperty] public partial int ZoneIndex { get; set; } = -1;
+
+    partial void OnZoneIndexChanged(int value)
+    {
+        if (value >= 0 && value < Zones.Count) Save(s => s.TimeZone = Zones[value].Id);
+    }
+
+    void ShowZone(string zone)
+    {
+        if (!Zones.Any(z => z.Id == zone))
+        {
+            Zones = TimeZones.All(zone);
+            OnPropertyChanged(nameof(Zones));
+        }
+        ZoneIndex = Zones.Select((z, i) => z.Id == zone ? i : -1).FirstOrDefault(i => i >= 0, -1);
+    }
+
     // Schedule
     [ObservableProperty] public partial TimeSpan DailyTime { get; set; }
     [ObservableProperty]
@@ -89,7 +112,11 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     // Quality
     [ObservableProperty] public partial bool SkipLowLikes { get; set; }
-    [ObservableProperty] public partial double MinLikes { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MinLikesText))]
+    public partial double MinLikes { get; set; }
+    /// <summary>Beside the slider: "300 likes" up to "1,000+ likes".</summary>
+    public string MinLikesText => MinLikes >= 1000 ? "1,000+ likes" : $"{MinLikes:N0} likes";
 
     // Storage & app
     [ObservableProperty] public partial bool StartWithWindows { get; set; }
@@ -143,12 +170,13 @@ public sealed partial class SettingsViewModel : ObservableObject
         var s = _settings.Load();
         DailyTime = s.GetDailyTime().ToTimeSpan();
         IntervalIndex = Math.Max(0, Array.IndexOf(IntervalMinutes, s.IntervalMinutes));
+        ShowZone(s.TimeZone);
         SourceIndex = s.FavoritesOnly ? 1 : 0;
         Shortcut = s.Hotkey;
         ApplyAtLogin = s.ApplyAtLogin;
         FitIndex = (int)s.Fit;
         SkipLowLikes = s.SkipLowLikes;
-        MinLikes = Math.Round(s.MinLikes / 50.0) * 50;
+        MinLikes = Math.Clamp(Math.Round(s.MinLikes / 50.0) * 50, 300, 1000);
         StartWithWindows = s.StartWithWindows;
         PicturesFolder = _paths.WallpaperFolder(s);
         ApplyToIndex = s.ChangeLockScreen ? 1 : 0;

@@ -21,29 +21,36 @@ public sealed partial class HistoryPage : Page
     /// <summary>The Favorites menu item opens this same page with the parameter "favorites".</summary>
     public bool FavoritesOnly { get; private set; }
 
-    protected override void OnNavigatedTo(NavigationEventArgs e) => ShowMode(e.Parameter as string == "favorites");
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        // Back from a photo's own page: everything as it was, and the photo flies back into its card.
+        if (e.NavigationMode == NavigationMode.Back && _opened is not null)
+        {
+            PhotoDetailNav.Return(_opened);
+            return;
+        }
+        ShowMode(e.Parameter as string == "favorites");
+    }
+
+    /// <summary>The card (or list row's thumbnail) last opened.</summary>
+    UIElement? _opened;
+
+    /// <summary>A click on a card, not on its buttons: the photo on its own page.</summary>
+    /// <summary>The pointer is over a card: its sharp photo starts loading, so its page opens with it.</summary>
+    void Card_PointerEntered(object sender, PointerRoutedEventArgs e) => PhotoDetailNav.Prefetch(Frame, (UIElement)sender);
+
+    void Card_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        var card = (FrameworkElement)sender;
+        var picture = Find(card, "Thumb") ?? card;
+        if (PhotoDetailNav.Open(Frame, e, card, picture)) _opened = picture;
+    }
 
     /// <summary>Shows everything (History) or only starred photos (Favorites) on this same page.</summary>
     public async void ShowMode(bool favorites)
     {
         FavoritesOnly = favorites;
         await ViewModel.LoadAsync(favorites);
-    }
-
-    // Each item's action buttons stay hidden until the pointer is over it (or it has keyboard focus).
-    void Card_Enter(object sender, PointerRoutedEventArgs e) => ShowActions(sender, true);
-    void Card_Exit(object sender, PointerRoutedEventArgs e) => ShowActions(sender, false);
-    void Card_Focus(object sender, RoutedEventArgs e) => ShowActions(sender, true);
-    void Card_Blur(object sender, RoutedEventArgs e) => ShowActions(sender, false);
-
-    static void ShowActions(object card, bool visible)
-    {
-        var root = (DependencyObject)card;
-        if (Find(root, "Actions") is not { } actions) return;
-        actions.Opacity = visible ? 1 : 0;
-        // The text runs the full width until the buttons appear over its end; then it trims short of them.
-        if (Find(root, "Details") is { } details)
-            details.Margin = new Thickness(0, 0, visible ? actions.ActualWidth + 8 : 0, 0);
     }
 
     static FrameworkElement? Find(DependencyObject parent, string name)

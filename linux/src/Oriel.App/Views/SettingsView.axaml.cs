@@ -19,6 +19,19 @@ public partial class SettingsView : UserControl
     void Connect(SettingsViewModel? vm)
     {
         if (vm is null) return;
+        // Rows that depend on another setting come and go with a slide and a fade (Reveal), never all at once.
+        MinLikesRow.IsVisible = vm.SkipLowLikes;
+        DailyTimeRow.IsVisible = vm.IsDaily;
+        ApplyAtLoginRow.IsVisible = vm.IsDaily;
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SettingsViewModel.SkipLowLikes)) Reveal(MinLikesRow, vm.SkipLowLikes);
+            if (e.PropertyName == nameof(SettingsViewModel.IsDaily))
+            {
+                Reveal(DailyTimeRow, vm.IsDaily);
+                Reveal(ApplyAtLoginRow, vm.IsDaily);
+            }
+        };
         DailyTimePicker.SelectedTime = vm.DailyTime;
         DailyTimePicker.SelectedTimeChanged += (_, e) =>
         {
@@ -66,5 +79,32 @@ public partial class SettingsView : UserControl
             AllowMultiple = false,
         });
         return folders.Count == 1 ? folders[0].TryGetLocalPath() : null;
+    }
+
+    readonly Dictionary<Control, int> _reveals = [];
+
+    /// <summary>A row comes in from just above with a fade, and goes the same way (like on Windows).</summary>
+    async void Reveal(Control row, bool show)
+    {
+        var version = _reveals[row] = _reveals.GetValueOrDefault(row) + 1;
+        var above = Avalonia.Media.Transformation.TransformOperations.Parse("translateY(-10px)");
+        var home = Avalonia.Media.Transformation.TransformOperations.Parse("translateY(0px)");
+        if (show)
+        {
+            row.Opacity = 0;
+            row.RenderTransform = above;
+            row.IsVisible = true;
+            await Task.Delay(16);
+            if (version != _reveals[row]) return;
+            row.Opacity = 1;
+            row.RenderTransform = home;
+        }
+        else
+        {
+            row.Opacity = 0;
+            row.RenderTransform = above;
+            await Task.Delay(220);
+            if (version == _reveals[row]) row.IsVisible = false;
+        }
     }
 }

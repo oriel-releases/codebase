@@ -25,6 +25,8 @@
     <CornerRadius x:Key="OrielLargeRadius">20</CornerRadius>
     <!--  Photo thumbnails, and the one-line search bar (half its 52px height)  -->
     <CornerRadius x:Key="OrielThumbRadius">8</CornerRadius>
+    <!--  The small icon tile at the start of a row (Settings, Friends, Interests) and Home's today thumbnail.  -->
+    <CornerRadius x:Key="OrielTileRadius">10</CornerRadius>
     <CornerRadius x:Key="OrielBarRadius">26</CornerRadius>
     <!--  Dark fade at the bottom of a photo card: keeps white text and buttons readable on any picture  -->
     <LinearGradientBrush x:Key="OrielPhotoScrimBrush" StartPoint="0,0" EndPoint="0,1">
@@ -180,7 +182,8 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Grid CornerRadius="{StaticResource OrielTabItemRadius}">
+                    <!--  Transparent, not empty: the whole option takes the click, not only its icon and word.  -->
+                    <Grid Background="Transparent" CornerRadius="{StaticResource OrielTabItemRadius}">
                         <ContentPresenter
                             x:Name="ContentPresenter"
                             Padding="{TemplateBinding Padding}"

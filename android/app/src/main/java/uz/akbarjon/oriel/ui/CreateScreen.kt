@@ -1,5 +1,8 @@
 package uz.akbarjon.oriel.ui
 
+import uz.akbarjon.oriel.ui.Motion
+import uz.akbarjon.oriel.ui.Motion.fadeThrough
+import uz.akbarjon.oriel.ui.Motion.slideThrough
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -240,7 +243,7 @@ fun CreateScreen() {
                 m.picture != null -> "picture"
                 else -> "ideas"
             }
-            AnimatedContent(state, transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(150)) }, label = "canvas") { s ->
+            AnimatedContent(state, transitionSpec = { fadeThrough() }, label = "canvas") { s ->
                 when (s) {
                     "making" -> Making(m.step ?: "")
                     "picture" -> m.picture?.let { photo ->

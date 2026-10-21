@@ -76,7 +76,8 @@ object Unsplash {
         return (System.currentTimeMillis() / hour + 1) * hour
     }
 
-    private fun parse(p: JSONObject): Photo {
+    /** One photo in Unsplash's shape: from the API, or from the Explore feed (which keeps the same fields). */
+    internal fun parse(p: JSONObject): Photo {
         val user = p.getJSONObject("user")
         val urls = p.getJSONObject("urls")
         val links = p.getJSONObject("links")

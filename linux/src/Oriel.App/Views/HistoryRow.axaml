@@ -5,49 +5,18 @@
                           xmlns:controls="using:Oriel.UI.Controls"
                           x:Class="Oriel.UI.Views.HistoryRow"
                           x:DataType="vm:HistoryItemViewModel">
-    <views:HistoryItemControl.Styles>
-        <Style Selector="Border.hoverable StackPanel.actions">
-            <Setter Property="Opacity" Value="0" />
-        </Style>
-        <Style Selector="Border.hoverable:pointerover StackPanel.actions">
-            <Setter Property="Opacity" Value="1" />
-        </Style>
-        <Style Selector="Border.hoverable:focus-within StackPanel.actions">
-            <Setter Property="Opacity" Value="1" />
-        </Style>
-    </views:HistoryItemControl.Styles>
-
-    <!--  One compact row per wallpaper  -->
-    <Border Classes="hoverable" Padding="8" Background="{DynamicResource OrielSurfaceBrush}" CornerRadius="12">
+    <!--  A row: its thumbnail, the photographer and one line; a click opens the photo on its own page.  -->
+    <Border Padding="8" Background="{DynamicResource OrielSurfaceBrush}" CornerRadius="12">
         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
-            <Border Width="112" Height="64" Background="{DynamicResource OrielLineBrush}" CornerRadius="8" ClipToBounds="True">
-                <Image controls:ImageReveal.Enabled="True" Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+            <Border x:Name="Thumb" Width="112" Height="64" Background="{DynamicResource OrielLineBrush}" CornerRadius="8" ClipToBounds="True">
+                <Image controls:ImageReveal.Enabled="True" Source="{Binding Preview}" Stretch="UniformToFill" />
             </Border>
             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                <Button Classes="link" Margin="-6,0,0,0" HorizontalAlignment="Left" Content="{Binding PhotographerName}"
-                        Command="{Binding OpenUrlCommand}" CommandParameter="{Binding PhotographerUri}"
-                        ToolTip.Tip="Photographer on Unsplash" />
-                <TextBlock Classes="muted small" TextTrimming="CharacterEllipsis" Text="{Binding Details}" />
+                <TextBlock FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Text="{Binding PhotographerName}" />
+                <TextBlock Classes="muted" FontSize="12" TextTrimming="CharacterEllipsis" Text="{Binding Subtitle}" />
             </StackPanel>
-            <StackPanel Grid.Column="2" Classes="actions" VerticalAlignment="Center" Orientation="Horizontal" Spacing="2">
-                <Button Classes="icon small" Background="Transparent" Command="{Binding ReapplyCommand}" IsEnabled="{Binding CanReapply}"
-                        ToolTip.Tip="Set as wallpaper again">
-                    <PathIcon Data="{StaticResource IconImage}" Width="14" Height="14" />
-                </Button>
-                <ToggleButton Classes="icon small" Background="Transparent" IsChecked="{Binding IsFavorite}" ToolTip.Tip="Favorite: never auto-delete">
-                    <Panel>
-                        <PathIcon Data="{StaticResource IconStar}" Width="14" Height="14" IsVisible="{Binding !IsFavorite}" />
-                        <PathIcon Data="{StaticResource IconStarFilled}" Width="14" Height="14"
-                                  Foreground="{StaticResource OrielStarBrush}" IsVisible="{Binding IsFavorite}" />
-                    </Panel>
-                </ToggleButton>
-                <Button Classes="icon small" Background="Transparent" Command="{Binding OpenInFolderCommand}" ToolTip.Tip="Open in folder">
-                    <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" />
-                </Button>
-                <Button Classes="icon small" Background="Transparent" Command="{Binding DeleteCommand}" ToolTip.Tip="Delete">
-                    <PathIcon Data="{StaticResource IconDelete}" Width="14" Height="14" />
-                </Button>
-            </StackPanel>
+            <PathIcon Grid.Column="2" Margin="0,0,8,0" Width="14" Height="14" Data="{StaticResource IconStarFilled}"
+                      Foreground="{StaticResource OrielStarBrush}" IsVisible="{Binding IsFavorite}" />
         </Grid>
     </Border>
 </views:HistoryItemControl>

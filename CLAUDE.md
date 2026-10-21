@@ -24,6 +24,7 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   - https://github.com/oriel-releases/android (`Oriel.apk` on each release; the app installs it from `releases/latest`)
   - https://github.com/oriel-releases/macos (`Oriel.dmg`, `Oriel.zip` and `appcast.xml`; Sparkle reads
     `releases/latest/download/appcast.xml`)
+  - https://github.com/oriel-releases/explore (the hourly Explore feed, see below; its code lives only there)
 
 ## Workflow rules
 
@@ -57,10 +58,12 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
 - Native **Kotlin + Jetpack Compose**, Android 8.0+ (see `android/README.md`). **No Firebase SDK**: Auth, Firestore and
   the Realtime Database are REST calls (`data/Firebase.kt`), like the desktop `FirebaseClient.cs`.
 - Five tabs: **Home** (the wallpaper in a phone-shaped frame on its blurred self, Share, Lock, Crop, Favorite, Change
-  now), **Search** (Interests live inside it, added only via "Add to Interests"), **AI** (AI Studio, see Create below),
+  now), **Explore** (search on top, then this hour's feed; Interests live inside it, added only via "Add to Interests"), **AI** (AI Studio, see Create below),
   **History** (All / Favorites), **Settings** (Friends lives inside it, a row that opens it). Floating blurred navigation bar (Haze), a rail on the right in landscape.
   Black and white design, Lucide-style icons, every dialog a bottom sheet rounded on top only.
 - Sign-in: **Google via Credential Manager** (native, no browser) or email and password.
+- First-run tour (`ui/OnboardingScreen.kt`, like the desktop one): once, on a phone that never had an Oriel wallpaper
+  (`AppState.onboardingDone`); it ends, or is skipped, with the first wallpaper. Every app sets one on the first sign-in.
 - Scheduling: one inexact alarm at the next tick (no exact-alarm permission), then a JobScheduler job does the change.
   A periodic job (~15 min, network + battery not low) checks the account's photo, settings and favorites.
 - **Photo position** (this phone only, not synced): Smart (`crop=faces,entropy`, the default), Center, or a custom focal
@@ -145,6 +148,20 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   Syncing… / Receiving… (desktop `ApplyPhase` + `PhaseText` + `PhaseWatch`, Android `Phase`, extension `setStatus`),
   sliding from one to the next.
 
+## Explore feed (built: Windows, Linux, Android)
+
+- The Search page/tab is now **Explore** (compass icon): the search bar stays on top, and below it "This hour's
+  wallpapers", the same 300 photos for everyone, new every hour. Scrolling them costs **no Unsplash requests**.
+- `oriel-releases/explore` (public): `.github/workflows/hourly.yml` runs `scripts/build.mjs` at :02 every hour (about
+  20 API calls in all, secret `UNSPLASH_ACCESS_KEY`), skips photos shown in the last 12 h, and force-pushes one commit
+  to the `feed` branch: `explore.json` = {version, hour (UTC), landscape[300], portrait[300]}, each photo Unsplash's own
+  object trimmed (id, width, height, likes, color, blur_hash, description, alt_description, topic, urls.raw,
+  links.html/download_location, user.name/username/links.html). **Metadata only**, images come from Unsplash's CDN.
+- Apps read `https://raw.githubusercontent.com/oriel-releases/explore/feed/explore.json` (desktop `ExploreService`,
+  landscape; Android `core/Explore.kt`, portrait), keep it on disk and fetch again once the hour turns (at most every
+  5 min until the new hour is up). Setting one is like a search result: download ping, `sync/current`, History topic =
+  the photo's `topic`.
+
 ## Other Firestore features
 
 - **Follow a friend:** `codes/{code}` = {uid, name, picture, createdAt, photoId, photoPath, photographer,
@@ -156,7 +173,8 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   photographerHandle, createdAt}, readable only when signed in. Old `/share?id=&i=&by=&u=&from=` links still work. A share
   or follow opened without the app rides along the sign-in link (`oriel://auth?...&share=ID&from=Name&follow=CODE`).
   Hosting rewrites `/share/**` and `/follow/**` to their pages (production only; `next dev` doesn't).
-- **Anonymous daily counts:** `stats/{YYYY-MM-DD}` (UTC), numbers only, written by the desktop apps (`StatsReporter`):
+- **Anonymous daily counts:** no app collects them any more (`StatsReporter` was removed from Windows and Linux; the
+  rules below are kept). They were `stats/{YYYY-MM-DD}` (UTC), numbers only:
   `windows_new`, `linux_new`, `windows_active`, `linux_active`, `retained7`, `retained30`, `sharesSent`, `sharesOpened`,
   `sharesSet`. Rules allow only +1 on today's doc. Keep it this small: no per-click events, no user IDs.
   Last online = `sessions/{id}.lastSeenAt`.
@@ -184,6 +202,4 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
 - **Instant delivery to a closed Android app:** FCM data messages sent by a free Cloudflare Worker (it verifies the
   Firebase ID token, reads device FCM tokens, sends the push; key only as a Worker secret). Today a closed app catches
   up on its ~15 min job, before each scheduled change, or when opened.
-- A **time zone picker** on desktop (it has `TimeZone`, but it's only editable on the phone).
 - Syncing the Android photo position (focal point) with the photo, for a future iPhone app.
-- The desktop onboarding tour on Android.

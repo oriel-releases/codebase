@@ -100,7 +100,7 @@ public static class ScheduleRules
 /// copes with sleep/resume and clock changes) and wakes early when settings change. Idle in between.
 /// </summary>
 public sealed class DailyScheduler(WallpaperService wallpapers, RetentionService retention, ISettingsStore store,
-    IClock clock, ILogger<DailyScheduler> log, IAuthState? auth = null, FollowService? follow = null, StatsReporter? stats = null,
+    IClock clock, ILogger<DailyScheduler> log, IAuthState? auth = null, FollowService? follow = null,
     PulseListener? pulse = null) : IDisposable
 {
     CancellationTokenSource? _cts;
@@ -165,7 +165,6 @@ public sealed class DailyScheduler(WallpaperService wallpapers, RetentionService
         }
 
         if (auth is { IsSignedIn: false }) return;
-        if (stats is not null) await stats.MarkActiveAsync();
         // The account's photo first (or the followed friend's): when another device already changed it, for this very
         // tick too, that one shows here and no second photo is picked.
         if (follow is not null) await follow.CheckAsync(ct);

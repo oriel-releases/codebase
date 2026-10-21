@@ -17,20 +17,33 @@ public sealed partial class CollectionsPage : Page
         InitializeComponent();
     }
 
-    /// <summary>Coming back to Search from elsewhere: new ideas (not when returning from Interests, its own sub page).</summary>
+    /// <summary>Coming to Explore: this hour's photos when the hour has turned.</summary>
     protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        if (e.NavigationMode != Microsoft.UI.Xaml.Navigation.NavigationMode.Back) ViewModel.ShuffleSuggestions();
+        _ = ViewModel.LoadExploreAsync();
+        PhotoDetailNav.Return(_opened);
+    }
+
+    /// <summary>The card last opened: the photo flies back into it.</summary>
+    UIElement? _opened;
+
+    /// <summary>The pointer is over a card: its sharp photo starts loading, so its page opens with it.</summary>
+    void Card_PointerEntered(object sender, PointerRoutedEventArgs e) => PhotoDetailNav.Prefetch(Frame, (UIElement)sender);
+
+    void Card_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (PhotoDetailNav.Open(Frame, e, (UIElement)sender)) _opened = (UIElement)sender;
+    }
+
+    /// <summary>Near the bottom of Explore: the next few photos (search results have their own Show more).</summary>
+    void Scroller_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
+    {
+        if (ViewModel.ShowStart && Scroller.VerticalOffset >= Scroller.ScrollableHeight - 800) ViewModel.ShowMoreExplore();
     }
 
     void Interests_Click(object sender, RoutedEventArgs e) =>
         Frame.Navigate(typeof(InterestsPage), null, new SlideNavigationTransitionInfo { Effect = SlideNavigationTransitionEffect.FromRight });
-
-    void Suggestion_Click(object sender, RoutedEventArgs e)
-    {
-        if (((Button)sender).Tag is string words) ViewModel.SearchForCommand.Execute(words);
-    }
 
     /// <summary>Our own ✕ is in the bar; hide the text box's built-in one so there aren't two.</summary>
     void SearchBox_Loaded(object sender, RoutedEventArgs e)

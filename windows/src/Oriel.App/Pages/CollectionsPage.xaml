@@ -5,9 +5,55 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:local="using:Oriel.UI"
-    xmlns:vm="using:Oriel.UI.ViewModels">
+    xmlns:vm="using:Oriel.UI.ViewModels"
+    NavigationCacheMode="Enabled">
 
-    <ScrollViewer>
+    <Page.Resources>
+        <!--  A photo and its credit, the same card as History's: search results and Explore alike.  -->
+        <DataTemplate x:Key="PhotoCard" x:DataType="vm:PhotoResultViewModel">
+            <!--  A click opens the photo on its own page, with its actions.  -->
+            <Grid
+                Height="210"
+                Background="{ThemeResource OrielLineBrush}"
+                CornerRadius="{StaticResource OrielCardRadius}"
+                PointerEntered="Card_PointerEntered"
+                Tag="{x:Bind}"
+                Tapped="Card_Tapped">
+                <Image
+                    local:ImageReveal.Enabled="True"
+                    AutomationProperties.Name="{x:Bind Headline}"
+                    Source="{x:Bind Preview, Mode=OneWay}"
+                    Stretch="UniformToFill" />
+                <FontIcon
+                    Margin="12"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    FontSize="16"
+                    Foreground="{StaticResource OrielStarBrush}"
+                    Glyph="&#xE735;"
+                    Visibility="{x:Bind local:Star.Shown(IsFavorite), Mode=OneWay}" />
+                <!--  The fade keeps the white text readable on any photo.  -->
+                <StackPanel
+                    Padding="14,44,14,12"
+                    VerticalAlignment="Bottom"
+                    Background="{StaticResource OrielPhotoScrimBrush}">
+                    <TextBlock
+                        FontWeight="SemiBold"
+                        Foreground="White"
+                        Text="{x:Bind PhotographerName}"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        FontSize="12"
+                        Foreground="#CCFFFFFF"
+                        Text="{x:Bind Subtitle}"
+                        TextTrimming="CharacterEllipsis"
+                        TextWrapping="NoWrap" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <ScrollViewer x:Name="Scroller" ViewChanged="Scroller_ViewChanged">
         <Grid>
             <StackPanel MaxWidth="{StaticResource PageMaxWidth}" Margin="40,32,40,40">
 
@@ -87,83 +133,34 @@
                     Message="{x:Bind ViewModel.InfoMessage, Mode=OneWay}"
                     Severity="{x:Bind ViewModel.InfoSeverity, Mode=OneWay}" />
 
-                <!--  ============ Start: ideas to search for (gone once you search) ============  -->
-                <StackPanel
-                    Margin="0,22,0,0"
-                    Padding="20"
-                    Background="{ThemeResource OrielSurfaceBrush}"
-                    CornerRadius="{StaticResource OrielLargeRadius}"
-                    Spacing="14"
-                    Visibility="{x:Bind ViewModel.ShowStart, Mode=OneWay}">
-                    <Grid>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            Text="Need an idea?" />
-                        <Button
-                            HorizontalAlignment="Right"
-                            AutomationProperties.Name="Other ideas"
-                            Command="{x:Bind ViewModel.ShuffleSuggestionsCommand}"
-                            Style="{StaticResource PillButtonStyle}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon FontSize="12" Glyph="&#xE8B1;" />
-                                <TextBlock Text="Shuffle" />
-                            </StackPanel>
-                        </Button>
-                    </Grid>
-                    <!--  Each idea as wide as its words  -->
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.Suggestions}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="x:String">
-                                <Button
-                                    Background="{ThemeResource OrielPaperBrush}"
-                                    Click="Suggestion_Click"
-                                    Style="{StaticResource PillButtonStyle}"
-                                    Tag="{x:Bind}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <FontIcon
-                                            FontSize="12"
-                                            Foreground="{ThemeResource OrielMutedBrush}"
-                                            Glyph="&#xE721;" />
-                                        <TextBlock Text="{x:Bind}" />
-                                    </StackPanel>
-                                </Button>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-
-                <!--  ============ Interests: a row that opens its own page, like a Settings category ============  -->
+                <!--  ============ Interests: a compact row that opens its own page, like the Friends and Settings rows ============  -->
                 <Button
-                    MinHeight="68"
-                    Margin="0,22,0,0"
+                    MinHeight="56"
+                    Margin="0,16,0,0"
                     Visibility="{x:Bind ViewModel.ShowStart, Mode=OneWay}"
-                    Padding="20,14,16,14"
+                    Padding="16,10,14,10"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
                     AutomationProperties.Name="Interests"
                     Click="Interests_Click"
-                    CornerRadius="{StaticResource OrielCardRadius}">
-                    <Grid ColumnSpacing="16">
+                    CornerRadius="{StaticResource OrielLargeRadius}">
+                    <Grid ColumnSpacing="14">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <FontIcon
+                        <Border
+                            Width="32"
+                            Height="32"
                             VerticalAlignment="Center"
-                            FontSize="18"
-                            Foreground="{ThemeResource OrielMutedBrush}"
-                            Glyph="&#xEB51;" />
+                            Background="{ThemeResource OrielPaperBrush}"
+                            CornerRadius="{StaticResource OrielTileRadius}">
+                            <FontIcon FontSize="14" Glyph="&#xEB51;" />
+                        </Border>
                         <StackPanel
                             Grid.Column="1"
-                            VerticalAlignment="Center"
-                            Spacing="2">
+                            VerticalAlignment="Center">
                             <TextBlock FontWeight="SemiBold" Text="Interests" />
                             <TextBlock
                                 FontSize="12"
@@ -179,6 +176,36 @@
                             Glyph="&#xE76C;" />
                     </Grid>
                 </Button>
+
+                <!--  ============ Explore: this hour's wallpapers, the same for everyone (gone while searching) ============  -->
+                <StackPanel Margin="0,28,0,0" Visibility="{x:Bind ViewModel.ShowStart, Mode=OneWay}">
+                    <TextBlock
+                        Margin="2,0,0,12"
+                        Style="{StaticResource SectionHeaderStyle}"
+                        Text="Fresh picks for you" />
+                    <ProgressRing
+                        Width="28"
+                        Height="28"
+                        Margin="0,24"
+                        HorizontalAlignment="Center"
+                        IsActive="{x:Bind ViewModel.IsExploreLoading, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.IsExploreLoading, Mode=OneWay}" />
+                    <TextBlock
+                        Margin="2,0,0,0"
+                        Style="{StaticResource MutedTextStyle}"
+                        Text="Fresh picks couldn't load right now. Check your connection, or search for something above."
+                        TextWrapping="Wrap"
+                        Visibility="{x:Bind ViewModel.ExploreUnavailable, Mode=OneWay}" />
+                    <ItemsRepeater ItemTemplate="{StaticResource PhotoCard}" ItemsSource="{x:Bind ViewModel.Explore}">
+                        <ItemsRepeater.Layout>
+                            <UniformGridLayout
+                                ItemsStretch="Fill"
+                                MinColumnSpacing="14"
+                                MinItemWidth="280"
+                                MinRowSpacing="14" />
+                        </ItemsRepeater.Layout>
+                    </ItemsRepeater>
+                </StackPanel>
 
                 <!--  ============ Results: photo first, credit and action on the photo ============  -->
                 <StackPanel Margin="0,8,0,0" Visibility="{x:Bind ViewModel.HasSearched, Mode=OneWay}">
@@ -229,7 +256,7 @@
                             TextWrapping="Wrap" />
                     </StackPanel>
 
-                    <ItemsRepeater ItemsSource="{x:Bind ViewModel.Results}">
+                    <ItemsRepeater ItemTemplate="{StaticResource PhotoCard}" ItemsSource="{x:Bind ViewModel.Results}">
                         <ItemsRepeater.Layout>
                             <UniformGridLayout
                                 ItemsStretch="Fill"
@@ -237,73 +264,6 @@
                                 MinItemWidth="280"
                                 MinRowSpacing="14" />
                         </ItemsRepeater.Layout>
-                        <ItemsRepeater.ItemTemplate>
-                            <DataTemplate x:DataType="vm:PhotoResultViewModel">
-                                <Grid
-                                    Height="210"
-                                    Background="{ThemeResource OrielLineBrush}"
-                                    CornerRadius="{StaticResource OrielCardRadius}">
-                                    <Image
-                                        local:ImageReveal.Enabled="True"
-                                        AutomationProperties.Name="{x:Bind Description}"
-                                        Source="{x:Bind Thumbnail}"
-                                        Stretch="UniformToFill"
-                                        ToolTipService.ToolTip="{x:Bind Size}" />
-                                    <!--  The fade keeps the white text readable on any photo.  -->
-                                    <Grid
-                                        Padding="14,44,10,10"
-                                        VerticalAlignment="Bottom"
-                                        Background="{StaticResource OrielPhotoScrimBrush}"
-                                        ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <HyperlinkButton
-                                            Margin="-6,0,0,0"
-                                            Padding="6,1"
-                                            VerticalAlignment="Center"
-                                            Content="{x:Bind PhotographerName}"
-                                            FontSize="12"
-                                            Foreground="White"
-                                            NavigateUri="{x:Bind PhotographerUri}"
-                                            ToolTipService.ToolTip="Photographer on Unsplash">
-                                            <HyperlinkButton.Resources>
-                                                <SolidColorBrush x:Key="HyperlinkButtonForegroundPointerOver" Color="#E0E0E0" />
-                                                <SolidColorBrush x:Key="HyperlinkButtonForegroundPressed" Color="#C0C0C0" />
-                                            </HyperlinkButton.Resources>
-                                        </HyperlinkButton>
-                                        <Button
-                                            Grid.Column="1"
-                                            Padding="14,5"
-                                            Command="{x:Bind SetCommand}"
-                                            FontSize="13"
-                                            IsEnabled="{x:Bind IsIdle, Mode=OneWay}"
-                                            Style="{StaticResource PillButtonStyle}">
-                                            <Button.Resources>
-                                                <SolidColorBrush x:Key="ButtonBackground" Color="#F2F2F2" />
-                                                <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#E0E0E0" />
-                                                <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#D0D0D0" />
-                                                <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="#F2F2F2" />
-                                                <SolidColorBrush x:Key="ButtonForeground" Color="#141414" />
-                                                <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#141414" />
-                                                <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#141414" />
-                                                <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="#6B6B6B" />
-                                            </Button.Resources>
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <ProgressRing
-                                                    Width="12"
-                                                    Height="12"
-                                                    Foreground="#141414"
-                                                    IsActive="{x:Bind IsBusy, Mode=OneWay}"
-                                                    Visibility="{x:Bind IsBusy, Mode=OneWay}" />
-                                                <TextBlock Text="{x:Bind ButtonText, Mode=OneWay}" />
-                                            </StackPanel>
-                                        </Button>
-                                    </Grid>
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsRepeater.ItemTemplate>
                     </ItemsRepeater>
 
                     <Button

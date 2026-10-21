@@ -1,5 +1,13 @@
 package uz.akbarjon.oriel.ui
 
+import androidx.compose.ui.draw.clipToBounds
+import uz.akbarjon.oriel.ui.Motion
+import uz.akbarjon.oriel.ui.Motion.fadeThrough
+import uz.akbarjon.oriel.ui.Motion.slideThrough
+import androidx.compose.runtime.derivedStateOf
+import kotlin.math.roundToInt
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.layout.offset
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -67,23 +75,35 @@ fun HistoryScreen() {
     val haze = remember { HazeState() }
     val c = Palette.colors
 
+    // The title scrolls away with the photos; All / Favorites sits under it, then stays at the top once it gets there.
+    val titlePx = with(LocalDensity.current) { 72.dp.toPx() }
+    val barY by remember {
+        derivedStateOf {
+            val grid = if (favoritesOnly) favoritesGrid else allGrid
+            if (grid.firstVisibleItemIndex == 0) (titlePx - grid.firstVisibleItemScrollOffset).coerceAtLeast(0f) else 0f
+        }
+    }
+
     Column(Modifier.fillMaxSize()) {
-        ScreenTitle("History")
         Box(Modifier.fillMaxSize()) {
             Box(Modifier.fillMaxSize().hazeSource(haze)) {
-                AnimatedContent(favoritesOnly, transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(120)) }, label = "historyTab") { fav ->
-                    HistoryGrid(if (fav) favorites else all, fav, if (fav) favoritesGrid else allGrid) { selectedId = it }
-                }
+                // All or Favorites: the other list just shows, each at its own scroll position.
+                val fav = favoritesOnly
+                HistoryGrid(if (fav) favorites else all, fav, if (fav) favoritesGrid else allGrid) { selectedId = it }
             }
             // Stays on top while the photos scroll under it, blurred.
             Segmented(
                 listOf(false to "All", true to "Favorites"), favoritesOnly, { favoritesOnly = it },
-                Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().clip(CircleShape)
+                Modifier.offset { IntOffset(0, barY.roundToInt()) }.padding(horizontal = 24.dp, vertical = 8.dp).fillMaxWidth().clip(CircleShape)
                     .hazeEffect(haze, HazeStyle(backgroundColor = c.paper, tint = HazeTint(c.surface.copy(alpha = 0.55f)), blurRadius = 20.dp, noiseFactor = 0f)),
                 track = Color.Transparent,
             )
         }
     }
+
+    // The tiles' picture size (HistoryGrid's), so the photo page starts with the picture the tile already showed.
+    val (screenW, screenH) = remember { Oriel.wallpapers.screenSize() }
+    val tileW = with(LocalDensity.current) { 130.dp.roundToPx() }
 
     // From All (favorites are in it too): un-starring in Favorites keeps the sheet open.
     val selected = all?.firstOrNull { it.photo.id == selectedId } ?: favorites?.firstOrNull { it.photo.id == selectedId }
@@ -91,6 +111,7 @@ fun HistoryScreen() {
         PhotoSheet(
             selected.photo, selected.topic, onDismiss = { selectedId = null },
             heading = friendlyTime(selected.appliedAt),
+            tileUrl = selected.photo.thumb(tileW, tileW * screenH / screenW, uz.akbarjon.oriel.core.Positions.of(selected.photo.id)),
             favorite = selected.isFavorite,
             onFavorite = { fav -> uz.akbarjon.oriel.core.FavoritesSync.set(selected.photo.id, fav) },
             onDelete = {
@@ -108,10 +129,16 @@ private fun HistoryGrid(entries: List<HistoryEntry>?, favoritesOnly: Boolean, st
     val c = Palette.colors
     LazyVerticalGrid(
         columns = GridCells.Fixed(3), modifier = Modifier.fillMaxSize(), state = state,
-        // Room at the top for the tabs floating over it.
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 64.dp, bottom = bottomBarSpace()),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomBarSpace()),
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        item(span = { GridItemSpan(3) }, key = "title") {
+            // Out to the screen's edge like the other tabs' titles, then room for the tabs floating over the photos.
+            Column(Modifier.offset(x = (-16).dp)) {
+                ScreenTitle("History")
+                Spacer(Modifier.height(56.dp))
+            }
+        }
         if (entries != null && entries.isEmpty()) {
             item(span = { GridItemSpan(3) }) {
                 Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -125,7 +152,7 @@ private fun HistoryGrid(entries: List<HistoryEntry>?, favoritesOnly: Boolean, st
         }
         items(entries.orEmpty(), key = { it.photo.id }) { entry ->
             Box(
-                Modifier.animateItem().aspectRatio(screenW.toFloat() / screenH)
+                Modifier.animateItem().aspectRatio(screenW.toFloat() / screenH).sharedPhoto(entry.photo)
                     .springClick(pressed = 0.94f, ripple = false) { onOpen(entry.photo.id) }.clip(RoundedCornerShape(16.dp)),
             ) {
                 RemoteImage(

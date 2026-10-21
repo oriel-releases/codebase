@@ -11,18 +11,32 @@
                 <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal" Spacing="10">
                 <!--  "Set again": what it's doing now, the same words as on Home and Search.  -->
                 <TextBlock Classes="muted" VerticalAlignment="Center" Text="{Binding Stage}" IsVisible="{Binding IsChanging}" />
-                <Border VerticalAlignment="Center" Padding="3" CornerRadius="12"
-                        Background="{DynamicResource OrielSurfaceBrush}">
-                    <StackPanel Orientation="Horizontal" Spacing="2">
-                        <ToggleButton Classes="icon small seg" Width="34" Height="30" CornerRadius="9" Background="Transparent"
-                                      IsChecked="{Binding IsGrid}" ToolTip.Tip="Grid">
-                            <PathIcon Data="{StaticResource IconGrid}" Width="14" Height="14" />
-                        </ToggleButton>
-                        <ToggleButton Classes="icon small seg" Width="34" Height="30" CornerRadius="9" Background="Transparent"
-                                      IsChecked="{Binding IsList}" ToolTip.Tip="List">
-                            <PathIcon Data="{StaticResource IconList}" Width="14" Height="14" />
-                        </ToggleButton>
-                    </StackPanel>
+                <!--  Grid or list, like the phone's segmented control: a soft track, and an ink pill sliding to the pick.  -->
+                <Border VerticalAlignment="Center" Padding="3" CornerRadius="{DynamicResource OrielPill}" BorderThickness="1"
+                        BorderBrush="{DynamicResource OrielLineBrush}" Background="{DynamicResource OrielSurfaceBrush}">
+                    <Panel>
+                        <Border x:Name="ViewIndicator" Width="78" HorizontalAlignment="Left" CornerRadius="{DynamicResource OrielTabItem}" Background="{DynamicResource OrielInkBrush}">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.32" Easing="0.05,0.7,0.1,1" />
+                                </Transitions>
+                            </Border.Transitions>
+                        </Border>
+                        <StackPanel Orientation="Horizontal">
+                            <ToggleButton Classes="seg" Width="78" Height="30" CornerRadius="{DynamicResource OrielTabItem}" IsChecked="{Binding IsGrid}">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <PathIcon Data="{StaticResource IconGrid}" Width="12" Height="12" />
+                                    <TextBlock VerticalAlignment="Center" FontSize="13" Text="Grid" />
+                                </StackPanel>
+                            </ToggleButton>
+                            <ToggleButton Classes="seg" Width="78" Height="30" CornerRadius="{DynamicResource OrielTabItem}" IsChecked="{Binding IsList}">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <PathIcon Data="{StaticResource IconList}" Width="12" Height="12" />
+                                    <TextBlock VerticalAlignment="Center" FontSize="13" Text="List" />
+                                </StackPanel>
+                            </ToggleButton>
+                        </StackPanel>
+                    </Panel>
                 </Border>
                 </StackPanel>
             </Grid>

@@ -30,6 +30,19 @@ public sealed class App : Application
     public static SingleInstance? Instance { get; set; }
     public static string[] StartupArgs { get; set; } = [];
 
+    static int _firstWallpaper;
+
+    /// <summary>The account's own photo when it has one (from its other devices), else a new pick from its interests.</summary>
+    static async Task FirstWallpaperAsync()
+    {
+        var store = Get<ISettingsStore>();
+        // A new computer gets the tour first, which ends (or is skipped) with the first wallpaper.
+        if (!store.Load().OnboardingDone || store.LoadState().LastAppliedAt is not null) return;
+        if (Interlocked.Exchange(ref _firstWallpaper, 1) == 1) return;
+        await Get<FollowService>().CheckAsync();
+        if (store.LoadState().LastAppliedAt is null) await Get<WallpaperService>().ApplyAsync(force: true);
+    }
+
     public static T Get<T>() where T : notnull => _services!.GetRequiredService<T>();
 
     bool IsWindowVisible => _window is { IsVisible: true };
@@ -137,6 +150,8 @@ public sealed class App : Application
         var sync = Get<SyncPublisher>();
         auth.Changed += (_, _) => { if (auth.IsSignedIn) _ = sync.PublishLatestIfMissingAsync(); };
         _ = sync.PublishLatestIfMissingAsync();
+        // The first sign-in on this computer (it never set a wallpaper): one right away, not at the next tick.
+        auth.Changed += (_, _) => { if (auth.IsSignedIn) _ = Task.Run(FirstWallpaperAsync); };
 
         var background = StartupArgs.Contains("--background", StringComparer.OrdinalIgnoreCase);
         // A sign-in link that started this process always shows the window, so the result is visible.

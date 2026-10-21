@@ -12,6 +12,7 @@ public partial class PhotoResultCard : UserControl
     public PhotoResultCard()
     {
         InitializeComponent();
+        PhotoDetailView.Wire(this);
         AttachedToVisualTree += (_, _) => Show(DataContext as PhotoResultViewModel);
         DetachedFromVisualTree += (_, _) => Show(null);
         DataContextChanged += (_, _) => { if (this.IsAttachedToVisualTree()) Show(DataContext as PhotoResultViewModel); };

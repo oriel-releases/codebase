@@ -60,10 +60,16 @@ public sealed partial class HomePage : Page
         return animation;
     }
 
+    /// <summary>The Wallpaper of the day card: its photo page, sharp (loading starts on hover), with "Set as wallpaper".</summary>
+    void Today_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e) =>
+        PhotoDetailNav.Open(Frame, e, (Microsoft.UI.Xaml.UIElement)sender, TodayThumb);
+
+    void Today_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e) =>
+        PhotoDetailNav.Prefetch(Frame, (Microsoft.UI.Xaml.UIElement)sender);
+
     async void Share_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         if (await ViewModel.CreateShareLinkAsync() is not { } link) return;
-        ViewModel.CountShare();
         // The system share sheet; if it can't open (rare), copy the link instead.
         if (Oriel.UI.Services.ShareSheet.Show(App.MainWindowHandle, "A wallpaper for you",
                 "A wallpaper I like. Open this link to set it on your computer in one click:", new Uri(link))) return;
@@ -73,7 +79,13 @@ public sealed partial class HomePage : Page
         _ = ViewModel.MarkLinkCopiedAsync();
     }
 
-    protected override async void OnNavigatedTo(NavigationEventArgs e) => await ViewModel.ActivateAsync();
+    protected override async void OnNavigatedTo(NavigationEventArgs e)
+    {
+        // Back from the Wallpaper of the day's page: its photo flies back into the card (else it would hang in the
+        // air until the animation gave up).
+        PhotoDetailNav.Return(e.NavigationMode == NavigationMode.Back ? TodayThumb : null);
+        await ViewModel.ActivateAsync();
+    }
 
     long _lastPress;
 

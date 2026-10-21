@@ -20,8 +20,6 @@ public sealed class AppPaths
     /// <summary>Fallback for the account when no system keyring is available. Readable by this user only.</summary>
     public string AccountFile => Path.Combine(DataRoot, "auth.json");
     public string StateFile => Path.Combine(DataRoot, "state.json");
-    /// <summary>What the anonymous daily counts already counted on this device (see StatsReporter).</summary>
-    public string StatsFile => Path.Combine(DataRoot, "stats.json");
     /// <summary>The next wallpaper, downloaded ahead of time so the change is instant and works offline.</summary>
     public string PrefetchDir => Path.Combine(DataRoot, "next");
     public string DatabaseFile => Path.Combine(DataRoot, "oriel.db");

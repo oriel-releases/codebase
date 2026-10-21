@@ -46,7 +46,8 @@
                                 <DataTemplate x:DataType="vm:AccentSwatchViewModel">
                                     <Button Classes="swatch" Command="{Binding ChooseCommand}" ToolTip.Tip="Use as accent color">
                                         <Panel Width="24" Height="24">
-                                            <Ellipse Stroke="{DynamicResource OrielInkBrush}" StrokeThickness="1.75" Opacity="{Binding RingOpacity}">
+                                            <!--  The ring starts hidden, so only the chosen one fades in; none flash on first.  -->
+                                            <Ellipse Stroke="{DynamicResource OrielInkBrush}" StrokeThickness="1.75" Opacity="{Binding RingOpacity, FallbackValue=0}">
                                                 <Ellipse.Transitions>
                                                     <Transitions>
                                                         <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
@@ -108,25 +109,22 @@
                 </StackPanel>
             </Grid>
 
-            <!--  Wallpaper of the day: the same photo as oriel.akbarjon.uz/today, one click away.  -->
-            <Border Margin="0,8,0,0" Padding="10,10,16,10" CornerRadius="16" Background="{DynamicResource OrielSurfaceBrush}"
-                    IsVisible="{Binding HasToday}">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
-                    <Border Width="128" Height="80" CornerRadius="12" ClipToBounds="True" Background="{DynamicResource OrielLineBrush}">
-                        <Image controls:ImageReveal.Enabled="True" Source="{Binding TodayThumb}" Stretch="UniformToFill" />
-                    </Border>
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                        <TextBlock FontWeight="SemiBold" Text="Wallpaper of the day" />
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Classes="muted small" VerticalAlignment="Center" Text="Photo by" />
-                            <Button Classes="link" FontSize="12" Content="{Binding TodayBy}"
-                                    Command="{Binding OpenUrlCommand}" CommandParameter="{Binding TodayAuthorUri}" />
-                            <TextBlock Classes="muted small" VerticalAlignment="Center" Text="on Unsplash" />
+            <!--  Wallpaper of the day: the same photo as oriel.akbarjon.uz/today. A compact row; a click opens its photo page.  -->
+            <Panel Margin="0,8,0,0" IsVisible="{Binding HasToday}">
+                <Border x:Name="TodayCard" x:DataType="vm:TodayDetail" DataContext="{Binding Today}" MinHeight="56" Padding="10,8,14,8"
+                        CornerRadius="{DynamicResource OrielLarge}" Background="{DynamicResource OrielSurfaceBrush}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                        <Border x:Name="TodayThumb" Width="64" Height="40" CornerRadius="{DynamicResource OrielTile}" ClipToBounds="True" Background="{DynamicResource OrielLineBrush}">
+                            <Image controls:ImageReveal.Enabled="True" Source="{Binding Preview}" Stretch="UniformToFill" />
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock FontWeight="SemiBold" Text="Wallpaper of the day" />
+                            <TextBlock Classes="muted small" TextTrimming="CharacterEllipsis" Text="{Binding Subtitle}" />
                         </StackPanel>
-                    </StackPanel>
-                    <Button Grid.Column="2" VerticalAlignment="Center" Content="{Binding TodayButtonText}" Command="{Binding SetTodayCommand}" />
-                </Grid>
-            </Border>
+                        <PathIcon Grid.Column="2" Data="{StaticResource IconChevron}" Width="12" Height="12" Foreground="{DynamicResource OrielMutedBrush}" />
+                    </Grid>
+                </Border>
+            </Panel>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
