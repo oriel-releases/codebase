@@ -11,6 +11,8 @@ export interface Settings {
   bump: number;
   clock: boolean;
   hour12: boolean;
+  /** Changed digits of the clock roll softly into place instead of switching at once. */
+  clockAnimation: boolean;
   greeting: boolean;
   /** The "i" button at the bottom left that opens the photo's credit. */
   photoInfo: boolean;
@@ -38,6 +40,7 @@ export const defaults: Settings = {
   bump: 0,
   clock: true,
   hour12: false,
+  clockAnimation: true,
   greeting: true,
   photoInfo: true,
   quote: true,
@@ -56,6 +59,14 @@ const key = "oriel.settings";
 export function syncedSettings(settings: Settings): Partial<Settings> {
   const { bump: _bump, ...rest } = settings;
   return rest;
+}
+
+/**
+ * Whether the account's copy lacks a setting this version has (it was written by an older version, before the setting
+ * existed): then this browser uploads its settings once, so the account holds every one of them.
+ */
+export function lacksSettings(remote: Partial<Settings>): boolean {
+  return Object.keys(syncedSettings(defaults)).some((name) => !(name in remote));
 }
 
 export function loadSettings(): Settings {

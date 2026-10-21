@@ -6,7 +6,10 @@ import { siteUrl } from "../lib/config";
 import { loadAccount } from "../lib/load-account";
 import { imageUrl, pick, slotKey, type Photo } from "../lib/photo";
 import { readableAccent } from "../lib/accent";
+import { protectImages } from "../lib/protect";
 import { faviconUrl, loadShortcuts, maxShortcuts, normalizeUrl, sameLink, saveShortcuts, titleFor } from "../lib/shortcuts";
+
+protectImages();
 
 /**
  * The toolbar icon's popup: the same settings dialog as the new tab, drawn under the icon. Settings are saved to the

@@ -1,4 +1,4 @@
-import { remember, syncedSettings, type Settings } from "../lib/settings";
+import { lacksSettings, remember, syncedSettings, type Settings } from "../lib/settings";
 import { loadAccount } from "../lib/load-account";
 import { loadShortcuts, type Shortcut } from "../lib/shortcuts";
 import type { DesktopCurrent, Profile } from "../lib/account";
@@ -113,6 +113,8 @@ export function createAccountSync(host: AccountSyncHost) {
       // first event then confirms it with one more read at most.
       remember("ext-version", options.version ?? 0);
       host.applySynced(remote.settings, remote.shortcuts);
+      // Written by an older version: fill in the settings it didn't know (new ones keep this browser's value).
+      if (lacksSettings(remote.settings)) await upload();
     } catch {
       // Offline or signed out meanwhile: a change stays marked and goes up next time.
     } finally {
