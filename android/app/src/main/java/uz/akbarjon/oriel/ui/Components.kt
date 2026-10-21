@@ -1,5 +1,15 @@
 package uz.akbarjon.oriel.ui
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.material3.SheetState
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -488,25 +498,77 @@ fun <T> Segmented(
 
 // ---- Sheets: every dialog in the app ----
 
+/**
+ * Closes the sheet it's in: the sheet glides down and its backdrop fades, then [after] runs (it removes the sheet).
+ * Null outside a sheet.
+ */
+internal val LocalSheetClose = androidx.compose.runtime.staticCompositionLocalOf<((() -> Unit) -> Unit)?> { null }
+
 /** A sheet that rises from the bottom, rounded only on top. [title] sits on top. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrielSheet(onDismiss: () -> Unit, title: String? = null, dismissible: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
     val c = Palette.colors
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+    // Moved here, not by Material (its rise is a spring that shoots up, and its close can't be timed): the sheet glides
+    // in and out on one soft ease-in-out, the backdrop fading with it. Only a position and an alpha change, so it's cheap.
+    val rise = remember { androidx.compose.animation.core.Animatable(0f) }
+    var leaving by remember { mutableStateOf(false) }
+    val close: (() -> Unit) -> Unit = remember {
+        { after ->
+            if (!leaving) {
+                leaving = true
+                scope.launch {
+                    rise.animateTo(0f, androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+                    after()
+                    // Still here (the caller kept the sheet): show it again rather than leave an invisible sheet up.
+                    delay(64)
+                    leaving = false
+                    rise.animateTo(1f, androidx.compose.animation.core.tween(380, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+                }
+            }
+        }
+    }
+    val dismiss by androidx.compose.runtime.rememberUpdatedState(onDismiss)
+    val canDismiss by androidx.compose.runtime.rememberUpdatedState(dismissible)
+    val state = remember {
+        SheetState(
+            skipPartiallyExpanded = true,
+            positionalThreshold = { with(density) { 56.dp.toPx() } },
+            velocityThreshold = { with(density) { 125.dp.toPx() } },
+            initialValue = SheetValue.Expanded,
+            // Tapping outside, back or a drag down: closed by the glide above, never by Material.
+            confirmValueChange = { value ->
+                if (value == SheetValue.Hidden) { if (canDismiss) close { dismiss() }; false } else true
+            },
+        )
+    }
+    LaunchedEffect(Unit) { rise.animateTo(1f, androidx.compose.animation.core.tween(380, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
     ModalBottomSheet(
-        onDismissRequest = { if (dismissible) onDismiss() },
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { dismissible || it != SheetValue.Hidden }),
+        onDismissRequest = { if (dismissible) close { dismiss() } },
+        modifier = Modifier
+            // The backdrop, drawn here (not moved with the sheet) so it fades with the rise.
+            .drawBehind {
+                val big = size.height + size.width + 4000f
+                drawRect(c.scrim, topLeft = androidx.compose.ui.geometry.Offset(-big, -big),
+                    size = androidx.compose.ui.geometry.Size(size.width + 2 * big, size.height + 2 * big), alpha = rise.value)
+            }
+            .graphicsLayer { translationY = size.height * (1f - rise.value) },
+        sheetState = state,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        containerColor = c.paper, contentColor = c.ink, scrimColor = c.scrim, tonalElevation = 0.dp,
+        containerColor = c.paper, contentColor = c.ink, scrimColor = Color.Transparent, tonalElevation = 0.dp,
         dragHandle = {
             Box(Modifier.padding(top = 10.dp, bottom = 8.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(c.muted.copy(alpha = 0.35f)))
         },
     ) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 12.dp)) {
-            if (title != null) {
-                Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 16.dp))
+        CompositionLocalProvider(LocalSheetClose provides close) {
+            Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 12.dp)) {
+                if (title != null) {
+                    Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 16.dp))
+                }
+                content()
             }
-            content()
         }
     }
 }
@@ -515,9 +577,12 @@ fun OrielSheet(onDismiss: () -> Unit, title: String? = null, dismissible: Boolea
 @Composable
 fun SheetOption(label: String, selected: Boolean, onClick: () -> Unit, icon: ImageVector? = null) {
     val c = Palette.colors
+    // A pick closes the sheet: it glides away first, then the pick is made.
+    val close = LocalSheetClose.current
+    val pick = { if (close != null) close(onClick) else onClick() }
     Row(
         Modifier.padding(horizontal = 12.dp).fillMaxWidth().height(56.dp).clip(CircleShape)
-            .background(if (selected) c.surface else Color.Transparent).clickable(onClick = onClick).padding(horizontal = 16.dp),
+            .background(if (selected) c.surface else Color.Transparent).clickable(onClick = pick).padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
@@ -539,18 +604,24 @@ fun SheetOption(label: String, selected: Boolean, onClick: () -> Unit, icon: Ima
 fun SheetActions(
     primary: String, onPrimary: () -> Unit, secondary: String? = null, onSecondary: (() -> Unit)? = null,
     busy: Boolean = false, enabled: Boolean = true, destructive: Boolean = false,
+    /** The main action closes the sheet (most do); false when it stays open while working, like Follow. */
+    closes: Boolean = true,
 ) {
+    // The sheet glides away first, then the action runs (it removes the sheet).
+    val close = LocalSheetClose.current
+    val primaryClick = { if (close != null && closes) close(onPrimary) else onPrimary() }
+    val secondaryClick = { if (close != null && onSecondary != null) close(onSecondary) else onSecondary?.invoke() ?: Unit }
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (secondary != null && onSecondary != null) SecondaryButton(secondary, onSecondary, Modifier.weight(1f), enabled = !busy)
+        if (secondary != null && onSecondary != null) SecondaryButton(secondary, secondaryClick, Modifier.weight(1f), enabled = !busy)
         if (destructive) {
             val interaction = remember { MutableInteractionSource() }
             Button(
-                onPrimary, Modifier.weight(1f).height(56.dp).pressScale(interaction), enabled = enabled && !busy,
+                primaryClick, Modifier.weight(1f).height(56.dp).pressScale(interaction), enabled = enabled && !busy,
                 shape = CircleShape, interactionSource = interaction, elevation = null,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = Color.White),
             ) { Text(primary, style = MaterialTheme.typography.labelLarge) }
         } else {
-            PrimaryButton(primary, onPrimary, Modifier.weight(1f), busy = busy, enabled = enabled)
+            PrimaryButton(primary, primaryClick, Modifier.weight(1f), busy = busy, enabled = enabled)
         }
     }
 }
@@ -575,13 +646,11 @@ fun Credit(photo: Photo, context: Context, modifier: Modifier = Modifier, color:
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false).clickable { openUrl(context, photo.photographerUrl) },
         )
+        // Only the two names are links: the photographer's, and Unsplash's (this photo's page there).
+        Text(" on ", style = MaterialTheme.typography.bodySmall, color = color, maxLines = 1, softWrap = false)
         Text(
-            buildAnnotatedString {
-                append(" on ")
-                withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append("Unsplash") }
-            },
-            style = MaterialTheme.typography.bodySmall, color = color, maxLines = 1, softWrap = false,
-            modifier = Modifier.clickable { openUrl(context, photo.pageUrl) },
+            "Unsplash", style = MaterialTheme.typography.bodySmall, color = color, fontWeight = FontWeight.SemiBold,
+            maxLines = 1, softWrap = false, modifier = Modifier.clickable { openUrl(context, photo.pageUrl) },
         )
     }
 }

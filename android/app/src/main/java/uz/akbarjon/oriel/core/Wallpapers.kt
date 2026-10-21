@@ -107,7 +107,7 @@ class Wallpapers(private val context: Context) {
     }
 
     /**
-     * Sets one particular photo: chosen in Search or History, shared by a link, or the one being followed.
+     * Sets one particular photo: chosen in Explore or History, shared by a link, or the one being followed.
      * [publish] shares it with the account's other devices (not while following: it came from them).
      */
     suspend fun apply(photo: Photo, topic: String?, publish: Boolean = true, track: Boolean = true): ChangeResult =
@@ -253,7 +253,7 @@ class Wallpapers(private val context: Context) {
                 if (!candidate.rawUrl.startsWith("https://images.unsplash.com/")) continue
                 if (history.wasUsed(candidate.id)) continue
                 if (candidate.width < size.first || candidate.height < size.second) continue
-                if (s.skipLowLikes && candidate.likes < s.minLikes) continue
+                if (s.skipLowLikes && candidate.likes < maxOf(300, s.minLikes)) continue // 300: the least the slider goes down to
                 return candidate to topic
             }
         }

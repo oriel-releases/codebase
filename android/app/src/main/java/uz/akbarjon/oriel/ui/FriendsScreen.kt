@@ -223,20 +223,21 @@ fun FollowSheet(onDismiss: () -> Unit) {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 10.dp))
         }
+        val closeSheet = LocalSheetClose.current
         SheetActions(if (busy) "Following…" else "Follow", {
             busy = true
             scope.launch {
                 try {
                     val name = Oriel.following.follow(code)
                     Oriel.scope.launch(Dispatchers.Main) { snackbar.showSnackbar("Following $name") }
-                    onDismiss()
+                    closeSheet?.invoke(onDismiss) ?: onDismiss()
                 } catch (e: OrielException) {
                     error = e.message
                 } finally {
                     busy = false
                 }
             }
-        }, "Cancel", onDismiss, busy = busy, enabled = code.isNotBlank())
+        }, "Cancel", onDismiss, busy = busy, enabled = code.isNotBlank(), closes = false)
     }
 }
 

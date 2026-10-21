@@ -1,5 +1,9 @@
 package uz.akbarjon.oriel.ui
 
+import androidx.compose.ui.draw.clipToBounds
+import uz.akbarjon.oriel.ui.Motion
+import uz.akbarjon.oriel.ui.Motion.fadeThrough
+import uz.akbarjon.oriel.ui.Motion.slideThrough
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.produceState
 import androidx.compose.animation.AnimatedContent
@@ -19,8 +23,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -61,13 +63,43 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import uz.akbarjon.oriel.Oriel
+import uz.akbarjon.oriel.core.Explore
+import uz.akbarjon.oriel.core.ExploreFeed
 import uz.akbarjon.oriel.data.OrielException
 import uz.akbarjon.oriel.data.Photo
 import uz.akbarjon.oriel.data.Unsplash
 
-/** Kept for the life of the app, so coming back to Search doesn't spend Unsplash requests again. */
+/** Kept for the life of the app, so coming back to Explore doesn't spend Unsplash requests again. */
 private object SearchModel {
+    /** This hour's photos, the same for everyone (no Unsplash requests to scroll them). */
+    var explore by mutableStateOf(ExploreFeed.Empty)
+    var exploreLoading by mutableStateOf(false)
+
+    fun loadExplore(scope: CoroutineScope) {
+        if (exploreLoading) return
+        exploreLoading = true
+        scope.launch {
+            try {
+                explore = Explore.feed()
+            } finally {
+                exploreLoading = false
+            }
+        }
+    }
+
     var text by mutableStateOf("")
     var query by mutableStateOf("")
     var photos by mutableStateOf<List<Photo>>(emptyList())
@@ -119,9 +151,6 @@ private object SearchModel {
     }
 }
 
-private val SUGGESTIONS = listOf("northern lights", "tokyo night", "foggy forest", "desert dunes", "city skyline",
-    "snowy mountains", "calm ocean", "milky way")
-
 /** Wallpaper of the day: the same photo as oriel.akbarjon.uz/today and the desktop apps' Home. Tap to see and set it. */
 @Composable
 private fun TodayCard(onOpen: (Photo) -> Unit) {
@@ -135,7 +164,7 @@ private fun TodayCard(onOpen: (Photo) -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RemoteImage(photo.thumb(thumbPx, thumbPx), photo.description,
-            Modifier.size(64.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp)))
+            Modifier.size(64.dp).sharedPhoto(photo).clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp)))
         androidx.compose.foundation.layout.Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text("Wallpaper of the day", style = MaterialTheme.typography.bodyLarge)
@@ -145,57 +174,74 @@ private fun TodayCard(onOpen: (Photo) -> Unit) {
     }
 }
 
-/** Search, with Interests inside it (like the desktop apps): a row that opens them, and "Add to Interests" for a search. */
+/**
+ * Explore: search at the top, then this hour's wallpapers (the same for everyone), with Interests inside it like the
+ * desktop apps: a row that opens them, and "Add to Interests" for a search.
+ */
 @Composable
-fun SearchScreen() {
+fun ExploreScreen() {
     var interests by rememberSaveable { mutableStateOf(false) }
-    AnimatedContent(interests, transitionSpec = {
-        if (targetState) (slideInHorizontally { it / 3 } + fadeIn()) togetherWith (slideOutHorizontally { -it / 3 } + fadeOut())
-        else (slideInHorizontally { -it / 3 } + fadeIn()) togetherWith (slideOutHorizontally { it / 3 } + fadeOut())
-    }, label = "interests") { open ->
-        if (open) InterestsScreen(onBack = { interests = false }) else SearchPage(onInterests = { interests = true })
+    AnimatedContent(interests, transitionSpec = { slideThrough(forward = targetState) }, label = "interests") { open ->
+        Box(Modifier.fillMaxSize().clipToBounds()) {
+            if (open) InterestsScreen(onBack = { interests = false }) else ExplorePage(onInterests = { interests = true })
+        }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SearchPage(onInterests: () -> Unit) {
+private fun ExplorePage(onInterests: () -> Unit) {
     val settings by Oriel.store.settings.collectAsState()
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
     val m = SearchModel
     var selected by remember { mutableStateOf<Photo?>(null) }
+    // What History keeps as its interest: the one an Explore photo was found under, or "search".
+    var selectedTopic by remember { mutableStateOf("search") }
+    // The picture the tapped tile showed: the photo page starts with it (already loaded).
+    var selectedTile by remember { mutableStateOf<String?>(null) }
+    var selectedHeading by remember { mutableStateOf<String?>(null) }
+    // Every visit: this hour's photos, when the hour has turned since the last ones.
+    LaunchedEffect(Unit) { m.loadExplore(scope) }
+    val exploring = m.query.isEmpty()
+    val shown = if (exploring) m.explore.photos else m.photos
     val grid = rememberLazyGridState()
     val (screenW, screenH) = remember { Oriel.wallpapers.screenSize() }
     // Two columns: each thumbnail is fetched at half the screen width, already cropped to the phone's shape.
     val cellPx = with(LocalDensity.current) { 180.dp.roundToPx() }
     val c = Palette.colors
+    val searchHaze = remember { HazeState() }
 
     val nearEnd by remember { derivedStateOf { grid.layoutInfo.visibleItemsInfo.lastOrNull()?.index?.let { it >= grid.layoutInfo.totalItemsCount - 6 } == true } }
     LaunchedEffect(nearEnd, m.photos.size) { if (nearEnd) m.more(scope) }
 
-    Column(Modifier.fillMaxSize()) {
-        ScreenTitle("Search")
-        OrielTextField(
-            m.text, { m.text = it }, Modifier.padding(horizontal = 16.dp), placeholder = "Northern lights, tokyo night…",
-            leadingIcon = OrielIcons.Search,
-            trailing = if (m.text.isNotEmpty()) ({ IconButton({ m.clear() }) { Icon(OrielIcons.Close, "Clear", tint = c.muted) } }) else null,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { focus.clearFocus(); m.search(scope, m.text) }),
-        )
+    // The title scrolls away with the photos; the search bar sits under it, then stays at the top once it gets there.
+    val titlePx = with(LocalDensity.current) { 72.dp.toPx() }
+    val barY by remember {
+        derivedStateOf { if (grid.firstVisibleItemIndex == 0) (titlePx - grid.firstVisibleItemScrollOffset).coerceAtLeast(0f) else 0f }
+    }
 
+    Column(Modifier.fillMaxSize()) {
+        // The search bar floats over the photos: they scroll on under it, blurred, like under the navigation bar.
+        Box(Modifier.weight(1f)) {
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2), state = grid, modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = bottomBarSpace()),
+            columns = GridCells.Fixed(2), state = grid, modifier = Modifier.fillMaxSize().hazeSource(searchHaze),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomBarSpace()),
             horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            item(span = { GridItemSpan(2) }, key = "title") {
+                // Out to the screen's edge like the other tabs' titles, then room for the search bar.
+                Column(Modifier.offset(x = (-16).dp)) {
+                    ScreenTitle("Explore")
+                    Spacer(Modifier.height(56.dp + 14.dp))
+                }
+            }
             if (m.query.isEmpty()) {
                 item(span = { GridItemSpan(2) }) {
                     Box(Modifier.padding(bottom = 8.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(22.dp)).background(c.surface)) {
                         SettingRow("Interests", "${settings.interests.count { it.enabled }} on", OrielIcons.Heart, onClick = onInterests)
                     }
                 }
-                item(span = { GridItemSpan(2) }) { TodayCard { selected = it } }
+                item(span = { GridItemSpan(2) }) { TodayCard { selectedTopic = "search"; selectedTile = null; selectedHeading = "Wallpaper of the day"; selected = it } }
             }
             if (m.query.isNotEmpty()) {
                 item(span = { GridItemSpan(2) }) {
@@ -209,8 +255,12 @@ private fun SearchPage(onInterests: () -> Unit) {
             }
             if (m.query.isEmpty()) {
                 item(span = { GridItemSpan(2) }) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SUGGESTIONS.forEach { s -> ToggleChip(s.replaceFirstChar { it.uppercase() }, false, { focus.clearFocus(); m.search(scope, s) }) }
+                    Column(Modifier.padding(top = 10.dp, bottom = 2.dp)) {
+                        Text("Fresh picks for you", style = MaterialTheme.typography.titleMedium)
+                        if (m.explore.photos.isEmpty() && !m.exploreLoading) {
+                            Text("Fresh picks couldn't load right now. Check your connection, or search above.",
+                                style = MaterialTheme.typography.bodySmall, color = c.muted)
+                        }
                     }
                 }
             }
@@ -226,15 +276,20 @@ private fun SearchPage(onInterests: () -> Unit) {
                         textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 48.dp))
                 }
             }
-            items(m.photos, key = { it.id }) { photo ->
+            items(shown, key = { it.id }) { photo ->
                 RemoteImage(
                     photo.thumb(cellPx, cellPx * screenH / screenW), photo.description,
-                    Modifier.animateItem().aspectRatio(screenW.toFloat() / screenH)
-                        .springClick(pressed = 0.95f, ripple = false) { selected = photo }.clip(RoundedCornerShape(20.dp)),
+                    Modifier.aspectRatio(screenW.toFloat() / screenH).sharedPhoto(photo)
+                        .springClick(pressed = 0.95f, ripple = false) {
+                            selectedTopic = if (exploring) m.explore.topics[photo.id] ?: "explore" else "search"
+                            selectedTile = photo.thumb(cellPx, cellPx * screenH / screenW)
+                            selectedHeading = null
+                            selected = photo
+                        }.clip(RoundedCornerShape(20.dp)),
                     placeholder = parseColor(photo.color) ?: c.surface,
                 )
             }
-            if (m.loading) {
+            if (m.loading || (exploring && m.exploreLoading && m.explore.photos.isEmpty())) {
                 item(span = { GridItemSpan(2) }) {
                     Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
@@ -242,7 +297,19 @@ private fun SearchPage(onInterests: () -> Unit) {
                 }
             }
         }
+        OrielTextField(
+            m.text, { m.text = it },
+            Modifier.offset { IntOffset(0, barY.roundToInt()) }.padding(horizontal = 24.dp, vertical = 8.dp).clip(CircleShape)
+                .hazeEffect(searchHaze, HazeStyle(backgroundColor = c.paper, tint = HazeTint(c.surface.copy(alpha = 0.6f)), blurRadius = 20.dp, noiseFactor = 0f)),
+            placeholder = "Northern lights, tokyo night…",
+            leadingIcon = OrielIcons.Search,
+            trailing = if (m.text.isNotEmpty()) ({ IconButton({ m.clear() }) { Icon(OrielIcons.Close, "Clear", tint = c.muted) } }) else null,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { focus.clearFocus(); m.search(scope, m.text) }),
+            background = Color.Transparent,
+        )
+        }
     }
 
-    selected?.let { photo -> PhotoSheet(photo, topic = "search", onDismiss = { selected = null }) }
+    selected?.let { photo -> PhotoSheet(photo, topic = selectedTopic, onDismiss = { selected = null }, heading = selectedHeading, tileUrl = selectedTile) }
 }

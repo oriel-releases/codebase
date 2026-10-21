@@ -60,11 +60,11 @@ import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
 
 /** How a tab's icon plays when the tab is picked. */
-internal enum class Play { Hop, Wiggle, Beat, Flip, Spin }
+internal enum class Play { Hop, Compass, Beat, Flip, Spin }
 
 enum class Tab(val label: String, val icon: ImageVector, val selectedIcon: ImageVector, internal val animation: Play) {
     Home("Home", OrielIcons.Home, OrielIcons.HomeFilled, Play.Hop),
-    Search("Search", OrielIcons.Search, OrielIcons.Search, Play.Wiggle),
+    Explore("Explore", OrielIcons.Compass, OrielIcons.CompassFilled, Play.Compass),
     Create("AI", OrielIcons.Sparkles, OrielIcons.SparklesFilled, Play.Beat),
     History("History", OrielIcons.History, OrielIcons.History, Play.Flip),
     Settings("Settings", OrielIcons.Settings, OrielIcons.Settings, Play.Spin),
@@ -73,7 +73,7 @@ enum class Tab(val label: String, val icon: ImageVector, val selectedIcon: Image
 /**
  * The navigation bar: a floating capsule over the content. One soft pill slides to the picked tab, stretching like
  * a drop of water (its leading edge moves first, the trailing edge catches up), and the picked tab's icon plays a little
- * animation: the house hops, the magnifier wiggles, the clock winds back, the friends pulse, the gear spins. Over Home's photo
+ * animation: the house hops, the compass swings round to north, the clock winds back, the friends pulse, the gear spins. Over Home's photo
  * it turns dark and see-through ([onPhoto]). With the phone on its side ([vertical]) it stands on the right edge.
  */
 @Composable
@@ -92,7 +92,7 @@ fun NavBar(
     val frame = if (vertical) {
         modifier.systemBarsPadding().displayCutoutPadding().padding(NavBarMargin).width(NavBarHeight).heightIn(max = 380.dp).fillMaxHeight()
     } else {
-        modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = NavBarMargin).fillMaxWidth().height(NavBarHeight)
+        modifier.navigationBarsPadding().padding(horizontal = 24.dp, vertical = NavBarMargin).fillMaxWidth().height(NavBarHeight)
     }
     Box(frame) {
     // Only the bar's background is clipped to the capsule; the icons draw on top, free to hop and flip past its edge.
@@ -156,7 +156,13 @@ private fun NavItem(tab: Tab, selected: Boolean, onPhoto: Boolean, modifier: Mod
                 launch { lift.animateTo(0f, keyframes { durationMillis = 520; -7f at 160; 0f at 320; -2f at 420 }) }
                 scale.animateTo(1f, keyframes { durationMillis = 520; 1.15f at 160; 0.94f at 320; 1.03f at 420 })
             }
-            Play.Wiggle -> rotation.animateTo(0f, keyframes { durationMillis = 560; -20f at 110; 16f at 240; -8f at 360; 4f at 460 })
+            // A compass finding north: a little pull back, a full swing round, overshoot, settle.
+            Play.Compass -> {
+                launch { scale.animateTo(1f, keyframes { durationMillis = 520; 1.15f at 180 }) }
+                rotation.snapTo(0f)
+                rotation.animateTo(360f, keyframes { durationMillis = 920; -25f at 120; 385f at 520; 350f at 680; 362f at 820 })
+                rotation.snapTo(0f)
+            }
             Play.Beat -> scale.animateTo(1f, keyframes { durationMillis = 620; 1.28f at 120; 0.95f at 240; 1.15f at 360; 1f at 480 })
             // The clock winds back: one full turn anticlockwise, like rewinding time.
             Play.Flip -> {

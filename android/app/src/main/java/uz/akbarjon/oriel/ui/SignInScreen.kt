@@ -80,9 +80,19 @@ private enum class EmailMode { SignIn, SignUp, Reset }
 
 /** After any sign-in: mark it checked, then start the schedule from now. */
 internal fun afterSignIn() {
+    // The first sign-in on this phone (it never set a wallpaper): one right away, like on the computers. The
+    // account's own photo when it has one, else a new pick from its interests (pulled first).
+    val first = Oriel.store.state.value.lastAppliedAt == 0L
     Oriel.store.updateState { it.copy(lastValidatedAt = System.currentTimeMillis()) }
-    Oriel.scope.launch { uz.akbarjon.oriel.core.SettingsSync.pull(); uz.akbarjon.oriel.core.FavoritesSync.pull() }
-    // Signing in never changes the wallpaper by itself: the schedule starts from now ("Set my first wallpaper" on Home).
+    Oriel.scope.launch {
+        uz.akbarjon.oriel.core.SettingsSync.pull(); uz.akbarjon.oriel.core.FavoritesSync.pull()
+        if (first) {
+            Oriel.following.check()
+            // The tour ends with the first wallpaper; when it was done before (a reinstall), one comes now.
+            val state = Oriel.store.state.value
+            if (state.onboardingDone && state.lastAppliedAt == 0L) Oriel.wallpapers.changeNow()
+        }
+    }
     Scheduler.restart(Oriel.app)
 }
 

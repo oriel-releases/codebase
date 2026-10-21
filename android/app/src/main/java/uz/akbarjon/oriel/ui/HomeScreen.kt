@@ -1,5 +1,8 @@
 package uz.akbarjon.oriel.ui
 
+import uz.akbarjon.oriel.ui.Motion
+import uz.akbarjon.oriel.ui.Motion.fadeThrough
+import uz.akbarjon.oriel.ui.Motion.slideThrough
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.key
@@ -111,7 +114,7 @@ private val Ink = Color(0xFF111114)
 @Composable
 fun HomeBackdrop(photo: Photo?) {
     Box(Modifier.fillMaxSize().background(Color(0xFF0B0B0D))) {
-        Crossfade(photo?.thumb(48, 96), animationSpec = tween(900), label = "backdrop") { url ->
+        Crossfade(photo?.thumb(48, 96), animationSpec = tween(900, easing = Motion.Emphasized), label = "backdrop") { url ->
             if (url != null) {
                 RemoteImage(
                     url, null,
@@ -211,9 +214,15 @@ private fun gestureNavigation(): Boolean {
  * bottom when the phone uses gestures. Tapping twice favorites it; every further quick tap adds another star.
  */
 @Composable
-private fun WallpaperPreview(photo: Photo?, screenW: Int, screenH: Int, modifier: Modifier, onLike: () -> Unit, credit: Boolean = true) {
+internal fun WallpaperPreview(
+    photo: Photo?, screenW: Int, screenH: Int, modifier: Modifier, onLike: () -> Unit, credit: Boolean = true,
+    /** Shown at once under the photo while it loads (the tile's picture the page opened from: already loaded). */
+    under: String? = null,
+    /** The photo's width in pixels, when it's shown bigger than Home's (the photo page). */
+    widthPx: Int? = null,
+) {
     val context = LocalContext.current
-    val previewWidthPx = with(LocalDensity.current) { 320.dp.roundToPx() }
+    val previewWidthPx = widthPx?.takeIf { it > 0 } ?: with(LocalDensity.current) { 320.dp.roundToPx() }
     // A new position (the editor) crops the preview again.
     uz.akbarjon.oriel.core.Positions.version.collectAsState().value
     val bursts = remember { mutableStateListOf<Burst>() }
@@ -241,17 +250,22 @@ private fun WallpaperPreview(photo: Photo?, screenW: Int, screenH: Int, modifier
                 },
         ) {
             Box(Modifier.fillMaxSize().hazeSource(haze)) {
-                Crossfade(photo, animationSpec = tween(700), label = "preview") { p ->
+                AnimatedContent(photo, transitionSpec = {
+                    fadeIn(Motion.enter(Motion.LONG)) togetherWith fadeOut(Motion.exit(Motion.LONG))
+                }, label = "preview") { p ->
+                    Box(Modifier.fillMaxSize()) {
                     if (p != null) {
                         val position = uz.akbarjon.oriel.core.Positions.of(p.id)
+                        if (under != null) RemoteImage(under, null, Modifier.fillMaxSize(), placeholder = parseColor(p.color) ?: White.copy(alpha = 0.08f))
                         RemoteImage(
                             p.thumb(previewWidthPx, previewWidthPx * screenH / screenW, position), p.description, Modifier.fillMaxSize(),
-                            placeholder = parseColor(p.color) ?: White.copy(alpha = 0.08f),
+                            placeholder = if (under != null) androidx.compose.ui.graphics.Color.Transparent else parseColor(p.color) ?: White.copy(alpha = 0.08f),
                             // Unsplash crops its photos on its side; an AI wallpaper is whole, so the preview is placed here.
                             focus = if (p.isAi) (position as? uz.akbarjon.oriel.data.Position.Focus)?.let { it.x to it.y } ?: (0.5f to 0.5f) else null,
                         )
                     } else {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Logo(32.dp, tint = White.copy(alpha = 0.5f)) }
+                    }
                     }
                 }
             }
@@ -372,7 +386,7 @@ private fun Controls(photo: Photo?, entry: HistoryEntry?, modifier: Modifier = M
             }
             val favorite = entry?.isFavorite == true
             RoundAction(if (favorite) OrielIcons.StarFilled else OrielIcons.Star, if (favorite) "Remove from favorites" else "Add to favorites",
-                active = favorite, activeTint = StarGold, enabled = entry != null, pop = favorite) {
+                active = favorite, activeTint = StarGold, enabled = entry != null) {
                 val id = entry?.photo?.id ?: return@RoundAction
                 haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                 uz.akbarjon.oriel.core.FavoritesSync.set(id, !favorite)

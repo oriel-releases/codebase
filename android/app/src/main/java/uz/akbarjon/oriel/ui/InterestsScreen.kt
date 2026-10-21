@@ -1,5 +1,6 @@
 package uz.akbarjon.oriel.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -60,7 +61,7 @@ fun isInterest(words: String): Boolean =
 
 /**
  * The topics Oriel picks from (the desktop's former "Daily Mix"): built-in chips you turn on and off, and your own words,
- * which come from Search ("Add to Interests"), like the desktop apps. Opened from Search; [onBack] returns there.
+ * which come from Explore's search ("Add to Interests"), like the desktop apps. Opened from Explore; [onBack] returns there.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -101,10 +102,15 @@ fun InterestsScreen(onBack: () -> Unit) {
                     if (i > 0) RowDivider()
                     SettingRow(interest.query.replaceFirstChar { it.uppercase() }, icon = OrielIcons.Search,
                         onClick = { toggle(interest) }) {
-                        OrielSwitch(interest.enabled) { toggle(interest) }
-                        IconButton({ Oriel.store.update { s -> s.copy(interests = s.interests.filter { it.query != interest.query }) } }) {
-                            Icon(OrielIcons.Close, "Remove ${interest.query}", tint = c.muted, modifier = Modifier.size(20.dp))
+                        Box(
+                            Modifier.size(32.dp).clip(CircleShape)
+                                .clickable { Oriel.store.update { s -> s.copy(interests = s.interests.filter { it.query != interest.query }) } },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(OrielIcons.Close, "Remove ${interest.query}", tint = c.muted, modifier = Modifier.size(18.dp))
                         }
+                        Spacer(Modifier.width(8.dp))
+                        OrielSwitch(interest.enabled) { toggle(interest) }
                     }
                 }
             }

@@ -32,7 +32,7 @@ data class Settings(
     val intervalMinutes: Int = 0,
     val favoritesOnly: Boolean = false,
     val skipLowLikes: Boolean = false,
-    val minLikes: Int = 50,
+    val minLikes: Int = 300,
     /** This phone's default crop for new photos: "smart" (Unsplash's faces and detail) or "center". Not synced. */
     val photoPosition: String = "smart",
     /** Darker photos in the evening and at night (and in dark mode), brighter ones in the morning. Like the desktop apps. */
@@ -116,6 +116,8 @@ data class AppState(
     val settingsDirty: Boolean = false,
     /** The newest favorite change taken from the account (the next sync asks only for later ones). */
     val favoritesSyncedAt: Long = 0,
+    /** The first-run tour was done or skipped (phones that already had wallpapers count as done). */
+    val onboardingDone: Boolean = false,
 ) {
     /** The moment the schedule counts from: the last change, or a fresh start after it. */
     val scheduleBaseline get() = maxOf(lastAppliedAt, scheduleStartedAt)
@@ -212,6 +214,7 @@ class Store(context: Context) {
             settingsSyncedAt = o.optLong("settingsSyncedAt"),
             settingsDirty = o.optBoolean("settingsDirty"),
             favoritesSyncedAt = o.optLong("favoritesSyncedAt"),
+            onboardingDone = o.optBoolean("onboardingDone"),
         )
     }
 
@@ -229,6 +232,7 @@ class Store(context: Context) {
         .put("settingsSyncedAt", s.settingsSyncedAt)
         .put("settingsDirty", s.settingsDirty)
         .put("favoritesSyncedAt", s.favoritesSyncedAt)
+        .put("onboardingDone", s.onboardingDone)
 
     private inline fun <reified T : Enum<T>> enumOr(name: String, fallback: T): T =
         enumValues<T>().firstOrNull { it.name == name } ?: fallback
