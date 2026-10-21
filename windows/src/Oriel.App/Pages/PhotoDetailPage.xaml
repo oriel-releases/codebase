@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Oriel.UI.Pages.PhotoDetailPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Oriel.UI"
+    KeyboardAcceleratorPlacementMode="Hidden">
+
+    <!--  A checked favorite keeps the soft grey button; only its star turns yellow (like Home).  -->
+    <Page.Resources>
+        <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="{ThemeResource OrielSurface}" />
+        <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="{ThemeResource OrielLine}" />
+        <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="{ThemeResource OrielLine}" />
+        <SolidColorBrush x:Key="ToggleButtonForegroundChecked" Color="{ThemeResource OrielInk}" />
+        <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPointerOver" Color="{ThemeResource OrielInk}" />
+        <SolidColorBrush x:Key="ToggleButtonForegroundCheckedPressed" Color="{ThemeResource OrielInk}" />
+        <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="Transparent" />
+        <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="Transparent" />
+        <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPressed" Color="Transparent" />
+    </Page.Resources>
+
+    <Page.KeyboardAccelerators>
+        <KeyboardAccelerator Key="Escape" Invoked="Escape_Invoked" />
+    </Page.KeyboardAccelerators>
+
+    <!--  Laid out like Home: the photo the same size, its credit and actions under it.  -->
+    <ScrollViewer>
+        <StackPanel
+            MaxWidth="{StaticResource PageMaxWidth}"
+            Margin="{StaticResource PageContentMargin}"
+            Spacing="16">
+
+            <Grid Margin="0,16,0,0" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button
+                    AutomationProperties.Name="Back"
+                    Click="Back_Click"
+                    Style="{StaticResource IconButtonStyle}"
+                    ToolTipService.ToolTip="Back">
+                    <FontIcon FontSize="14" Glyph="&#xE72B;" />
+                </Button>
+
+            </Grid>
+
+            <!--  The card flies here and grows into the photo; a sharp copy, at the screen's real pixels, fades in over it.  -->
+            <Grid
+                x:Name="PhotoFrame"
+                Height="440"
+                Background="{ThemeResource OrielSurfaceBrush}"
+                CornerRadius="{StaticResource OrielLargeRadius}"
+                SizeChanged="PhotoFrame_SizeChanged">
+                <Image
+                    x:Name="PreviewImage"
+                    AutomationProperties.Name="{x:Bind Photo.Headline, Mode=OneWay}"
+                    Stretch="UniformToFill" />
+                <Image
+                    x:Name="LargeImage"
+                    ImageOpened="LargeImage_Opened"
+                    Opacity="0"
+                    Stretch="UniformToFill">
+                    <Image.OpacityTransition>
+                        <ScalarTransition Duration="0:0:0.4" />
+                    </Image.OpacityTransition>
+                </Image>
+            </Grid>
+
+            <!--  Credit (required by Unsplash guidelines) and actions, like Home's. They rise in once the photo lands.  -->
+            <Grid x:Name="Info" ColumnSpacing="16" Opacity="0">
+                <Grid.OpacityTransition>
+                    <ScalarTransition Duration="0:0:0.35" />
+                </Grid.OpacityTransition>
+                <Grid.TranslationTransition>
+                    <Vector3Transition Duration="0:0:0.45" />
+                </Grid.TranslationTransition>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!--  The credit, and under it when and where it came from ("6000 × 4000 · 812 likes", "Wed, 21 Oct · Nature").  -->
+                <StackPanel Margin="4,0,0,0" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" Text="Photo by" />
+                    <HyperlinkButton
+                        Padding="5,2"
+                        Content="{x:Bind Photo.PhotographerName, Mode=OneWay}"
+                        FontWeight="SemiBold"
+                        NavigateUri="{x:Bind Photo.PhotographerUri, Mode=OneWay}" />
+                    <TextBlock VerticalAlignment="Center" Text="on" />
+                    <HyperlinkButton
+                        Padding="5,2"
+                        Content="Unsplash"
+                        FontWeight="SemiBold"
+                        NavigateUri="{x:Bind Photo.PhotoPageUri, Mode=OneWay}" />
+                </StackPanel>
+                <TextBlock
+                    FontSize="12"
+                    Style="{StaticResource MutedTextStyle}"
+                    Text="{x:Bind Photo.Facts, Mode=OneWay}" />
+                </StackPanel>
+
+                <StackPanel
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <Button
+                        x:Name="ShareButton"
+                        AutomationProperties.Name="Share this wallpaper"
+                        Click="Share_Click"
+                        Style="{StaticResource IconButtonStyle}"
+                        ToolTipService.ToolTip="Share this wallpaper. Whoever opens the link can set it in one click.">
+                        <FontIcon FontSize="15" Glyph="&#xE72D;" />
+                    </Button>
+                    <Button
+                        AutomationProperties.Name="Open in folder"
+                        Click="Folder_Click"
+                        Style="{StaticResource IconButtonStyle}"
+                        ToolTipService.ToolTip="Open in folder"
+                        Visibility="{x:Bind Photo.CanOpenFolder, Mode=OneWay}">
+                        <FontIcon FontSize="15" Glyph="&#xED25;" />
+                    </Button>
+                    <Button
+                        AutomationProperties.Name="Delete"
+                        Click="Delete_Click"
+                        Style="{StaticResource IconButtonStyle}"
+                        ToolTipService.ToolTip="Delete"
+                        Visibility="{x:Bind Photo.CanDelete, Mode=OneWay}">
+                        <FontIcon FontSize="15" Glyph="&#xE74D;" />
+                    </Button>
+                    <ToggleButton
+                        AutomationProperties.Name="Favorite"
+                        IsChecked="{x:Bind Photo.IsFavorite, Mode=TwoWay}"
+                        Style="{StaticResource IconToggleButtonStyle}"
+                        ToolTipService.ToolTip="Favorite: keep this one forever"
+                        Visibility="{x:Bind Photo.CanFavorite, Mode=OneWay}">
+                        <Grid>
+                            <FontIcon FontSize="15" Glyph="&#xE734;" Visibility="{x:Bind local:Star.Hidden(Photo.IsFavorite), Mode=OneWay}" />
+                            <FontIcon FontSize="15" Foreground="{StaticResource OrielStarBrush}" Glyph="&#xE735;" Visibility="{x:Bind local:Star.Shown(Photo.IsFavorite), Mode=OneWay}" />
+                        </Grid>
+                    </ToggleButton>
+                    <Button
+                        Height="36"
+                        Command="{x:Bind Photo.SetCommand, Mode=OneWay}"
+                        IsEnabled="{x:Bind Photo.IsIdle, Mode=OneWay}"
+                        Style="{StaticResource PrimaryPillButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="14" Glyph="&#xE7F4;" />
+                            <TextBlock Text="{x:Bind Photo.ButtonText, Mode=OneWay}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <InfoBar
+                x:Name="Message"
+                IsOpen="False"
+                Severity="Informational" />
+        </StackPanel>
+    </ScrollViewer>
+</Page>

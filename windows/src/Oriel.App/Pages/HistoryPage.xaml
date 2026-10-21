@@ -4,7 +4,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Oriel.UI"
-    xmlns:vm="using:Oriel.UI.ViewModels">
+    xmlns:vm="using:Oriel.UI.ViewModels"
+    NavigationCacheMode="Enabled">
 
     <!--  A checked favorite keeps the soft grey button; only its star turns yellow (see Star).  -->
     <Page.Resources>
@@ -40,33 +41,39 @@
                             IsActive="{x:Bind ViewModel.IsChanging, Mode=OneWay}" />
                         <TextBlock Style="{StaticResource MutedTextStyle}" Text="{x:Bind ViewModel.Stage, Mode=OneWay}" />
                     </StackPanel>
+                    <!--  Grid or list, like the phone's segmented control: a soft track, and an ink pill sliding to the pick.  -->
                     <Grid
                         Padding="3"
                         Background="{ThemeResource OrielSurfaceBrush}"
+                        BorderBrush="{ThemeResource OrielLineBrush}"
+                        BorderThickness="1"
                         CornerRadius="{StaticResource OrielPillRadius}">
                         <Border
                             x:Name="ViewIndicator"
                             Background="{ThemeResource OrielInkBrush}"
-                            CornerRadius="{StaticResource OrielTabItemRadius}" />
-                        <StackPanel
-                            x:Name="ViewStrip"
-                            Orientation="Horizontal"
-                            Spacing="2">
+                            CornerRadius="{StaticResource OrielPillRadius}" />
+                        <StackPanel x:Name="ViewStrip" Orientation="Horizontal">
                             <RadioButton
+                                Width="78"
                                 AutomationProperties.Name="Grid view"
                                 GroupName="HistoryView"
                                 IsChecked="{x:Bind ViewModel.IsGrid, Mode=TwoWay}"
-                                Style="{StaticResource PillTabStyle}"
-                                ToolTipService.ToolTip="Grid">
-                                <FontIcon FontSize="14" Glyph="&#xF0E2;" />
+                                Style="{StaticResource PillTabStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <FontIcon FontSize="12" Glyph="&#xF0E2;" />
+                                    <TextBlock Text="Grid" />
+                                </StackPanel>
                             </RadioButton>
                             <RadioButton
+                                Width="78"
                                 AutomationProperties.Name="List view"
                                 GroupName="HistoryView"
                                 IsChecked="{x:Bind ViewModel.IsList, Mode=TwoWay}"
-                                Style="{StaticResource PillTabStyle}"
-                                ToolTipService.ToolTip="List">
-                                <FontIcon FontSize="14" Glyph="&#xE8FD;" />
+                                Style="{StaticResource PillTabStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <FontIcon FontSize="12" Glyph="&#xE8FD;" />
+                                    <TextBlock Text="List" />
+                                </StackPanel>
                             </RadioButton>
                         </StackPanel>
                     </Grid>
@@ -110,17 +117,14 @@
                             Height="210"
                             Background="{ThemeResource OrielLineBrush}"
                             CornerRadius="{StaticResource OrielCardRadius}"
-                            GotFocus="Card_Focus"
-                            LostFocus="Card_Blur"
-                            PointerEntered="Card_Enter"
-                            PointerExited="Card_Exit">
+                            PointerEntered="Card_PointerEntered"
+                            Tag="{x:Bind}"
+                            Tapped="Card_Tapped">
                             <Image
                                 local:ImageReveal.Enabled="True"
-                                AutomationProperties.Name="{x:Bind Topic}"
-                                Source="{x:Bind Thumbnail, Mode=OneWay}"
+                                AutomationProperties.Name="{x:Bind Headline}"
+                                Source="{x:Bind Preview, Mode=OneWay}"
                                 Stretch="UniformToFill" />
-
-                            <!--  Favorites keep a small star on the photo even when the actions are hidden.  -->
                             <FontIcon
                                 Margin="12"
                                 HorizontalAlignment="Right"
@@ -129,79 +133,23 @@
                                 Foreground="{StaticResource OrielStarBrush}"
                                 Glyph="&#xE735;"
                                 Visibility="{x:Bind local:Star.Shown(IsFavorite), Mode=OneWay}" />
-
-                            <Grid
-                                Padding="14,44,10,10"
+                            <!--  The fade keeps the white text readable on any photo.  -->
+                            <StackPanel
+                                Padding="14,44,14,12"
                                 VerticalAlignment="Bottom"
-                                Background="{StaticResource OrielPhotoScrimBrush}"
-                                ColumnSpacing="8">
-                                <Grid.Resources>
-                                    <ResourceDictionary Source="ms-appx:///Styles/OnPhoto.xaml" />
-                                </Grid.Resources>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel x:Name="Details" Grid.ColumnSpan="2" VerticalAlignment="Center">
-                                    <HyperlinkButton
-                                        Margin="-6,0,0,0"
-                                        Padding="6,1"
-                                        Content="{x:Bind PhotographerName}"
-                                        FontWeight="SemiBold"
-                                        Foreground="White"
-                                        NavigateUri="{x:Bind PhotographerUri}"
-                                        ToolTipService.ToolTip="Photographer on Unsplash" />
-                                    <TextBlock
-                                        FontSize="12"
-                                        Foreground="#CCFFFFFF"
-                                        TextTrimming="CharacterEllipsis"
-                                        TextWrapping="NoWrap">
-                                        <Run Text="{x:Bind DateText}" />
-                                        <Run Text=" · " />
-                                        <Run Text="{x:Bind Topic}" />
-                                    </TextBlock>
-                                </StackPanel>
-                                <StackPanel
-                                    x:Name="Actions"
-                                    Grid.Column="1"
-                                    VerticalAlignment="Center"
-                                    Opacity="0"
-                                    Orientation="Horizontal"
-                                    Spacing="4">
-                                    <Button
-                                        AutomationProperties.Name="Set as wallpaper again"
-                                        Command="{x:Bind ReapplyCommand}"
-                                        IsEnabled="{x:Bind CanReapply}"
-                                        Style="{StaticResource IconButtonStyle}"
-                                        ToolTipService.ToolTip="Set as wallpaper again">
-                                        <FontIcon FontSize="14" Glyph="&#xE7A7;" />
-                                    </Button>
-                                    <ToggleButton
-                                        AutomationProperties.Name="Favorite"
-                                        IsChecked="{x:Bind IsFavorite, Mode=TwoWay}"
-                                        Style="{StaticResource IconToggleButtonStyle}"
-                                        ToolTipService.ToolTip="Favorite: never auto-delete">
-                                        <Grid>
-                                            <FontIcon FontSize="14" Glyph="&#xE734;" Visibility="{x:Bind local:Star.Hidden(IsFavorite), Mode=OneWay}" />
-                                            <FontIcon FontSize="14" Foreground="{StaticResource OrielStarBrush}" Glyph="&#xE735;" Visibility="{x:Bind local:Star.Shown(IsFavorite), Mode=OneWay}" />
-                                        </Grid>
-                                    </ToggleButton>
-                                    <Button
-                                        AutomationProperties.Name="Open in folder"
-                                        Command="{x:Bind OpenInFolderCommand}"
-                                        Style="{StaticResource IconButtonStyle}"
-                                        ToolTipService.ToolTip="Open in folder">
-                                        <FontIcon FontSize="14" Glyph="&#xED25;" />
-                                    </Button>
-                                    <Button
-                                        AutomationProperties.Name="Delete"
-                                        Command="{x:Bind DeleteCommand}"
-                                        Style="{StaticResource IconButtonStyle}"
-                                        ToolTipService.ToolTip="Delete">
-                                        <FontIcon FontSize="14" Glyph="&#xE74D;" />
-                                    </Button>
-                                </StackPanel>
-                            </Grid>
+                                Background="{StaticResource OrielPhotoScrimBrush}">
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Foreground="White"
+                                    Text="{x:Bind PhotographerName}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    FontSize="12"
+                                    Foreground="#CCFFFFFF"
+                                    Text="{x:Bind Subtitle}"
+                                    TextTrimming="CharacterEllipsis"
+                                    TextWrapping="NoWrap" />
+                            </StackPanel>
                         </Grid>
                     </DataTemplate>
                 </ItemsRepeater.ItemTemplate>
@@ -219,84 +167,42 @@
                             Background="{ThemeResource OrielSurfaceBrush}"
                             ColumnSpacing="14"
                             CornerRadius="{StaticResource OrielMediumRadius}"
-                            GotFocus="Card_Focus"
-                            LostFocus="Card_Blur"
-                            PointerEntered="Card_Enter"
-                            PointerExited="Card_Exit">
+                            PointerEntered="Card_PointerEntered"
+                            Tag="{x:Bind}"
+                            Tapped="Card_Tapped">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Grid
+                                x:Name="Thumb"
                                 Width="112"
                                 Height="64"
                                 Background="{ThemeResource OrielLineBrush}"
                                 CornerRadius="{StaticResource OrielThumbRadius}">
                                 <Image
                                     local:ImageReveal.Enabled="True"
-                                    AutomationProperties.Name="{x:Bind Topic}"
-                                    Source="{x:Bind Thumbnail, Mode=OneWay}"
+                                    AutomationProperties.Name="{x:Bind Headline}"
+                                    Source="{x:Bind Preview, Mode=OneWay}"
                                     Stretch="UniformToFill" />
                             </Grid>
-                            <StackPanel x:Name="Details" Grid.Column="1" Grid.ColumnSpan="2" VerticalAlignment="Center">
-                                <HyperlinkButton
-                                    Margin="-6,0,0,0"
-                                    Padding="6,1"
-                                    Content="{x:Bind PhotographerName}"
-                                    FontWeight="SemiBold"
-                                    NavigateUri="{x:Bind PhotographerUri}"
-                                    ToolTipService.ToolTip="Photographer on Unsplash" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock FontWeight="SemiBold" Text="{x:Bind PhotographerName}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock
                                     FontSize="12"
                                     Style="{StaticResource MutedTextStyle}"
+                                    Text="{x:Bind Subtitle}"
                                     TextTrimming="CharacterEllipsis"
-                                    TextWrapping="NoWrap">
-                                    <Run Text="{x:Bind DateText}" />
-                                    <Run Text=" · " />
-                                    <Run Text="{x:Bind Topic}" />
-                                </TextBlock>
+                                    TextWrapping="NoWrap" />
                             </StackPanel>
-                            <StackPanel
-                                x:Name="Actions"
-                                Opacity="0"
+                            <FontIcon
                                 Grid.Column="2"
-                                VerticalAlignment="Center"
-                                Orientation="Horizontal"
-                                Spacing="2">
-                                <Button
-                                    AutomationProperties.Name="Set as wallpaper again"
-                                    Command="{x:Bind ReapplyCommand}"
-                                    IsEnabled="{x:Bind CanReapply}"
-                                    Style="{StaticResource IconButtonStyle}"
-                                    ToolTipService.ToolTip="Set as wallpaper again">
-                                    <FontIcon FontSize="14" Glyph="&#xE7A7;" />
-                                </Button>
-                                <ToggleButton
-                                    AutomationProperties.Name="Favorite"
-                                    IsChecked="{x:Bind IsFavorite, Mode=TwoWay}"
-                                    Style="{StaticResource IconToggleButtonStyle}"
-                                    ToolTipService.ToolTip="Favorite: never auto-delete">
-                                    <Grid>
-                                        <FontIcon FontSize="14" Glyph="&#xE734;" Visibility="{x:Bind local:Star.Hidden(IsFavorite), Mode=OneWay}" />
-                                        <FontIcon FontSize="14" Foreground="{StaticResource OrielStarBrush}" Glyph="&#xE735;" Visibility="{x:Bind local:Star.Shown(IsFavorite), Mode=OneWay}" />
-                                    </Grid>
-                                </ToggleButton>
-                                <Button
-                                    AutomationProperties.Name="Open in folder"
-                                    Command="{x:Bind OpenInFolderCommand}"
-                                    Style="{StaticResource IconButtonStyle}"
-                                    ToolTipService.ToolTip="Open in folder">
-                                    <FontIcon FontSize="14" Glyph="&#xED25;" />
-                                </Button>
-                                <Button
-                                    AutomationProperties.Name="Delete"
-                                    Command="{x:Bind DeleteCommand}"
-                                    Style="{StaticResource IconButtonStyle}"
-                                    ToolTipService.ToolTip="Delete">
-                                    <FontIcon FontSize="14" Glyph="&#xE74D;" />
-                                </Button>
-                            </StackPanel>
+                                Margin="0,0,8,0"
+                                FontSize="14"
+                                Foreground="{StaticResource OrielStarBrush}"
+                                Glyph="&#xE735;"
+                                Visibility="{x:Bind local:Star.Shown(IsFavorite), Mode=OneWay}" />
                         </Grid>
                     </DataTemplate>
                 </ItemsRepeater.ItemTemplate>

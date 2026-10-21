@@ -50,9 +50,10 @@
                         <FontIcon Glyph="&#xE80F;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="Search" Tag="collections">
+                <NavigationViewItem Content="Explore" Tag="explore">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE721;" />
+                        <!--  A compass (Lucide): the ring, and the needle pointing north-east.  -->
+                        <PathIcon Data="F0 M8,1 A7,7 0 1 1 8,15 A7,7 0 1 1 8,1 Z M8,2.25 A5.75,5.75 0 1 0 8,13.75 A5.75,5.75 0 1 0 8,2.25 Z M10.75,5.25 L9.3,9.3 L5.25,10.75 L6.7,6.7 Z" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="AI" Tag="create">

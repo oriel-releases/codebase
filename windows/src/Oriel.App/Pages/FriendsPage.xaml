@@ -15,7 +15,7 @@
 
                 <!--  Following someone: their wallpaper is the card. Always dark underneath, so the white text reads in both themes.  -->
                 <Grid
-                    Height="260"
+                    Height="220"
                     Background="#1C1C1C"
                     CornerRadius="{StaticResource OrielLargeRadius}"
                     RequestedTheme="Dark"
@@ -96,36 +96,36 @@
                 <StackPanel
                     Background="{ThemeResource OrielSurfaceBrush}"
                     CornerRadius="{StaticResource OrielLargeRadius}">
-                    <Grid Padding="20,16" ColumnSpacing="16">
+                    <Grid Padding="16,10" ColumnSpacing="14">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Border
-                            Width="40"
-                            Height="40"
+                            Width="32"
+                            Height="32"
                             Background="{ThemeResource OrielPaperBrush}"
-                            CornerRadius="12">
-                            <FontIcon FontSize="16" Glyph="&#xE72D;" />
+                            CornerRadius="{StaticResource OrielTileRadius}">
+                            <FontIcon FontSize="14" Glyph="&#xE72D;" />
                         </Border>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock FontWeight="SemiBold" Text="Share my wallpaper" />
-                            <TextBlock FontSize="13" Style="{StaticResource MutedTextStyle}" Text="{x:Bind ViewModel.ShareDetail, Mode=OneWay}" />
+                            <TextBlock FontSize="12" Style="{StaticResource MutedTextStyle}" Text="{x:Bind ViewModel.ShareDetail, Mode=OneWay}" />
                         </StackPanel>
                         <StackPanel
                             Grid.Column="2"
                             Orientation="Horizontal"
                             Spacing="8">
                             <Button
-                                Height="36"
+                                Height="32"
                                 Command="{x:Bind ViewModel.TurnOffSharingCommand}"
                                 Content="Turn off"
                                 Style="{StaticResource PillButtonStyle}"
                                 Visibility="{x:Bind ViewModel.IsSharing, Mode=OneWay}" />
                             <Button
-                                Height="36"
-                                MinWidth="96"
+                                Height="32"
+                                MinWidth="88"
                                 Click="Share_Click"
                                 Content="{x:Bind ViewModel.ShareText, Mode=OneWay}"
                                 Style="{StaticResource PrimaryPillButtonStyle}" />
@@ -133,28 +133,28 @@
                     </Grid>
 
                     <Grid Visibility="{x:Bind ViewModel.IsNotFollowing, Mode=OneWay}">
-                        <Rectangle Height="1" Margin="76,0,20,0" VerticalAlignment="Top" Fill="{ThemeResource OrielLineBrush}" />
-                        <Grid Padding="20,16" ColumnSpacing="16">
+                        <Rectangle Height="1" Margin="62,0,16,0" VerticalAlignment="Top" Fill="{ThemeResource OrielLineBrush}" />
+                        <Grid Padding="16,10" ColumnSpacing="14">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Border
-                                Width="40"
-                                Height="40"
+                                Width="32"
+                                Height="32"
                                 Background="{ThemeResource OrielPaperBrush}"
-                                CornerRadius="12">
-                                <FontIcon FontSize="16" Glyph="&#xE8FA;" />
+                                CornerRadius="{StaticResource OrielTileRadius}">
+                                <FontIcon FontSize="14" Glyph="&#xE8FA;" />
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock FontWeight="SemiBold" Text="Follow a friend" />
-                                <TextBlock FontSize="13" Style="{StaticResource MutedTextStyle}" Text="Use a friend's wallpaper." />
+                                <TextBlock FontSize="12" Style="{StaticResource MutedTextStyle}" Text="Use a friend's wallpaper." />
                             </StackPanel>
                             <Button
                                 Grid.Column="2"
-                                Height="36"
-                                MinWidth="96"
+                                Height="32"
+                                MinWidth="88"
                                 Click="EnterCode_Click"
                                 Content="Enter code"
                                 Style="{StaticResource PillButtonStyle}" />
@@ -162,28 +162,28 @@
                     </Grid>
 
                     <Grid Visibility="{x:Bind ViewModel.HasFollowers, Mode=OneWay}">
-                        <Rectangle Height="1" Margin="76,0,20,0" VerticalAlignment="Top" Fill="{ThemeResource OrielLineBrush}" />
-                        <Grid Padding="20,16" ColumnSpacing="16">
+                        <Rectangle Height="1" Margin="62,0,16,0" VerticalAlignment="Top" Fill="{ThemeResource OrielLineBrush}" />
+                        <Grid Padding="16,10" ColumnSpacing="14">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Border
-                                Width="40"
-                                Height="40"
+                                Width="32"
+                                Height="32"
                                 Background="{ThemeResource OrielPaperBrush}"
-                                CornerRadius="12">
-                                <FontIcon FontSize="16" Glyph="&#xE716;" />
+                                CornerRadius="{StaticResource OrielTileRadius}">
+                                <FontIcon FontSize="14" Glyph="&#xE716;" />
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock FontWeight="SemiBold" Text="Followers" />
-                                <TextBlock FontSize="13" Style="{StaticResource MutedTextStyle}" Text="{x:Bind ViewModel.FollowersDetail, Mode=OneWay}" />
+                                <TextBlock FontSize="12" Style="{StaticResource MutedTextStyle}" Text="{x:Bind ViewModel.FollowersDetail, Mode=OneWay}" />
                             </StackPanel>
                             <Button
                                 Grid.Column="2"
-                                Height="36"
-                                MinWidth="96"
+                                Height="32"
+                                MinWidth="88"
                                 Click="Followers_Click"
                                 Content="See all"
                                 Style="{StaticResource PillButtonStyle}" />

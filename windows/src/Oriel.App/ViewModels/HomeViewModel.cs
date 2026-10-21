@@ -24,16 +24,14 @@ public sealed partial class HomeViewModel : ObservableObject
     bool _loading;
 
     readonly Oriel.Core.Auth.AuthService _auth;
-    readonly IStats _stats;
     readonly TodayService _today;
     TodayPhoto? _todayPhoto;
     DateOnly? _todayLoadedFor;
 
     public HomeViewModel(WallpaperService wallpapers, IHistoryStore history, ISettingsStore settings,
-        AppPaths paths, Oriel.Core.Auth.AuthService auth, IStats stats, TodayService today, ShareService shares)
+        AppPaths paths, Oriel.Core.Auth.AuthService auth, TodayService today, ShareService shares)
     {
         _shares = shares;
-        _stats = stats;
         _today = today;
         _auth = auth;
         _wallpapers = wallpapers;
@@ -123,8 +121,6 @@ public sealed partial class HomeViewModel : ObservableObject
     }
     [ObservableProperty] public partial bool IsLinkCopied { get; set; }
 
-    /// <summary>The share link went out (share sheet, copied, or a messenger): one more for the daily count.</summary>
-    public void CountShare() => _stats.Count(StatFields.SharesSent);
 
     /// <summary>The view copied the link: show a check mark for a moment.</summary>
     public async Task MarkLinkCopiedAsync()
@@ -251,6 +247,8 @@ public sealed partial class HomeViewModel : ObservableObject
     // ---------------------------------------------------------------- Wallpaper of the day
 
     [ObservableProperty] public partial bool HasToday { get; set; }
+    /// <summary>Today's photo for its own page (the card opens it).</summary>
+    [ObservableProperty] public partial TodayDetail? Today { get; set; }
     [ObservableProperty] public partial ImageSource? TodayThumb { get; set; }
     [ObservableProperty] public partial string TodayBy { get; set; } = "";
     [ObservableProperty] public partial Uri? TodayAuthorUri { get; set; }
@@ -269,6 +267,12 @@ public sealed partial class HomeViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(TodayButtonText))]
     public partial string? TodayStage { get; set; }
 
+    /// <summary>Under "Wallpaper of the day" on the card: whose photo, or that it's already the wallpaper.</summary>
+    public string TodayCaption => IsTodaySetting ? TodayStage ?? "Finding it…" : IsTodayCurrent ? "On your desktop ✓" : $"Photo by {TodayBy}";
+    partial void OnTodayByChanged(string value) => OnPropertyChanged(nameof(TodayCaption));
+    partial void OnIsTodaySettingChanged(bool value) => OnPropertyChanged(nameof(TodayCaption));
+    partial void OnIsTodayCurrentChanged(bool value) => OnPropertyChanged(nameof(TodayCaption));
+    partial void OnTodayStageChanged(string? value) => OnPropertyChanged(nameof(TodayCaption));
     public string TodayButtonText => IsTodaySetting ? TodayStage ?? "Finding it…" : IsTodayCurrent ? "On your desktop ✓" : "Set as wallpaper";
 
     /// <summary>Today's photo from the website, once a day (the thumbnail is small: 240 px wide).</summary>
@@ -287,6 +291,7 @@ public sealed partial class HomeViewModel : ObservableObject
         TodayBy = photo.By;
         TodayAuthorUri = photo.AuthorUri;
         TodayThumb = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(photo.ThumbnailUrl(480))) { DecodePixelWidth = 240 };
+        Today = new TodayDetail(this, photo, TodayThumb);
         HasToday = true;
         UpdateTodayCurrent();
     }

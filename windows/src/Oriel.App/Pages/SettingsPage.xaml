@@ -6,312 +6,414 @@
     xmlns:local="using:Oriel.UI"
     xmlns:controls="using:Oriel.UI.Controls">
 
+    <Page.Resources>
+        <!--  A section's rows, in one rounded list like Friends (the rows draw the lines between them).  -->
+        <Style x:Key="SettingsGroupStyle" TargetType="StackPanel">
+            <Setter Property="Background" Value="{ThemeResource OrielSurfaceBrush}" />
+            <Setter Property="CornerRadius" Value="{StaticResource OrielLargeRadius}" />
+        </Style>
+        <Style x:Key="RowButtonStyle" TargetType="Button" BasedOn="{StaticResource PillButtonStyle}">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Background" Value="{ThemeResource OrielPaperBrush}" />
+        </Style>
+    </Page.Resources>
+
+    <!--
+        The same sections as the phone: Account, Schedule and Photos (shared by every device), Display and App (this
+        computer), and About.
+    -->
     <ScrollViewer>
         <Grid>
-        <StackPanel
-            MaxWidth="{StaticResource PageMaxWidth}"
-            Margin="{StaticResource PageContentMargin}"
-            Spacing="{StaticResource OrielRowSpacing}">
+        <StackPanel MaxWidth="{StaticResource PageMaxWidth}" Margin="{StaticResource PageContentMargin}">
             <TextBlock Style="{StaticResource PageTitleStyle}" Text="Settings" />
 
             <!--  ============ Account ============  -->
-            <TextBlock Margin="2,4,0,8" Style="{StaticResource SectionHeaderStyle}" Text="Account" />
-            <Grid
-                MinHeight="64"
-                Padding="20,12,16,12"
-                Background="{ThemeResource OrielSurfaceBrush}"
-                ColumnSpacing="16"
-                CornerRadius="{StaticResource OrielCardRadius}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <!--  Oriel's logo, covered by the Google photo once that loads (so a failed photo just shows the logo).  -->
+            <TextBlock Margin="2,12,0,8" Style="{StaticResource SectionHeaderStyle}" Text="Account" />
+            <StackPanel Style="{StaticResource SettingsGroupStyle}">
                 <Grid
-                    Width="40"
-                    Height="40"
-                    VerticalAlignment="Center">
-                    <Border Background="{ThemeResource OrielPaperBrush}" CornerRadius="20">
-                        <Image
-                            Width="22"
-                            Height="22"
-                            Source="{ThemeResource OrielLogoImage}" />
-                    </Border>
-                    <Ellipse x:Name="PhotoEllipse" Visibility="Collapsed">
-                        <Ellipse.Fill>
-                            <ImageBrush x:Name="PhotoBrush" Stretch="UniformToFill" />
-                        </Ellipse.Fill>
-                    </Ellipse>
+                    MinHeight="56"
+                    Padding="16,10"
+                    ColumnSpacing="14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <!--  Oriel's logo, covered by the Google photo once that loads (so a failed photo just shows the logo).  -->
+                    <Grid
+                        Width="32"
+                        Height="32"
+                        VerticalAlignment="Center">
+                        <Border Background="{ThemeResource OrielPaperBrush}" CornerRadius="16">
+                            <Image
+                                Width="18"
+                                Height="18"
+                                Source="{ThemeResource OrielLogoImage}" />
+                        </Border>
+                        <Ellipse x:Name="PhotoEllipse" Visibility="Collapsed">
+                            <Ellipse.Fill>
+                                <ImageBrush x:Name="PhotoBrush" Stretch="UniformToFill" />
+                            </Ellipse.Fill>
+                        </Ellipse>
+                    </Grid>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Text="{x:Bind ViewModel.AccountName}"
+                            TextWrapping="Wrap" />
+                        <TextBlock
+                            FontSize="12"
+                            Foreground="{ThemeResource OrielMutedBrush}"
+                            Text="{x:Bind ViewModel.AccountEmail}"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel
+                        Grid.Column="2"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <Button
+                            AutomationProperties.Name="Manage account and devices on the website"
+                            Command="{x:Bind ViewModel.OpenAccountCommand}"
+                            Content="Devices"
+                            Style="{StaticResource RowButtonStyle}" />
+                        <Button
+                            AutomationProperties.Name="Sign out"
+                            Command="{x:Bind ViewModel.SignOutCommand}"
+                            Content="Sign out"
+                            Style="{StaticResource RowButtonStyle}" />
+                    </StackPanel>
                 </Grid>
-                <StackPanel
-                    Grid.Column="1"
-                    VerticalAlignment="Center"
-                    Spacing="2">
-                    <TextBlock Text="{x:Bind ViewModel.AccountName}" TextWrapping="Wrap" />
-                    <TextBlock
-                        FontSize="12"
-                        Foreground="{ThemeResource OrielMutedBrush}"
-                        Text="{x:Bind ViewModel.AccountEmail}"
-                        TextWrapping="Wrap" />
-                </StackPanel>
-                <StackPanel
-                    Grid.Column="2"
-                    VerticalAlignment="Center"
-                    Orientation="Horizontal"
-                    Spacing="8">
-                    <Button
-                        AutomationProperties.Name="Manage account on the website"
-                        Command="{x:Bind ViewModel.OpenAccountCommand}"
-                        Content="Manage account" />
-                    <Button
-                        AutomationProperties.Name="Sign out"
-                        Command="{x:Bind ViewModel.SignOutCommand}"
-                        Content="Sign out" />
-                </StackPanel>
-            </Grid>
+            </StackPanel>
 
-            <!--  ============ Schedule ============  -->
+            <!--  ============ Schedule (every device) ============  -->
             <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Schedule" />
-            <controls:SettingRow
-                Description="Once a day, or as a slideshow that keeps changing through the day."
-                Glyph="&#xE8B3;"
-                Header="Change wallpaper">
-                <ComboBox
-                    MinWidth="150"
-                    AutomationProperties.Name="Change wallpaper"
-                    ItemsSource="{x:Bind ViewModel.IntervalOptions}"
-                    SelectedIndex="{x:Bind ViewModel.IntervalIndex, Mode=TwoWay}" />
-            </controls:SettingRow>
-            <controls:SettingRow
-                Description="Favorites cycles through the photos you starred in History. With none, new photos are used."
-                Glyph="&#xE8B9;"
-                Header="Pick from">
-                <ComboBox
-                    MinWidth="150"
-                    AutomationProperties.Name="Pick from"
-                    ItemsSource="{x:Bind ViewModel.SourceOptions}"
-                    SelectedIndex="{x:Bind ViewModel.SourceIndex, Mode=TwoWay}" />
-            </controls:SettingRow>
-            <controls:SettingRow
-                Description="A new wallpaper once a day at this time."
-                Glyph="&#xE823;"
-                Header="Daily change time"
-                Visibility="{x:Bind ViewModel.IsDaily, Mode=OneWay}">
-                <!--  Wired in code-behind: a TwoWay binding on TimePicker pushes 00:00 back on load.  -->
-                <TimePicker
-                    x:Name="DailyTimePicker"
-                    MinWidth="0"
-                    AutomationProperties.Name="Daily change time"
-                    CornerRadius="{StaticResource OrielPillRadius}"
-                    MinuteIncrement="5" />
-            </controls:SettingRow>
-            <controls:SettingRow
-                Description="If today's wallpaper isn't set yet when you sign in, change it right away."
-                Glyph="&#xE77B;"
-                Header="Change at sign-in"
-                Visibility="{x:Bind ViewModel.IsDaily, Mode=OneWay}">
-                <ToggleSwitch
-                    MinWidth="0"
-                    AutomationProperties.Name="Change at sign-in"
-                    IsOn="{x:Bind ViewModel.ApplyAtLogin, Mode=TwoWay}"
-                    OffContent=""
-                    OnContent="" />
-            </controls:SettingRow>
+            <StackPanel Style="{StaticResource SettingsGroupStyle}">
+                <!--  The daily time and "change at sign-in" come and go with "Once a day": the rest glide.  -->
+                <StackPanel.ChildrenTransitions>
+                    <TransitionCollection>
+                        <RepositionThemeTransition IsStaggeringEnabled="False" />
+                    </TransitionCollection>
+                </StackPanel.ChildrenTransitions>
+                <controls:SettingRow
+                    Description="Once a day, or as a slideshow through the day."
+                    First="True"
+                    Glyph="&#xE8B3;"
+                    Header="Change wallpaper">
+                    <ComboBox
+                        MinWidth="150"
+                        AutomationProperties.Name="Change wallpaper"
+                        ItemsSource="{x:Bind ViewModel.IntervalOptions}"
+                        SelectedIndex="{x:Bind ViewModel.IntervalIndex, Mode=TwoWay}" />
+                </controls:SettingRow>
+                <controls:SettingRow
+                    x:Name="DailyTimeRow"
+                    Description="A new wallpaper once a day at this time."
+                    Glyph="&#xE823;"
+                    Header="Daily change time">
+                    <controls:SettingRow.OpacityTransition>
+                        <ScalarTransition Duration="0:0:0.22" />
+                    </controls:SettingRow.OpacityTransition>
+                    <controls:SettingRow.TranslationTransition>
+                        <Vector3Transition Duration="0:0:0.26" />
+                    </controls:SettingRow.TranslationTransition>
+                    <!--  Wired in code-behind: a TwoWay binding on TimePicker pushes 00:00 back on load.  -->
+                    <TimePicker
+                        x:Name="DailyTimePicker"
+                        MinWidth="0"
+                        AutomationProperties.Name="Daily change time"
+                        CornerRadius="{StaticResource OrielPillRadius}"
+                        MinuteIncrement="5" />
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Description="The change time follows it, on all your devices."
+                    Glyph="&#xE909;"
+                    Header="Time zone">
+                    <ComboBox
+                        MinWidth="240"
+                        AutomationProperties.Name="Time zone"
+                        CornerRadius="{StaticResource OrielPillRadius}"
+                        DisplayMemberPath="Label"
+                        ItemsSource="{x:Bind ViewModel.Zones, Mode=OneWay}"
+                        SelectedIndex="{x:Bind ViewModel.ZoneIndex, Mode=TwoWay}" />
+                </controls:SettingRow>
+                <controls:SettingRow
+                    x:Name="ApplyAtLoginRow"
+                    Description="Missed today's change while off? Change it when you sign in."
+                    Glyph="&#xE77B;"
+                    Header="Change at sign-in">
+                    <controls:SettingRow.OpacityTransition>
+                        <ScalarTransition Duration="0:0:0.22" />
+                    </controls:SettingRow.OpacityTransition>
+                    <controls:SettingRow.TranslationTransition>
+                        <Vector3Transition Duration="0:0:0.26" />
+                    </controls:SettingRow.TranslationTransition>
+                    <ToggleSwitch
+                        MinWidth="0"
+                        AutomationProperties.Name="Change at sign-in"
+                        IsOn="{x:Bind ViewModel.ApplyAtLogin, Mode=TwoWay}"
+                        OffContent=""
+                        OnContent="" />
+                </controls:SettingRow>
+            </StackPanel>
 
-            <controls:SettingRow
-                Description="{x:Bind ViewModel.ShortcutNote, Mode=OneWay}"
-                Glyph="&#xE765;"
-                Header="Next wallpaper shortcut">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBox
-                        Width="170"
-                        AutomationProperties.Name="Next wallpaper shortcut"
-                        IsReadOnly="True"
-                        KeyDown="Shortcut_KeyDown"
-                        PlaceholderText="Click, then press keys"
-                        Text="{x:Bind ViewModel.Shortcut, Mode=OneWay}" />
-                    <Button
-                        AutomationProperties.Name="Remove shortcut"
-                        Command="{x:Bind ViewModel.ClearShortcutCommand}"
-                        Content="Clear" />
-                </StackPanel>
-            </controls:SettingRow>
+            <!--  ============ Photos (every device) ============  -->
+            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Photos" />
+            <StackPanel Style="{StaticResource SettingsGroupStyle}">
+                <!--  Minimum likes comes and goes: the rows under it glide instead of jumping.  -->
+                <StackPanel.ChildrenTransitions>
+                    <TransitionCollection>
+                        <RepositionThemeTransition IsStaggeringEnabled="False" />
+                    </TransitionCollection>
+                </StackPanel.ChildrenTransitions>
+                <controls:SettingRow
+                    Description="Only the photos you starred. With none, new photos are used."
+                    First="True"
+                    Glyph="&#xE8B9;"
+                    Header="Pick from">
+                    <ComboBox
+                        MinWidth="150"
+                        AutomationProperties.Name="Pick from"
+                        ItemsSource="{x:Bind ViewModel.SourceOptions}"
+                        SelectedIndex="{x:Bind ViewModel.SourceIndex, Mode=TwoWay}" />
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Description="Darker photos in the evening, brighter ones in the morning."
+                    Glyph="&#xE708;"
+                    Header="Match the time of day">
+                    <ToggleSwitch
+                        MinWidth="0"
+                        AutomationProperties.Name="Match the time of day"
+                        IsOn="{x:Bind ViewModel.MatchTimeOfDay, Mode=TwoWay}"
+                        OffContent=""
+                        OnContent="" />
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Description="Prefer photos other people liked on Unsplash."
+                    Glyph="&#xE8E1;"
+                    Header="Popular photos only">
+                    <ToggleSwitch
+                        MinWidth="0"
+                        AutomationProperties.Name="Popular photos only"
+                        IsOn="{x:Bind ViewModel.SkipLowLikes, Mode=TwoWay}"
+                        OffContent=""
+                        OnContent="" />
+                </controls:SettingRow>
+                <!--  Slides and fades in under its switch, and back out (SettingsPage.ShowMinLikes).  -->
+                <controls:SettingRow
+                    x:Name="MinLikesRow"
+                    Glyph="&#xE76E;"
+                    Header="Minimum likes">
+                    <controls:SettingRow.OpacityTransition>
+                        <ScalarTransition Duration="0:0:0.22" />
+                    </controls:SettingRow.OpacityTransition>
+                    <controls:SettingRow.TranslationTransition>
+                        <Vector3Transition Duration="0:0:0.26" />
+                    </controls:SettingRow.TranslationTransition>
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <Slider
+                            Width="220"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="Minimum likes"
+                            IsThumbToolTipEnabled="False"
+                            LargeChange="100"
+                            Maximum="1000"
+                            Minimum="300"
+                            SmallChange="50"
+                            StepFrequency="50"
+                            Value="{x:Bind ViewModel.MinLikes, Mode=TwoWay}" />
+                        <TextBlock
+                            MinWidth="90"
+                            VerticalAlignment="Center"
+                            Text="{x:Bind ViewModel.MinLikesText, Mode=OneWay}" />
+                    </StackPanel>
+                </controls:SettingRow>
+            </StackPanel>
 
-            <!--  ============ Display ============  -->
+            <!--  ============ Display (this computer) ============  -->
             <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Display" />
-            <controls:SettingRow
-                Description="How the photo fits your screen. Span stretches one photo across all monitors."
-                Glyph="&#xE740;"
-                Header="Fit">
-                <ComboBox
-                    MinWidth="110"
-                    AutomationProperties.Name="Fit"
-                    ItemsSource="{x:Bind ViewModel.FitModes}"
-                    SelectedIndex="{x:Bind ViewModel.FitIndex, Mode=TwoWay}" />
-            </controls:SettingRow>
+            <StackPanel Style="{StaticResource SettingsGroupStyle}">
+                <controls:SettingRow
+                    Description="How the photo fits. Span stretches one across all monitors."
+                    First="True"
+                    Glyph="&#xE740;"
+                    Header="Fit">
+                    <ComboBox
+                        MinWidth="110"
+                        AutomationProperties.Name="Fit"
+                        ItemsSource="{x:Bind ViewModel.FitModes}"
+                        SelectedIndex="{x:Bind ViewModel.FitIndex, Mode=TwoWay}" />
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Description="The desktop, or the lock screen too."
+                    Glyph="&#xE72E;"
+                    Header="Apply to">
+                    <ComboBox
+                        MinWidth="190"
+                        AutomationProperties.Name="Apply to"
+                        ItemsSource="{x:Bind ViewModel.ApplyToOptions}"
+                        SelectedIndex="{x:Bind ViewModel.ApplyToIndex, Mode=TwoWay}" />
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Description="Each monitor gets its own photo."
+                    Glyph="&#xE7F4;"
+                    Header="A photo for each monitor"
+                    Visibility="{x:Bind ViewModel.HasMonitors}">
+                    <ToggleSwitch
+                        MinWidth="0"
+                        AutomationProperties.Name="A photo for each monitor"
+                        IsOn="{x:Bind ViewModel.PhotoPerMonitor, Mode=TwoWay}"
+                        OffContent=""
+                        OnContent="" />
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Description="Start, taskbar and buttons take a color from each new photo."
+                    Glyph="&#xE790;"
+                    Header="Match accent color">
+                    <ToggleSwitch
+                        MinWidth="0"
+                        AutomationProperties.Name="Match accent color"
+                        IsOn="{x:Bind ViewModel.MatchAccentColor, Mode=TwoWay}"
+                        OffContent=""
+                        OnContent="" />
+                </controls:SettingRow>
+            </StackPanel>
 
-            <controls:SettingRow
-                Description="Choose whether each new wallpaper also becomes your lock screen picture."
-                Glyph="&#xE72E;"
-                Header="Apply to">
-                <ComboBox
-                    MinWidth="190"
-                    AutomationProperties.Name="Apply to"
-                    ItemsSource="{x:Bind ViewModel.ApplyToOptions}"
-                    SelectedIndex="{x:Bind ViewModel.ApplyToIndex, Mode=TwoWay}" />
-            </controls:SettingRow>
-
-            <controls:SettingRow
-                Description="Change the Windows accent color (Start, taskbar, buttons) to a color from each new wallpaper."
-                Glyph="&#xE790;"
-                Header="Match accent color">
-                <ToggleSwitch
-                    MinWidth="0"
-                    AutomationProperties.Name="Match accent color"
-                    IsOn="{x:Bind ViewModel.MatchAccentColor, Mode=TwoWay}"
-                    OffContent=""
-                    OnContent="" />
-            </controls:SettingRow>
-
-            <controls:SettingRow
-                Description="Darker photos in the evening and in dark mode, brighter ones in the morning."
-                Glyph="&#xE708;"
-                Header="Match the time of day">
-                <ToggleSwitch
-                    MinWidth="0"
-                    AutomationProperties.Name="Match the time of day"
-                    IsOn="{x:Bind ViewModel.MatchTimeOfDay, Mode=TwoWay}"
-                    OffContent=""
-                    OnContent="" />
-            </controls:SettingRow>
-
-            <controls:SettingRow
-                Description="Give each monitor its own photo instead of the same one everywhere."
-                Glyph="&#xE7F4;"
-                Header="A photo for each monitor"
-                Visibility="{x:Bind ViewModel.HasMonitors}">
-                <ToggleSwitch
-                    MinWidth="0"
-                    AutomationProperties.Name="A photo for each monitor"
-                    IsOn="{x:Bind ViewModel.PhotoPerMonitor, Mode=TwoWay}"
-                    OffContent=""
-                    OnContent="" />
-            </controls:SettingRow>
-
-            <!--  ============ Quality ============  -->
-            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Quality" />
-            <controls:SettingRow
-                Description="Prefer photos other people liked on Unsplash."
-                Glyph="&#xE8E1;"
-                Header="Skip photos with few likes">
-                <ToggleSwitch
-                    MinWidth="0"
-                    AutomationProperties.Name="Skip photos with few likes"
-                    IsOn="{x:Bind ViewModel.SkipLowLikes, Mode=TwoWay}"
-                    OffContent=""
-                    OnContent="" />
-            </controls:SettingRow>
-            <controls:SettingRow
-                Glyph="&#xE76E;"
-                Header="Minimum likes"
-                Visibility="{x:Bind ViewModel.SkipLowLikes, Mode=OneWay}">
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                    <Slider
-                        Width="200"
-                        VerticalAlignment="Center"
-                        AutomationProperties.Name="Minimum likes"
-                        Maximum="1000"
-                        Minimum="0"
-                        SmallChange="50"
-                        StepFrequency="50"
-                        TickFrequency="50"
-                        TickPlacement="Outside"
-                        Value="{x:Bind ViewModel.MinLikes, Mode=TwoWay}" />
-                    <TextBlock
-                        MinWidth="36"
-                        VerticalAlignment="Center"
-                        Text="{x:Bind ViewModel.MinLikes, Mode=OneWay}" />
-                </StackPanel>
-            </controls:SettingRow>
-
-            <!--  ============ Storage ============  -->
-            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Storage" />
+            <!--  ============ App (this computer) ============  -->
+            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="App" />
             <InfoBar
+                Margin="0,0,0,8"
                 CornerRadius="{StaticResource OrielMediumRadius}"
                 IsOpen="{x:Bind ViewModel.IsFolderInfoOpen, Mode=TwoWay}"
                 Message="{x:Bind ViewModel.FolderInfoMessage, Mode=OneWay}"
                 Severity="{x:Bind ViewModel.FolderInfoSeverity, Mode=OneWay}" />
-            <controls:SettingRow
-                Description="{x:Bind ViewModel.PicturesFolder, Mode=OneWay}"
-                Glyph="&#xE838;"
-                Header="Wallpaper folder">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Command="{x:Bind ViewModel.OpenPicturesFolderCommand}" Content="Open" />
-                    <Button Command="{x:Bind ViewModel.ChangeFolderCommand}" ToolTipService.ToolTip="Pick an empty folder; your photos move there.">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ProgressRing
-                                Width="14"
-                                Height="14"
-                                IsActive="{x:Bind ViewModel.IsMovingFolder, Mode=OneWay}"
-                                Visibility="{x:Bind ViewModel.IsMovingFolder, Mode=OneWay}" />
-                            <TextBlock Text="Change" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </controls:SettingRow>
+            <StackPanel Style="{StaticResource SettingsGroupStyle}">
+                <controls:SettingRow
+                    Description="Start quietly in the tray when you sign in."
+                    First="True"
+                    Glyph="&#xE7E8;"
+                    Header="Start with Windows">
+                    <ToggleSwitch
+                        MinWidth="0"
+                        AutomationProperties.Name="Start with Windows"
+                        IsOn="{x:Bind ViewModel.StartWithWindows, Mode=TwoWay}"
+                        OffContent=""
+                        OnContent="" />
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Description="{x:Bind ViewModel.ShortcutNote, Mode=OneWay}"
+                    Glyph="&#xE765;"
+                    Header="Next wallpaper shortcut">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBox
+                            Width="170"
+                            AutomationProperties.Name="Next wallpaper shortcut"
+                            IsReadOnly="True"
+                            KeyDown="Shortcut_KeyDown"
+                            PlaceholderText="Click, then press keys"
+                            Text="{x:Bind ViewModel.Shortcut, Mode=OneWay}" />
+                        <Button
+                            AutomationProperties.Name="Remove shortcut"
+                            Command="{x:Bind ViewModel.ClearShortcutCommand}"
+                            Content="Clear"
+                            Style="{StaticResource RowButtonStyle}" />
+                    </StackPanel>
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Description="{x:Bind ViewModel.PicturesFolder, Mode=OneWay}"
+                    Glyph="&#xE838;"
+                    Header="Wallpaper folder">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button
+                            Command="{x:Bind ViewModel.OpenPicturesFolderCommand}"
+                            Content="Open"
+                            Style="{StaticResource RowButtonStyle}" />
+                        <Button
+                            Command="{x:Bind ViewModel.ChangeFolderCommand}"
+                            Style="{StaticResource RowButtonStyle}"
+                            ToolTipService.ToolTip="Pick an empty folder; your photos move there.">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ProgressRing
+                                    Width="14"
+                                    Height="14"
+                                    IsActive="{x:Bind ViewModel.IsMovingFolder, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.IsMovingFolder, Mode=OneWay}" />
+                                <TextBlock Text="Change" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Description="{x:Bind ViewModel.UpdateStatus, Mode=OneWay}"
+                    Glyph="&#xE895;"
+                    Header="Updates">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <ProgressBar
+                            Width="120"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="Update download progress"
+                            Maximum="100"
+                            Value="{x:Bind ViewModel.UpdateProgress, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.IsDownloading, Mode=OneWay}" />
+                        <Button
+                            Command="{x:Bind ViewModel.UpdateCommand}"
+                            Style="{StaticResource RowButtonStyle}"
+                            Visibility="{x:Bind ViewModel.CanUpdate}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ProgressRing
+                                    Width="14"
+                                    Height="14"
+                                    IsActive="{x:Bind ViewModel.IsUpdateBusy, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.IsUpdateBusy, Mode=OneWay}" />
+                                <TextBlock Text="{x:Bind ViewModel.UpdateButtonText, Mode=OneWay}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </controls:SettingRow>
+            </StackPanel>
 
-            <!--  ============ App ============  -->
-            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="App" />
-            <controls:SettingRow
-                Description="Start minimized to the system tray when you sign in."
-                Glyph="&#xE7E8;"
-                Header="Start with Windows">
-                <ToggleSwitch
-                    MinWidth="0"
-                    AutomationProperties.Name="Start with Windows"
-                    IsOn="{x:Bind ViewModel.StartWithWindows, Mode=TwoWay}"
-                    OffContent=""
-                    OnContent="" />
-            </controls:SettingRow>
-            <controls:SettingRow
-                Description="{x:Bind ViewModel.UpdateStatus, Mode=OneWay}"
-                Glyph="&#xE895;"
-                Header="Updates">
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                    <ProgressBar
-                        Width="120"
-                        VerticalAlignment="Center"
-                        AutomationProperties.Name="Update download progress"
-                        Maximum="100"
-                        Value="{x:Bind ViewModel.UpdateProgress, Mode=OneWay}"
-                        Visibility="{x:Bind ViewModel.IsDownloading, Mode=OneWay}" />
+            <!--  ============ About ============  -->
+            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="About" />
+            <StackPanel Style="{StaticResource SettingsGroupStyle}">
+                <controls:SettingRow
+                    Description="Questions, bugs or ideas? The Oriel bot on Telegram."
+                    First="True"
+                    Glyph="&#xE8F2;"
+                    Header="Get help">
                     <Button
-                        Command="{x:Bind ViewModel.UpdateCommand}"
-                        Visibility="{x:Bind ViewModel.CanUpdate}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ProgressRing
-                                Width="14"
-                                Height="14"
-                                IsActive="{x:Bind ViewModel.IsUpdateBusy, Mode=OneWay}"
-                                Visibility="{x:Bind ViewModel.IsUpdateBusy, Mode=OneWay}" />
-                            <TextBlock Text="{x:Bind ViewModel.UpdateButtonText, Mode=OneWay}" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </controls:SettingRow>
-
-            <!--  ============ Help ============  -->
-            <TextBlock Style="{StaticResource SectionHeaderStyle}" Text="Help" />
-            <controls:SettingRow
-                Description="Questions, bugs or ideas? Message the Oriel support bot on Telegram."
-                Glyph="&#xE8F2;"
-                Header="Contact support">
-                <Button
-                    AutomationProperties.Name="Open Telegram support chat"
-                    Command="{x:Bind ViewModel.OpenSupportCommand}"
-                    Content="Open Telegram" />
-            </controls:SettingRow>
+                        AutomationProperties.Name="Open Telegram support chat"
+                        Command="{x:Bind ViewModel.OpenSupportCommand}"
+                        Content="Open Telegram"
+                        Style="{StaticResource RowButtonStyle}" />
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Description="Every wallpaper is a photo from Unsplash, by the photographer named under it."
+                    Glyph="&#xEB9F;"
+                    Header="Photos by Unsplash">
+                    <Button
+                        Command="{x:Bind ViewModel.OpenUnsplashCommand}"
+                        Content="Open"
+                        Style="{StaticResource RowButtonStyle}" />
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Description="The AI wallpapers are made by Pollinations."
+                    Glyph="&#xE945;"
+                    Header="Pictures made with Pollinations">
+                    <Button
+                        Command="{x:Bind ViewModel.OpenPollinationsCommand}"
+                        Content="Open"
+                        Style="{StaticResource RowButtonStyle}" />
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Description="What Oriel keeps, and why."
+                    Glyph="&#xE72E;"
+                    Header="Privacy">
+                    <Button
+                        Command="{x:Bind ViewModel.OpenPrivacyCommand}"
+                        Content="Read"
+                        Style="{StaticResource RowButtonStyle}" />
+                </controls:SettingRow>
+            </StackPanel>
         </StackPanel>
         </Grid>
     </ScrollViewer>

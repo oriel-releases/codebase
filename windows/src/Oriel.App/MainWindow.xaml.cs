@@ -84,13 +84,14 @@ public sealed partial class MainWindow : Window
     /// <summary>Clicking the current item again leaves a sub page (e.g. Interests) and returns to its main page.</summary>
     void Nav_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs e)
     {
-        if (e.InvokedItemContainer is NavigationViewItem item) PlayIcon(item);
+        // Only a new pick plays its icon: clicking the page you're on (to leave a sub page) doesn't.
+        if (e.InvokedItemContainer is NavigationViewItem item && !ReferenceEquals(item, Nav.SelectedItem)) PlayIcon(item);
         Show(e.IsSettingsInvoked, e.InvokedItemContainer?.Tag as string);
     }
 
     readonly Dictionary<NavigationViewItem, Storyboard> _iconAnimations = [];
 
-    /// <summary>Played when a tab is clicked. Home hops and pops, Search wiggles like a magnifier, History winds back a turn.</summary>
+    /// <summary>Played when a tab is clicked. Home hops and pops, Explore spins like a compass finding north, History winds back a turn.</summary>
     void PlayIcon(NavigationViewItem item)
     {
         if (item.Icon is not IconElement icon) return;
@@ -102,18 +103,19 @@ public sealed partial class MainWindow : Window
         var story = new Storyboard();
         if (item.Tag as string == "history")
         {
-            story.Children.Add(Animate(t, "Rotation", [(0, 0), (550, -360)], new CubicEase { EasingMode = EasingMode.EaseOut }));
+            story.Children.Add(Animate(t, "Rotation", [(0, 0), (620, -360)], new ExponentialEase { EasingMode = EasingMode.EaseOut, Exponent = 4 }));
         }
-        else if (item.Tag as string == "collections")
+        else if (item.Tag as string == "explore")
         {
-            var ease = new QuadraticEase { EasingMode = EasingMode.EaseInOut };
-            story.Children.Add(Animate(t, "Rotation", [(0, 0), (110, -18), (260, 14), (400, 0)], ease));
-            story.Children.Add(Animate(t, "ScaleX", [(0, 1), (150, 1.2), (400, 1)], ease));
-            story.Children.Add(Animate(t, "ScaleY", [(0, 1), (150, 1.2), (400, 1)], ease));
+            // A compass finding north: a little pull back, a full swing round, overshoot, settle.
+            var ease = new CubicEase { EasingMode = EasingMode.EaseInOut };
+            story.Children.Add(Animate(t, "Rotation", [(0, 0), (120, -25), (520, 385), (680, 350), (820, 362), (920, 360)], ease));
+            story.Children.Add(Animate(t, "ScaleX", [(0, 1), (180, 1.15), (520, 1)], ease));
+            story.Children.Add(Animate(t, "ScaleY", [(0, 1), (180, 1.15), (520, 1)], ease));
         }
         else
         {
-            var ease = new QuadraticEase { EasingMode = EasingMode.EaseInOut };
+            var ease = new CubicEase { EasingMode = EasingMode.EaseInOut };
             story.Children.Add(Animate(t, "ScaleX", [(0, 1), (140, 1.28), (300, 1)], ease));
             story.Children.Add(Animate(t, "ScaleY", [(0, 1), (140, 1.28), (300, 1)], ease));
             story.Children.Add(Animate(t, "TranslateY", [(0, 0), (140, -3), (300, 0)], ease));
@@ -152,7 +154,7 @@ public sealed partial class MainWindow : Window
             ? typeof(SettingsPage)
             : tag switch
             {
-                "collections" => typeof(CollectionsPage),
+                "explore" => typeof(CollectionsPage),
                 "create" => typeof(CreatePage),
                 "history" or "favorites" => typeof(HistoryPage),
                 "friends" => typeof(FriendsPage),
@@ -166,8 +168,11 @@ public sealed partial class MainWindow : Window
             if (current.FavoritesOnly != favorites) current.ShowMode(favorites);
             return;
         }
-        if (ContentFrame.CurrentSourcePageType != page)
-            ContentFrame.Navigate(page, favorites ? "favorites" : null, new EntranceNavigationTransitionInfo());
+        // From the menu: the page fades in and rises softly into place (Motion.PageIn), the same curve as the phone.
+        if (ContentFrame.CurrentSourcePageType != page &&
+            ContentFrame.Navigate(page, favorites ? "favorites" : null, new SuppressNavigationTransitionInfo()) &&
+            ContentFrame.Content is UIElement shown)
+            Motion.PageIn(shown);
     }
 
     void ResizeAndCenter(int width, int height)

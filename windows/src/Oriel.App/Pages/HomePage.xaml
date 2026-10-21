@@ -153,10 +153,16 @@
                                         Style="{StaticResource SwatchButtonStyle}"
                                         ToolTipService.ToolTip="Use as accent color">
                                         <Grid Width="24" Height="24">
+                                            <!--  The ring starts hidden (the style), so only the chosen one fades in; none flash on first.  -->
                                             <Ellipse
                                                 Opacity="{x:Bind RingOpacity, Mode=OneWay}"
                                                 Stroke="{ThemeResource OrielInkBrush}"
                                                 StrokeThickness="1.75">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Opacity" Value="0" />
+                                                    </Style>
+                                                </Ellipse.Style>
                                                 <Ellipse.OpacityTransition>
                                                     <ScalarTransition Duration="0:0:0.18" />
                                                 </Ellipse.OpacityTransition>
@@ -236,13 +242,17 @@
                 </StackPanel>
             </Grid>
 
-            <!--  Wallpaper of the day: the same photo as oriel.akbarjon.uz/today, one click away.  -->
+            <!--  Wallpaper of the day: the same photo as oriel.akbarjon.uz/today. A compact row; a click opens its photo page.  -->
             <Grid
+                MinHeight="56"
                 Margin="0,8,0,0"
-                Padding="10,10,16,10"
+                Padding="10,8,14,8"
                 Background="{ThemeResource OrielSurfaceBrush}"
-                ColumnSpacing="16"
-                CornerRadius="{StaticResource OrielCardRadius}"
+                ColumnSpacing="14"
+                CornerRadius="{StaticResource OrielLargeRadius}"
+                PointerEntered="Today_PointerEntered"
+                Tag="{x:Bind ViewModel.Today, Mode=OneWay}"
+                Tapped="Today_Tapped"
                 Visibility="{x:Bind ViewModel.HasToday, Mode=OneWay}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -250,45 +260,32 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <Border
-                    Width="128"
-                    Height="80"
+                    x:Name="TodayThumb"
+                    Width="64"
+                    Height="40"
                     Background="{ThemeResource OrielLineBrush}"
-                    CornerRadius="12">
+                    CornerRadius="{StaticResource OrielTileRadius}">
                     <Image
                         local:ImageReveal.Enabled="True"
                         AutomationProperties.Name="Wallpaper of the day"
                         Source="{x:Bind ViewModel.TodayThumb, Mode=OneWay}"
                         Stretch="UniformToFill" />
                 </Border>
-                <StackPanel
-                    Grid.Column="1"
-                    VerticalAlignment="Center"
-                    Spacing="2">
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock FontWeight="SemiBold" Text="Wallpaper of the day" />
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontSize="12"
-                            Style="{StaticResource MutedTextStyle}"
-                            Text="Photo by" />
-                        <HyperlinkButton
-                            Padding="4,1"
-                            Content="{x:Bind ViewModel.TodayBy, Mode=OneWay}"
-                            FontSize="12"
-                            NavigateUri="{x:Bind ViewModel.TodayAuthorUri, Mode=OneWay}" />
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontSize="12"
-                            Style="{StaticResource MutedTextStyle}"
-                            Text="on Unsplash" />
-                    </StackPanel>
+                    <TextBlock
+                        FontSize="12"
+                        Style="{StaticResource MutedTextStyle}"
+                        Text="{x:Bind ViewModel.TodayCaption, Mode=OneWay}"
+                        TextTrimming="CharacterEllipsis"
+                        TextWrapping="NoWrap" />
                 </StackPanel>
-                <Button
+                <FontIcon
                     Grid.Column="2"
                     VerticalAlignment="Center"
-                    Command="{x:Bind ViewModel.SetTodayCommand}"
-                    Content="{x:Bind ViewModel.TodayButtonText, Mode=OneWay}"
-                    Style="{StaticResource PillButtonStyle}" />
+                    FontSize="12"
+                    Foreground="{ThemeResource OrielMutedBrush}"
+                    Glyph="&#xE76C;" />
             </Grid>
         </StackPanel>
         </Grid>

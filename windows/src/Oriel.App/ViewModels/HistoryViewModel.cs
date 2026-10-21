@@ -9,7 +9,7 @@ using Microsoft.UI.Xaml.Media;
 
 namespace Oriel.UI.ViewModels;
 
-public sealed partial class HistoryItemViewModel(HistoryViewModel owner, HistoryEntry entry) : ObservableObject
+public sealed partial class HistoryItemViewModel(HistoryViewModel owner, HistoryEntry entry) : ObservableObject, IPhotoDetail
 {
     public HistoryEntry Entry { get; private set; } = entry;
     public string PhotographerName => Entry.PhotographerName;
@@ -38,6 +38,45 @@ public sealed partial class HistoryItemViewModel(HistoryViewModel owner, History
         _quiet = true;
         IsFavorite = entry.IsFavorite;
         _quiet = false;
+    }
+
+    // Its own page (IPhotoDetail)
+    public ImageSource? Preview => Thumbnail;
+    partial void OnThumbnailChanged(ImageSource? value) => OnPropertyChanged(nameof(Preview));
+    public double AspectRatio => 16 / 9.0;
+    public string Headline => PhotoText.Headline(Entry.Description, Entry.Topic);
+    public string Facts => PhotoText.Topic(Entry.Topic) is { } topic ? $"{DateText} · {topic}" : DateText;
+    public bool CanFavorite => true;
+    public IAsyncRelayCommand SetCommand => ReapplyCommand;
+    public HistoryEntry ShareEntry => Entry;
+    public bool CanDelete => true;
+    public bool CanOpenFolder => FileExists;
+    public void OpenFolder() => ImageLoader.ShowInExplorer(Entry.FilePath);
+    public string Subtitle => Facts;
+    public Task<bool> RemoveAsync(Func<string, Task<bool>> confirm) => owner.DeleteAsync(this, confirm);
+
+    /// <summary>What setting it again is doing now ("Downloading…", "Changing…"), or null.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ButtonText), nameof(IsIdle))]
+    public partial string? Stage { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ButtonText))]
+    public partial bool IsApplied { get; set; }
+    public string ButtonText => Stage ?? (IsApplied ? "Wallpaper set ✓" : "Set as wallpaper");
+    public bool IsIdle => Stage is null && CanReapply;
+
+    public IReadOnlyList<string> Chips => PhotoText.Topic(Entry.Topic) is { } topic ? [DateText, topic] : [DateText];
+
+    /// <summary>
+    /// The wallpaper's own file, decoded at the screen's real pixels. Without one here (a favorite from another device),
+    /// Unsplash makes it at that size; only an unknown picture falls back to its small copy.
+    /// </summary>
+    public Task<ImageSource?> LoadLargeAsync(int pixelWidth)
+    {
+        const Microsoft.UI.Xaml.Media.Imaging.DecodePixelType real = Microsoft.UI.Xaml.Media.Imaging.DecodePixelType.Physical;
+        if (FileExists) return ImageLoader.LoadAsync(Entry.FilePath, null, pixelWidth, real);
+        if (PhotoText.UnsplashAt(Entry.ThumbnailUrl, pixelWidth) is { } url) return ImageLoader.LoadUrlAsync(url, pixelWidth, real);
+        return ImageLoader.LoadAsync(null, Entry.ThumbnailUrl, pixelWidth, real);
     }
 
     [RelayCommand] Task Reapply() => owner.ReapplyAsync(this);
@@ -137,7 +176,7 @@ public sealed partial class HistoryViewModel(IHistoryStore history, WallpaperSer
     internal async Task ReapplyAsync(HistoryItemViewModel item)
     {
         if (Stage is not null) return;
-        Stage = PhaseText.For(ApplyPhase.Changing);
+        Stage = item.Stage = PhaseText.For(ApplyPhase.Changing);
         try
         {
             // The same words as everywhere else while it downloads (a favorite from another device), sets and syncs.
@@ -145,7 +184,9 @@ public sealed partial class HistoryViewModel(IHistoryStore history, WallpaperSer
             {
                 await wallpapers.ReapplyAsync(item.Entry);
                 return new ApplyResult(ApplyStatus.Applied, []);
-            }), stage => App.Dispatcher.TryEnqueue(() => { if (stage is not null) Stage = stage; }));
+            }), stage => App.Dispatcher.TryEnqueue(() => { if (stage is not null) Stage = item.Stage = stage; }));
+            foreach (var other in _all) other.IsApplied = false;
+            item.IsApplied = true;
         }
         catch (Exception ex)
         {
@@ -153,21 +194,23 @@ public sealed partial class HistoryViewModel(IHistoryStore history, WallpaperSer
         }
         finally
         {
-            Stage = null;
+            Stage = item.Stage = null;
         }
     }
 
-    internal async Task DeleteAsync(HistoryItemViewModel item)
+    /// <summary>Asks (the page's own dialog, or <paramref name="confirm"/>'s), then deletes; true once it's gone.</summary>
+    internal async Task<bool> DeleteAsync(HistoryItemViewModel item, Func<string, Task<bool>>? confirm = null)
     {
         var text = item.IsFavorite
             ? "This is a favorite. The file will be deleted, and Oriel won't pick this photo again."
             : "The file will be deleted, and Oriel won't pick this photo again.";
-        if (ConfirmDelete is not null && !await ConfirmDelete(text)) return;
+        if ((confirm ?? ConfirmDelete) is { } ask && !await ask(text)) return false;
 
         retention.Delete(item.Entry.Id);
         _all.Remove(item);
         Items.Remove(item);
         IsEmpty = Items.Count == 0;
+        return true;
     }
 
     void Show(string message)

@@ -8,6 +8,7 @@ using Oriel.Core.Settings;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Oriel.UI.Services;
 
 namespace Oriel.UI.ViewModels;
 
@@ -74,14 +75,48 @@ public sealed partial class TopicViewModel(CollectionsViewModel owner, string qu
     }
 }
 
-/// <summary>One search result: a photo the user can set as the wallpaper.</summary>
-public sealed partial class PhotoResultViewModel(CollectionsViewModel owner, PhotoCandidate photo) : ObservableObject
+/// <summary>One search result or Explore photo: a photo the user can set as the wallpaper.</summary>
+public sealed partial class PhotoResultViewModel(CollectionsViewModel owner, PhotoCandidate photo, string? topic = null)
+    : ObservableObject, IPhotoDetail
 {
     public PhotoCandidate Photo { get; } = photo;
+    /// <summary>The interest an Explore photo was found under (kept in History); a search's words for a result.</summary>
+    public string? Topic { get; } = topic;
     public string PhotographerName => Photo.PhotographerName;
     public Uri PhotographerUri { get; } = new(photo.PhotographerUrl);
     public string Description => Photo.Description ?? "";
     public string Size => $"{Photo.Width} × {Photo.Height}";
+
+    // Its own page (IPhotoDetail)
+    public ImageSource? Preview => Thumbnail;
+    public double AspectRatio => Photo.Height > 0 ? (double)Photo.Width / Photo.Height : 16 / 9.0;
+    public string Headline => PhotoText.Headline(Photo.Description, Topic is "explore" or "search" ? null : Topic);
+    public string Facts => Photo.Likes > 0 ? $"{Size} · {Photo.Likes:N0} likes" : Size;
+    public Uri PhotoPageUri { get; } = new(photo.PhotoPageUrl);
+    public bool CanFavorite => false;
+    bool IPhotoDetail.IsFavorite { get => false; set { } }
+    public bool CanDelete => false;
+    public bool CanOpenFolder => false;
+    public void OpenFolder() { }
+    public bool IsFavorite => false;
+    public string Subtitle => Topic is null or "explore" or "search" ? Size : PhotoText.Topic(Topic)!;
+    public Task<bool> RemoveAsync(Func<string, Task<bool>> confirm) => Task.FromResult(false);
+    public HistoryEntry ShareEntry => new()
+    {
+        Provider = Photo.Provider, PhotoId = Photo.Id, FilePath = "", ThumbnailUrl = Photo.RawUrl, PhotoPageUrl = Photo.PhotoPageUrl,
+        PhotographerName = Photo.PhotographerName, PhotographerUrl = Photo.PhotographerUrl, AppliedAt = DateTimeOffset.Now,
+    };
+
+    public IReadOnlyList<string> Chips => [.. new[] { Size, Photo.Likes > 0 ? $"{Photo.Likes:N0} likes" : null,
+        Topic is null or "explore" or "search" ? null : PhotoText.Topic(Topic) }.OfType<string>()];
+
+    /// <summary>Unsplash makes it at exactly the size asked for (up to the photo's own), so it's sharp on any screen.</summary>
+    public Task<ImageSource?> LoadLargeAsync(int pixelWidth)
+    {
+        var width = Math.Min(pixelWidth, Photo.Width > 0 ? Photo.Width : pixelWidth);
+        var url = Photo.RawUrl + (Photo.RawUrl.Contains('?') ? '&' : '?') + $"w={width}&q=90&fm=jpg&fit=max";
+        return ImageLoader.LoadUrlAsync(url, width, DecodePixelType.Physical);
+    }
 
     public ImageSource Thumbnail { get; } = new BitmapImage(new Uri(photo.ThumbnailUrl))
     {
@@ -127,10 +162,13 @@ public sealed partial class CollectionsViewModel : ObservableObject
     DateTime _lastRequestAt = DateTime.MinValue;
 
     readonly Oriel.Core.Storage.IHistoryStore _history;
+    readonly ExploreService _explore;
 
-    public CollectionsViewModel(ISettingsStore settings, WallpaperService wallpapers, Oriel.Core.Storage.IHistoryStore history)
+    public CollectionsViewModel(ISettingsStore settings, WallpaperService wallpapers, Oriel.Core.Storage.IHistoryStore history,
+        ExploreService explore)
     {
         _history = history;
+        _explore = explore;
         _settings = settings;
         _wallpapers = wallpapers;
         Load();
@@ -139,17 +177,8 @@ public sealed partial class CollectionsViewModel : ObservableObject
     public ObservableCollection<TopicViewModel> BuiltInTopics { get; } = [];
     public ObservableCollection<TopicViewModel> CustomTopics { get; } = [];
     public ObservableCollection<PhotoResultViewModel> Results { get; } = [];
-    /// <summary>Ideas shown before the first search, so the empty page isn't a blank wall. A new few each visit.</summary>
-    public ObservableCollection<string> Suggestions { get; } = new(SearchIdeas.Pick());
-
-    /// <summary>Other ideas: on every visit to Search, and the shuffle button.</summary>
-    [RelayCommand]
-    public void ShuffleSuggestions()
-    {
-        Suggestions.Clear();
-        foreach (var idea in SearchIdeas.Pick()) Suggestions.Add(idea);
-    }
-
+    /// <summary>This hour's Explore photos shown so far; more are added as the page is scrolled (<see cref="ShowMoreExplore"/>).</summary>
+    public ObservableCollection<PhotoResultViewModel> Explore { get; } = [];
     // Search
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SearchCommand))]
@@ -199,6 +228,8 @@ public sealed partial class CollectionsViewModel : ObservableObject
     public void Release()
     {
         Results.Clear();
+        Explore.Clear();
+        _exploreHour = DateTimeOffset.MinValue;
         HasSearched = false;
         CanLoadMore = false;
     }
@@ -307,20 +338,60 @@ public sealed partial class CollectionsViewModel : ObservableObject
         }
     }
 
+    // ---- Explore: the same photos for everyone, picked once an hour (no Unsplash requests to scroll them) ----
+
+    /// <summary>Photos added to <see cref="Explore"/> at a time, so the thumbnails load as the page is scrolled.</summary>
+    const int ExploreBatch = 24;
+    IReadOnlyList<ExplorePhoto> _explorePhotos = [];
+    DateTimeOffset _exploreHour = DateTimeOffset.MinValue;
+
+    [ObservableProperty] public partial bool IsExploreLoading { get; set; }
+    /// <summary>No photos to show: offline the very first time.</summary>
+    [ObservableProperty] public partial bool ExploreUnavailable { get; set; }
+
+    /// <summary>On every visit: this hour's photos, kept as they are when the hour hasn't changed.</summary>
+    public async Task LoadExploreAsync()
+    {
+        if (IsExploreLoading) return;
+        IsExploreLoading = Explore.Count == 0;
+        try
+        {
+            var feed = await _explore.GetAsync();
+            ExploreUnavailable = feed.Photos.Count == 0;
+            if (feed.Photos.Count == 0 || (feed.Hour == _exploreHour && Explore.Count > 0)) return;
+            _exploreHour = feed.Hour;
+            _explorePhotos = feed.Photos;
+            Explore.Clear();
+            ShowMoreExplore();
+        }
+        finally
+        {
+            IsExploreLoading = false;
+        }
+    }
+
+    /// <summary>Scrolled near the end: the next few photos.</summary>
+    public void ShowMoreExplore()
+    {
+        foreach (var item in _explorePhotos.Skip(Explore.Count).Take(ExploreBatch))
+            Explore.Add(new PhotoResultViewModel(this, item.Photo, item.Topic ?? "explore"));
+    }
+
     internal async Task SetAsync(PhotoResultViewModel item)
     {
-        if (Results.Any(r => r.IsBusy)) return;
+        if (Results.Concat(Explore).Any(r => r.IsBusy)) return;
         item.IsBusy = true;
         IsInfoOpen = false;
         try
         {
-            var result = await PhaseWatch.RunAsync(_wallpapers, () => Task.Run(() => _wallpapers.ApplyPhotoAsync(item.Photo, _query)),
+            var topic = item.Topic ?? _query;
+            var result = await PhaseWatch.RunAsync(_wallpapers, () => Task.Run(() => _wallpapers.ApplyPhotoAsync(item.Photo, topic)),
                 stage => App.Dispatcher.TryEnqueue(() => item.Stage = stage));
             if (result.Status != ApplyStatus.Applied)
                 ShowInfo(InfoBarSeverity.Warning, "Couldn't set the wallpaper", result.Error ?? "Try again.");
             else
             {
-                foreach (var r in Results) r.IsApplied = false;
+                foreach (var r in Results.Concat(Explore)) r.IsApplied = false;
                 item.IsApplied = true;
             }
         }

@@ -16,6 +16,19 @@ public sealed partial class SettingsPage : Page
     public SettingsPage()
     {
         InitializeComponent();
+        // Rows that depend on another setting come and go with a slide and a fade (Reveal), never all at once.
+        Reveal(MinLikesRow, ViewModel.SkipLowLikes, animate: false);
+        Reveal(DailyTimeRow, ViewModel.IsDaily, animate: false);
+        Reveal(ApplyAtLoginRow, ViewModel.IsDaily, animate: false);
+        ViewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ViewModel.SkipLowLikes)) Reveal(MinLikesRow, ViewModel.SkipLowLikes);
+            if (e.PropertyName == nameof(ViewModel.IsDaily))
+            {
+                Reveal(DailyTimeRow, ViewModel.IsDaily);
+                Reveal(ApplyAtLoginRow, ViewModel.IsDaily);
+            }
+        };
         DailyTimePicker.SelectedTime = ViewModel.DailyTime;
         DailyTimePicker.SelectedTimeChanged += (_, e) =>
         {
@@ -72,5 +85,35 @@ public sealed partial class SettingsPage : Page
             SuggestedStartLocation = PickerLocationId.PicturesLibrary,
         };
         return (await picker.PickSingleFolderAsync())?.Path;
+    }
+
+    readonly Dictionary<Microsoft.UI.Xaml.UIElement, int> _reveals = [];
+
+    /// <summary>A row comes in from just above with a fade, and goes the same way; the rows under it glide.</summary>
+    async void Reveal(Microsoft.UI.Xaml.UIElement row, bool show, bool animate = true)
+    {
+        var version = _reveals[row] = _reveals.GetValueOrDefault(row) + 1;
+        if (!animate)
+        {
+            row.Visibility = show ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+            return;
+        }
+        if (show)
+        {
+            row.Opacity = 0;
+            row.Translation = new System.Numerics.Vector3(0, -10, 0);
+            row.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+            await Task.Delay(16);
+            if (version != _reveals[row]) return;
+            row.Opacity = 1;
+            row.Translation = System.Numerics.Vector3.Zero;
+        }
+        else
+        {
+            row.Opacity = 0;
+            row.Translation = new System.Numerics.Vector3(0, -10, 0);
+            await Task.Delay(220);
+            if (version == _reveals[row]) row.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+        }
     }
 }

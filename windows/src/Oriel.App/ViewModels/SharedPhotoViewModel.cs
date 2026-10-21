@@ -12,7 +12,7 @@ namespace Oriel.UI.ViewModels;
 /// A photo someone shared with an oriel://wallpaper link: shows it and, with one button, sets it as the wallpaper.
 /// The link carries only the photo's ID; the photo itself is looked up on Unsplash, like in Search.
 /// </summary>
-public sealed partial class SharedPhotoViewModel(WallpaperService wallpapers, IStats stats) : ObservableObject
+public sealed partial class SharedPhotoViewModel(WallpaperService wallpapers) : ObservableObject
 {
     PhotoCandidate? _photo;
     int _version;
@@ -69,7 +69,6 @@ public sealed partial class SharedPhotoViewModel(WallpaperService wallpapers, IS
         IsLoading = true;
         IsOpen = true;
         Changed?.Invoke(this, EventArgs.Empty);
-        stats.Count(StatFields.SharesOpened);
         try
         {
             var photo = await wallpapers.GetSharedPhotoAsync(photoId);
@@ -110,7 +109,6 @@ public sealed partial class SharedPhotoViewModel(WallpaperService wallpapers, IS
             if (result.Status == ApplyStatus.Applied)
             {
                 IsDone = true;
-                stats.Count(StatFields.SharesSet);
             }
             else
             {
