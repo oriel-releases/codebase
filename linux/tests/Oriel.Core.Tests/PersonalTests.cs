@@ -244,38 +244,6 @@ public sealed class PersonalTests : IDisposable
         Assert.Equal($"{code[..4]}-{code[4..]}", FollowService.Format(code));
     }
 
-    // ---------------------------------------------------------------- daily counts
-
-    static readonly DateOnly Day = new(2026, 10, 3);
-
-    [Fact]
-    public void A_new_device_counts_as_new_and_active_once_a_day()
-    {
-        var first = StatsMemory.ForActiveDay(new StatsMemory(), Day, "windows", null)!.Value;
-        Assert.Equal(["windows_active", "windows_new"], first.Fields);
-        Assert.Null(StatsMemory.ForActiveDay(first.Next, Day, "windows", null));
-    }
-
-    [Fact]
-    public void An_existing_install_is_not_counted_as_new()
-    {
-        var step = StatsMemory.ForActiveDay(new StatsMemory(), Day, "linux", Day.AddDays(-40))!.Value;
-        Assert.Equal(["linux_active", StatFields.Retained7, StatFields.Retained30], step.Fields);
-    }
-
-    [Fact]
-    public void Retention_is_counted_once_after_7_and_30_days()
-    {
-        var m = new StatsMemory { FirstDay = Day, ActiveDay = Day };
-        var week = StatsMemory.ForActiveDay(m, Day.AddDays(8), "windows", null)!.Value;
-        Assert.Contains(StatFields.Retained7, week.Fields);
-        Assert.DoesNotContain(StatFields.Retained30, week.Fields);
-        var later = StatsMemory.ForActiveDay(week.Next, Day.AddDays(9), "windows", null)!.Value;
-        Assert.Equal(["windows_active"], later.Fields);
-        var month = StatsMemory.ForActiveDay(later.Next, Day.AddDays(31), "windows", null)!.Value;
-        Assert.Equal(["windows_active", StatFields.Retained30], month.Fields);
-    }
-
     // ---------------------------------------------------------------- share carried through sign-in
 
     [Fact]

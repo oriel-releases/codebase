@@ -140,6 +140,16 @@ public sealed class AuthService(IAccountStore store, FirebaseClient firebase, IL
                 Forget();
                 signedOut = true;
             }
+            else if (string.IsNullOrEmpty(account.PhotoUrl))
+            {
+                // Signed in before the picture could be found (or it was added since): fill it in now.
+                var photo = await firebase.GetPhotoUrlAsync(tokens);
+                if (photo.Length > 0)
+                {
+                    account.PhotoUrl = photo;
+                    store.Save(account);
+                }
+            }
         }
         catch (FirebaseException ex) when (ex.Failure == FirebaseFailure.Rejected)
         {

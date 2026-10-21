@@ -203,7 +203,8 @@ public sealed class UnsplashProvider(HttpClient http, IApiKeyStore keys, ILogger
             Description = JoinNonEmpty(Str(p, "alt_description"), Str(p, "description")),
             Color = Str(p, "color"),
             RawUrl = urls.GetProperty("raw").GetString()!,
-            ThumbnailUrl = Str(urls, "small") ?? urls.GetProperty("thumb").GetString()!,
+            // The Explore feed keeps only "raw": the thumbnail is made from it.
+            ThumbnailUrl = Str(urls, "small") ?? Str(urls, "thumb") ?? ThumbnailOf(urls.GetProperty("raw").GetString()!),
             PhotoPageUrl = AddUtm(links.GetProperty("html").GetString()!),
             PhotographerName = Str(user, "name") ?? Str(user, "username") ?? "Unknown",
             PhotographerUrl = AddUtm(user.GetProperty("links").GetProperty("html").GetString()!),
@@ -216,6 +217,9 @@ public sealed class UnsplashProvider(HttpClient http, IApiKeyStore keys, ILogger
         var kept = parts.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         return kept.Count == 0 ? null : string.Join(" — ", kept);
     }
+
+    /// <summary>A card-sized copy from Unsplash's CDN, sharp on a high-DPI screen.</summary>
+    internal static string ThumbnailOf(string rawUrl) => $"{rawUrl}{(rawUrl.Contains('?') ? '&' : '?')}w=720&q=75&fm=jpg&fit=max";
 
     static string AddUtm(string url) => url + (url.Contains('?') ? '&' : '?') + Utm;
 }

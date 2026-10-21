@@ -56,7 +56,7 @@ public sealed class OrielSettings
     public WallpaperFit Fit { get; set; } = WallpaperFit.Fill;
 
     public bool SkipLowLikes { get; set; }
-    public int MinLikes { get; set; } = 50;
+    public int MinLikes { get; set; } = 300;
 
     /// <summary>Where photos are saved; null means the default (Pictures\Oriel).</summary>
     public string? WallpaperFolder { get; set; }
