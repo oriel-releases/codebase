@@ -25,6 +25,7 @@
 
     <!--  Laid out like Home: the photo the same size, its credit and actions under it.  -->
     <ScrollViewer>
+        <Grid>
         <StackPanel
             MaxWidth="{StaticResource PageMaxWidth}"
             Margin="{StaticResource PageContentMargin}"
@@ -160,5 +161,6 @@
                 IsOpen="False"
                 Severity="Informational" />
         </StackPanel>
+        </Grid>
     </ScrollViewer>
 </Page>
