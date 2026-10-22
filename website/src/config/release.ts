@@ -10,9 +10,9 @@ export const repoUrls = {
 
 /** Used only when Firestore can't be read at build time. */
 const fallbackVersions = {
-  windows: "1.1.1",
+  windows: "1.1.2",
   macos: "1.0.0",
-  linux: "1.1.1",
+  linux: "1.1.2",
   android: "1.1.1",
 } as const satisfies Record<AppPlatform, string>;
 
@@ -35,7 +35,7 @@ export const releases = {
     platform: "windows",
     name: "Windows",
     version: windowsVersion ?? fallbackVersions.windows,
-    releasedOn: "2026-10-21",
+    releasedOn: "2026-10-22",
     fileName: "Oriel-Setup.exe",
     url: process.env.ORIEL_DOWNLOAD_URL || `${repoUrls.windows}/releases/latest/download/Oriel-Setup.exe`,
     requirements: "Windows 10 (version 2004) or Windows 11, 64-bit",
@@ -53,7 +53,7 @@ export const releases = {
     platform: "linux",
     name: "Linux",
     version: linuxVersion ?? fallbackVersions.linux,
-    releasedOn: "2026-10-21",
+    releasedOn: "2026-10-22",
     fileName: "Oriel.AppImage",
     url: process.env.ORIEL_LINUX_DOWNLOAD_URL || `${repoUrls.linux}/releases/latest/download/Oriel.AppImage`,
     requirements: "64-bit Linux desktop (GNOME, KDE Plasma, Xfce, Cinnamon and more)",
