@@ -64,21 +64,18 @@ export function SignInMethods({ methods, email, actions }: { methods: MethodsVie
   }
 
   return (
-    <section aria-labelledby="methods-title" className={`${card} p-5 sm:p-6`}>
+    <section aria-labelledby="methods-title" className={`${card} p-4 sm:p-5`}>
       <div className="px-1">
         <h2 id="methods-title" className="text-lg font-semibold tracking-tight">
-          How you sign in
+          Sign-in
         </h2>
-        <p className="mt-1 text-sm text-pretty text-muted">
-          {both ? "Either one gets you into Oriel, on the website and in the apps." : "Add a second way in, so you're never locked out of your account."}
-        </p>
       </div>
 
-      <ul className="mt-4 space-y-1">
+      <ul className="mt-3 space-y-0.5">
         <MethodRow
           icon={<Image src="/google-g-logo.webp" alt="" width={18} height={18} />}
           title="Google"
-          detail={methods.google ? methods.google.email || "Connected" : "Not connected · sign in with one tap"}
+          detail={methods.google ? methods.google.email || "Connected" : "Not connected"}
           status={methods.google ? "on" : "off"}
         >
           {methods.google ? (
@@ -119,7 +116,7 @@ export function SignInMethods({ methods, email, actions }: { methods: MethodsVie
                 )}
               </>
             ) : (
-              "Not set · sign in with your email too"
+              "Not set"
             )
           }
           status={methods.password ? "on" : "off"}

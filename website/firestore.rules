@@ -14,10 +14,17 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['email', 'displayName', 'photoURL', 'createdAt'])
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.createdAt == request.time;
+      // birthday: optional "YYYY-MM-DD", set on the website's account page (/me); the apps and the extension show the
+      // age it makes. A plausible year only (5 to 120 years ago).
       allow update: if request.auth.uid == uid
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.keys().hasOnly(['email', 'displayName', 'photoURL', 'createdAt'])
-        && request.resource.data.email == request.auth.token.email;
+        && request.resource.data.keys().hasOnly(['email', 'displayName', 'photoURL', 'createdAt', 'birthday'])
+        && request.resource.data.email == request.auth.token.email
+        && (!('birthday' in request.resource.data)
+          || (request.resource.data.birthday is string
+            && request.resource.data.birthday.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$')
+            && int(request.resource.data.birthday[0:4]) >= request.time.year() - 120
+            && int(request.resource.data.birthday[0:4]) <= request.time.year() - 5));
 
       // Favorites, the same on every device: one document per photo, never deleted (favorite: false un-stars it, so that
       // syncs too). Each device asks only for the ones changed since its last sync (updatedAt).
@@ -209,8 +216,19 @@ service cloud.firestore {
       }
     }
 
+    // The admin site (admin.oriel.akbarjon.uz) reads everything, writes nothing. Only the owner's Google sign-in passes:
+    // the site's code is no secret, this check is what keeps everyone else out.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'akbarjonjorayev001@gmail.com'
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+
+    // Also covers collection group queries (every account's sessions at once) for the admin.
     match /{document=**} {
-      allow read, write: if false;
+      allow read: if isAdmin();
+      allow write: if false;
     }
   }
 }

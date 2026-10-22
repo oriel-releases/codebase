@@ -5,7 +5,8 @@
     // A device writes it right after publishing users/{uid}/sync/current in Firestore; the account's other devices keep a live (SSE) connection to it and fetch the new photo at once.
     // Owner only.
     // Nothing else lives here.
-    ".read": false,
+    // The admin site reads everything (the owner's Google sign-in only, like isAdmin() in firestore.rules); nobody else.
+    ".read": "auth != null && auth.token.email === 'akbarjonjorayev001@gmail.com' && auth.token.email_verified === true && auth.token.firebase.sign_in_provider === 'google.com'",
     ".write": false,
     "pulse": {
       "$uid": {
