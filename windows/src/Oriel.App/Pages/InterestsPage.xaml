@@ -119,6 +119,7 @@
     </Page.Resources>
 
     <ScrollViewer>
+        <Grid>
         <StackPanel
             MaxWidth="{StaticResource PageMaxWidth}"
             Margin="40,32,40,40"
@@ -213,5 +214,6 @@
                 </ItemsRepeater>
             </StackPanel>
         </StackPanel>
+        </Grid>
     </ScrollViewer>
 </Page>

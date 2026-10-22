@@ -10,6 +10,7 @@ A free wallpaper app: a fresh Unsplash photo on a schedule, the same on every de
 | macOS app | `macos/` | Swift 6, SwiftUI + AppKit, Sparkle | `oriel-releases/macos` |
 | Browser extension | `extension/` | TypeScript, Vite (new tab page) | Chrome / Edge / Firefox stores |
 | Website | `website/` | Next.js, static export, Firebase Hosting | https://oriel.akbarjon.uz |
+| Admin site | `admin/` | Next.js, static export, shadcn/ui, Firebase Hosting site `oriel-admin` | https://oriel-admin.web.app |
 
 Backend: Firebase project **`oriel-gcp`** only (Auth, Firestore, Realtime Database, Hosting). Hard constraint:
 everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions) and light on phone battery.
@@ -94,8 +95,9 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
 
 - Code in `extension/` (see its README): new tab page for Chrome/Edge/Brave/Firefox. "Same as my devices" shows the
   account's `sync/current`; "Its own" picks from a bundled pool (`extension/src/data/pool.json`).
-- Its settings and **shortcuts** (max 14, drag to reorder) are its own, not the apps': kept in the browser, and when
-  signed in synced to `users/{uid}/sync/extension` = {settings, shortcuts[{title, url}], updatedAt, device}, last write
+- Its settings and **shortcuts** (max 14 tiles, drag to reorder; drag a link onto another to make a **folder**, up to 12
+  links each) are its own, not the apps': kept in the browser, and when signed in synced to `users/{uid}/sync/extension` =
+  {settings, shortcuts[{title, url} | {title, items[{title, url}]}], updatedAt, device} (1.0.4 and older drop folders), last write
   wins, rung on the doorbell as {extensionAt, extensionDevice}. Local first: a tab reads `sync/extension` only when the
   doorbell's `extensionAt` is newer than its `ext-version`, and `sync/current` only when the doorbell names another
   photo. Signing out erases the shortcuts from that browser.

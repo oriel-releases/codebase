@@ -1,11 +1,12 @@
 "use client";
 
 import { RevealImage } from "@/components/ui/RevealImage";
-import Image from "next/image";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AndroidIcon, AppleIcon, GlobeIcon, LinuxIcon, MonitorIcon, PuzzleIcon, WindowsIcon } from "@/components/ui/icons";
 import { Logo } from "@/components/ui/Logo";
 import { platformNames, shortDate, timeAgo, type SessionRow } from "@/lib/sessions";
+import { BirthdayDialog } from "@/components/me/BirthdayDialog";
+import { ageOn } from "@/lib/birthday";
 import { SignInMethods, type MethodActions, type MethodsView } from "@/components/me/SignInMethods";
 
 export type Wallpaper = {
@@ -18,7 +19,7 @@ export type Wallpaper = {
   updatedAt: Date | null;
 };
 
-export type Profile = { name: string; email: string; photo: string; memberSince: Date | null };
+export type Profile = { name: string; email: string; photo: string; memberSince: Date | null; birthday: string | null };
 
 /** What the open warning dialog is about: "signout", "others" (end all other sessions) or a session id. */
 export type Asking = string | null;
@@ -27,10 +28,11 @@ const card = "rounded-[2rem] bg-surface text-left text-ink";
 const pill =
   "inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent";
 /** The wallpaper card's shape, shared by the real card, its empty state and its skeleton so nothing jumps. */
-const wallpaperShape = "aspect-[4/3] sm:aspect-[2/1]";
+const wallpaperShape = "aspect-[16/10] sm:aspect-[5/2]";
 
 type ContentProps = {
   profile: Profile;
+  onSaveBirthday: (birthday: string | null) => Promise<void>;
   methods: MethodsView;
   methodActions: MethodActions;
   wallpaper: Wallpaper | null | undefined;
@@ -45,7 +47,7 @@ type ContentProps = {
 };
 
 /** Everything on the page, from plain data (no Firebase). */
-export function MeContent({ profile, methods, methodActions, wallpaper, sessions, currentId, asking, busy, onAsk, onEnd, onEndOthers, onSignOut }: ContentProps) {
+export function MeContent({ profile, onSaveBirthday, methods, methodActions, wallpaper, sessions, currentId, asking, busy, onAsk, onEnd, onEndOthers, onSignOut }: ContentProps) {
   const others = sessions?.filter((s) => s.id !== currentId) ?? [];
   const initial = (profile.name || profile.email).trim().charAt(0).toUpperCase();
   const target = asking && asking !== "signout" && asking !== "others" ? sessions?.find((s) => s.id === asking) : undefined;
@@ -53,15 +55,15 @@ export function MeContent({ profile, methods, methodActions, wallpaper, sessions
     asking === "signout"
       ? {
           title: "Sign out of this browser?",
-          message: "You'll be signed out of the Oriel website here. Your apps and extension stay signed in.",
+          message: "Your apps and extension stay signed in.",
           confirmLabel: "Sign out",
           onConfirm: onSignOut,
         }
       : asking === "others"
         ? {
-            title: "End all other sessions?",
-            message: `${others.length} other ${others.length === 1 ? "device" : "devices"} will be signed out of Oriel. This browser stays signed in.`,
-            confirmLabel: "End all other sessions",
+            title: "Sign out everywhere else?",
+            message: `${others.length} other ${others.length === 1 ? "device" : "devices"} will be signed out.`,
+            confirmLabel: "Sign out others",
             onConfirm: onEndOthers,
           }
         : target
@@ -81,14 +83,24 @@ export function MeContent({ profile, methods, methodActions, wallpaper, sessions
   const [lastViewed, setLastViewed] = useState<SessionRow | null>(viewed);
   if (viewed && lastViewed !== viewed) setLastViewed(viewed);
   const [lastWarning, setLastWarning] = useState<Warning | null>(warning);
+  // /me?set-age=1 (from the extension's "Set your birthday") opens the birthday window straight away.
+  const [editingAge, setEditingAge] = useState(() => new URLSearchParams(window.location.search).has("set-age"));
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("set-age")) {
+      url.searchParams.delete("set-age");
+      window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    }
+  }, []);
+  const age = profile.birthday ? ageOn(profile.birthday) : null;
   if (warning && (lastWarning?.title !== warning.title || lastWarning?.message !== warning.message)) setLastWarning(warning);
 
   return (
-    <div className="flex flex-col gap-5 sm:gap-6">
+    <div className="flex flex-col gap-4">
       {/* Profile */}
       <section aria-label="Profile" className={`${card} overflow-hidden`}>
         {/* Banner: the current wallpaper, blurred into a colour wash (or Oriel's accent while there is none). */}
-        <div className="relative h-28 overflow-hidden sm:h-36">
+        <div className="relative h-20 overflow-hidden sm:h-24">
           {wallpaper && (
             <FadeImage src={sizedPhoto(wallpaper.imageUrl, 640, 256)} alt="" className="absolute inset-0 size-full scale-125 object-cover blur-2xl saturate-150" />
           )}
@@ -96,43 +108,48 @@ export function MeContent({ profile, methods, methodActions, wallpaper, sessions
           <div aria-hidden className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-surface to-transparent" />
         </div>
 
-        <div className="relative px-6 pb-6 sm:px-8 sm:pb-8">
-          <div className="-mt-12 flex items-end justify-between gap-4 sm:-mt-14">
+        <div className="relative px-5 pb-5 sm:px-6 sm:pb-6">
+          <div className="-mt-10 flex items-end justify-between gap-3">
             <div className="rounded-full bg-surface p-1.5">
               {profile.photo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={profile.photo} alt="" referrerPolicy="no-referrer" className="size-20 rounded-full object-cover sm:size-24" />
+                <img src={profile.photo} alt="" referrerPolicy="no-referrer" className="size-16 rounded-full object-cover sm:size-20" />
               ) : (
-                <span className="grid size-20 place-items-center rounded-full bg-ink/10 text-3xl font-semibold sm:size-24 sm:text-4xl">{initial}</span>
+                <span className="grid size-16 place-items-center rounded-full bg-ink/10 text-2xl font-semibold sm:size-20 sm:text-3xl">{initial}</span>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => onAsk("signout")}
-              className={`${pill} mb-1 bg-ink/5 px-4 py-2 text-ink `}
-            >
+            <div className="mb-1 flex gap-2">
+            <button type="button" onClick={() => setEditingAge(true)} className={`${pill} bg-ink/5 text-ink`}>
+              {age ? (
+                `Age ${age}`
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" aria-hidden>
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  Add birthday
+                </>
+              )}
+            </button>
+            <button type="button" onClick={() => onAsk("signout")} className={`${pill} bg-ink/5 text-ink`}>
               <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
               </svg>
               Sign out
             </button>
+            </div>
           </div>
 
-          <h1 className="mt-4 truncate text-2xl font-semibold tracking-tight sm:text-3xl">{profile.name || profile.email}</h1>
-          {profile.name && <p className="truncate text-sm text-muted sm:text-base">{profile.email}</p>}
-
-          <ul className="mt-5 flex flex-wrap gap-2">
-            {methods.google && <Chip icon={<Image src="/google-g-logo.webp" alt="" width={14} height={14} />}>Google</Chip>}
-            {methods.password && <Chip>Email and password</Chip>}
-            {profile.memberSince && <Chip>Member since {shortDate(profile.memberSince)}</Chip>}
-            {sessions && sessions.length > 0 && (
-              <Chip>
-                {sessions.length} {sessions.length === 1 ? "device" : "devices"}
-              </Chip>
-            )}
-          </ul>
+          <h1 className="mt-3 truncate text-xl font-semibold tracking-tight sm:text-2xl">{profile.name || profile.email}</h1>
+          <p className="truncate text-sm text-muted">
+            {profile.name ? profile.email : null}
+            {profile.name && profile.memberSince ? " · " : null}
+            {profile.memberSince ? `Since ${shortDate(profile.memberSince)}` : null}
+          </p>
         </div>
       </section>
+
+      <BirthdayDialog open={editingAge} birthday={profile.birthday} onSave={onSaveBirthday} onClose={() => setEditingAge(false)} />
 
       {/* Current wallpaper */}
       <WallpaperCard wallpaper={wallpaper} />
@@ -141,14 +158,14 @@ export function MeContent({ profile, methods, methodActions, wallpaper, sessions
       <SignInMethods methods={methods} email={profile.email} actions={methodActions} />
 
       {/* Sessions */}
-      <section aria-labelledby="sessions-title" className={`${card} p-5 sm:p-6`}>
+      <section aria-labelledby="sessions-title" className={`${card} p-4 sm:p-5`}>
         <div className="flex flex-wrap items-center justify-between gap-3 px-1">
           <h2 id="sessions-title" className="text-lg font-semibold tracking-tight">
-            Where you&apos;re signed in
+            Devices
           </h2>
           {others.length > 0 && (
             <button type="button" onClick={() => onAsk("others")} className={`${pill} bg-ink/5 text-ink `}>
-              End all other sessions
+              Sign out others
             </button>
           )}
         </div>
@@ -201,7 +218,6 @@ function WallpaperCard({ wallpaper }: { wallpaper: Wallpaper | null | undefined 
             <MonitorIcon width={24} height={24} />
           </span>
           <h2 className="text-lg font-semibold tracking-tight">No wallpaper yet</h2>
-          <p className="max-w-xs text-sm text-pretty text-muted">Change the wallpaper in Oriel and it shows up here.</p>
         </div>
       </section>
     );
@@ -217,7 +233,7 @@ function WallpaperCard({ wallpaper }: { wallpaper: Wallpaper | null | undefined 
       />
       <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-black/75 via-black/10 to-black/20" />
 
-      <div className="flex h-full flex-col justify-between p-5 sm:p-7">
+      <div className="flex h-full flex-col justify-between p-4 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <h2 className={glass}>Current wallpaper</h2>
           <span className={`${glass} inline-flex items-center gap-2`}>
@@ -228,7 +244,7 @@ function WallpaperCard({ wallpaper }: { wallpaper: Wallpaper | null | undefined 
         </div>
 
         <figcaption className="max-w-xl">
-          {wallpaper.description && <p className="text-xl font-semibold tracking-tight text-balance sm:text-2xl">{capitalize(wallpaper.description)}</p>}
+          {wallpaper.description && <p className="line-clamp-2 text-lg font-semibold tracking-tight text-balance sm:text-xl">{capitalize(wallpaper.description)}</p>}
           {wallpaper.photographer && (
             <p className="mt-1.5 text-sm text-white/80">
               Photo by{" "}
@@ -258,15 +274,6 @@ function FadeImage({ src, alt, className }: { src: string; alt: string; classNam
       onLoad={() => setLoaded(true)}
       className={`${className} ${loaded ? "opacity-100" : "opacity-0"}`}
     />
-  );
-}
-
-function Chip({ icon, children }: { icon?: ReactNode; children: ReactNode }) {
-  return (
-    <li className="inline-flex items-center gap-2 rounded-full bg-ink/5 px-3.5 py-1.5 text-xs font-medium text-ink/80">
-      {icon}
-      {children}
-    </li>
   );
 }
 

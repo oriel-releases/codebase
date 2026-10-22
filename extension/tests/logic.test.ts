@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { firstName, greetingText, timeText } from "../src/lib/clock.ts";
 import { parseSearch } from "../src/lib/search.ts";
 import { accentFor } from "../src/lib/accent.ts";
+import { ageOn, ageParts, exactAge, isBirthday } from "../src/lib/age.ts";
+import { cleanShortcuts, combine, deleteFolder, makeFolder, takeOut, ungroup, updateFolder, type Shortcut } from "../src/lib/shortcuts.ts";
 
 const at = (hour: number) => new Date(2026, 0, 5, hour, 7);
 
@@ -74,4 +76,60 @@ test("settings written by an older version are filled in once", async () => {
   assert.equal(lacksSettings(older), true);
   assert.equal(lacksSettings(syncedSettings(defaults)), false);
   assert.equal(lacksSettings({ ...syncedSettings(defaults), clockAnimation: false }), false); // turned off: kept as is
+});
+
+test("age: whole years count only from the birthday on", () => {
+  assert.equal(ageOn("1990-03-14", new Date(2026, 2, 13)), 35);
+  assert.equal(ageOn("1990-03-14", new Date(2026, 2, 14)), 36);
+  assert.equal(ageOn("2000-02-29", new Date(2026, 1, 28)), 25);
+});
+
+test("age: the running fraction starts at zero on the birthday and never shows the next year early", () => {
+  assert.equal(exactAge("1990-03-14", new Date(2026, 2, 14)), 36);
+  const justBefore = exactAge("1990-03-14", new Date(2026, 2, 13, 23, 59, 59, 999));
+  assert.ok(justBefore < 36 && justBefore > 35.99);
+  assert.deepEqual(ageParts(35.999999999), { whole: "35", fraction: ".99999999" });
+  assert.deepEqual(ageParts(24.5), { whole: "24", fraction: ".50000000" });
+});
+
+test("age: only real dates are birthdays", () => {
+  assert.ok(isBirthday("1990-03-14"));
+  assert.ok(!isBirthday("1990-02-30"));
+  assert.ok(!isBirthday("14.03.1990"));
+  assert.ok(!isBirthday(null));
+});
+
+const link = (n: string) => ({ title: n, url: `https://${n}.com/` });
+
+test("folders: a link dropped on a link makes a folder in the target's place; on a folder it joins", () => {
+  const list: Shortcut[] = [link("a"), link("b"), link("c")];
+  const made = combine(list, 2, 0)!;
+  assert.deepEqual(made.list, [{ title: "Folder", items: [link("a"), link("c")] }, link("b")]);
+  assert.equal(made.folder, 0);
+  const joined = combine(made.list, 1, 0)!;
+  assert.deepEqual(joined.list, [{ title: "Folder", items: [link("a"), link("c"), link("b")] }]);
+  assert.equal(combine(made.list, 0, 1), null); // a folder doesn't go into anything
+});
+
+test("folders: taking out, ungrouping, deleting; an emptied folder goes away", () => {
+  const list: Shortcut[] = [link("x"), { title: "F", items: [link("a"), link("b")] }];
+  assert.deepEqual(takeOut(list, 1, 0), [link("x"), { title: "F", items: [link("b")] }, link("a")]);
+  assert.deepEqual(takeOut([{ title: "F", items: [link("a")] }], 0, 0), [link("a")]);
+  assert.deepEqual(updateFolder(list, 1, (f) => ({ ...f, items: [] })), [link("x")]);
+  assert.deepEqual(ungroup(list, 1), [link("x"), link("a"), link("b")]);
+  assert.deepEqual(deleteFolder(list, 1, true), [link("x"), link("a"), link("b")]);
+  assert.deepEqual(deleteFolder(list, 1, false), [link("x")]);
+});
+
+test("folders: made from picked links in the first one's place, never empty", () => {
+  const list: Shortcut[] = [link("a"), link("b"), link("c")];
+  assert.deepEqual(makeFolder(list, "Work", [2, 1]), { list: [link("a"), { title: "Work", items: [link("b"), link("c")] }], folder: 1 });
+  assert.equal(makeFolder(list, "Empty", []), null);
+});
+
+test("folders: what isn't understood is left out, empty folders too", () => {
+  assert.deepEqual(cleanShortcuts([link("a"), { title: "", items: [link("b"), { title: "no url" }] }, { title: "Empty", items: [] }, null, "x"]), [
+    link("a"),
+    { title: "Folder", items: [link("b")] },
+  ]);
 });

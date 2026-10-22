@@ -23,6 +23,15 @@ export interface AccountSyncHost {
   toast(message: string): void;
   /** Settings and shortcuts arrived from the account (another browser changed them): take them over and redraw. */
   applySynced(settings: Partial<Settings>, shortcuts: Shortcut[]): void;
+  /** The account's birthday was read and differs from before: redraw the clock and the panel. */
+  birthdayChanged(): void;
+}
+
+/** The account's birthday as last read, for one account. */
+interface KnownBirthday {
+  uid: string;
+  birthday: string | null;
+  at: number;
 }
 
 
@@ -37,6 +46,29 @@ export function createAccountSync(host: AccountSyncHost) {
   let account: Account | null = null;
   let stopWatching: (() => void) | null = null;
   let started: Promise<void> | null = null;
+  let known = remember<KnownBirthday>("account-birthday");
+  let readingBirthday = false;
+
+  /**
+   * Reads the account's birthday for the Age clock, only while that's shown. A known birthday is read again after an
+   * hour; a missing one after 20 seconds, so setting it on the website (it opens from here) shows up on coming back.
+   */
+  async function refreshBirthday(force = false): Promise<void> {
+    if (!profile || readingBirthday) return;
+    const fresh = known?.uid === profile.uid && Date.now() - known.at < (known.birthday ? 3_600_000 : 20_000);
+    if (fresh && !force) return;
+    readingBirthday = true;
+    try {
+      const birthday = await (await load()).readBirthday();
+      const changed = known?.uid !== profile.uid || known.birthday !== birthday;
+      known = remember<KnownBirthday>("account-birthday", { uid: profile.uid, birthday, at: Date.now() });
+      if (changed) host.birthdayChanged();
+    } catch {
+      // Offline: the last one read stays, and the next tab tries again.
+    } finally {
+      readingBirthday = false;
+    }
+  }
 
   const load = async (): Promise<Account> => (account ??= await loadAccount());
 
@@ -210,6 +242,11 @@ export function createAccountSync(host: AccountSyncHost) {
     get busy() {
       return busy;
     },
+    /** The signed-in account's birthday as last read (undefined: never read yet for this account). */
+    get birthday(): string | null | undefined {
+      return profile && known?.uid === profile.uid ? known.birthday : undefined;
+    },
+    refreshBirthday,
     setBusy,
     start,
     syncWatcher,
@@ -222,6 +259,7 @@ export function createAccountSync(host: AccountSyncHost) {
     },
     async signOut(): Promise<void> {
       await (await load()).signOutAccount();
+      known = remember<KnownBirthday>("account-birthday", null); // the account's birthday leaves with it
     },
   };
 }

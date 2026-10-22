@@ -1,5 +1,7 @@
 export type Mode = "desktop" | "own";
 export type Change = "tab" | "hourly" | "daily";
+/** What the big text shows: the time, or your age running on (see lib/age.ts). */
+export type ClockShows = "time" | "age";
 
 export interface Settings {
   /** "desktop" shows what Oriel on your PC set as wallpaper; "own" picks its own. Only "own" works without an account. */
@@ -10,6 +12,7 @@ export interface Settings {
   /** Bumped by Shuffle so the next pick differs within the same time slot. */
   bump: number;
   clock: boolean;
+  clockShows: ClockShows;
   hour12: boolean;
   /** Changed digits of the clock roll softly into place instead of switching at once. */
   clockAnimation: boolean;
@@ -39,6 +42,7 @@ export const defaults: Settings = {
   change: "daily",
   bump: 0,
   clock: true,
+  clockShows: "time",
   hour12: false,
   clockAnimation: true,
   greeting: true,

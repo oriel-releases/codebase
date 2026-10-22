@@ -6,6 +6,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Media.Transformation;
 using Avalonia.Styling;
@@ -150,20 +151,37 @@ public partial class PhotoDetailView : UserControl
         PhotoFrame.RenderTransformOrigin = RelativePoint.TopLeft;
         var sx = card.Bounds.Width / PhotoFrame.Bounds.Width;
         var sy = card.Bounds.Height / PhotoFrame.Bounds.Height;
-        var atCard = TransformOperations.Parse(FormattableString.Invariant($"translate({at.X}px, {at.Y}px) scale({sx}, {sy})"));
-        var home = TransformOperations.Parse("translate(0px, 0px) scale(1, 1)");
+        // A scale, then a move, each animated by its own numbers (Avalonia has no animator for RenderTransform as a whole).
+        if (PhotoFrame.RenderTransform is not TransformGroup { Children.Count: 2 })
+            PhotoFrame.RenderTransform = new TransformGroup { Children = { new ScaleTransform(), new TranslateTransform() } };
+        KeyFrame Frame(double cue, bool onCard) => new()
+        {
+            Cue = new Cue(cue),
+            Setters =
+            {
+                new Setter(ScaleTransform.ScaleXProperty, onCard ? sx : 1d),
+                new Setter(ScaleTransform.ScaleYProperty, onCard ? sy : 1d),
+                new Setter(TranslateTransform.XProperty, onCard ? at.X : 0d),
+                new Setter(TranslateTransform.YProperty, onCard ? at.Y : 0d),
+            },
+        };
         var animation = new Animation
         {
             Duration = FlyTime,
             Easing = new SplineEasing(0.2, 0.9, 0.1, 1),
             FillMode = FillMode.Forward,
-            Children =
-            {
-                new KeyFrame { Cue = new Cue(0), Setters = { new Setter(Visual.RenderTransformProperty, toCard ? home : atCard) } },
-                new KeyFrame { Cue = new Cue(1), Setters = { new Setter(Visual.RenderTransformProperty, toCard ? atCard : home) } },
-            },
+            Children = { Frame(0, !toCard), Frame(1, toCard) },
         };
-        return animation.RunAsync(PhotoFrame);
+        try
+        {
+            return animation.RunAsync(PhotoFrame);
+        }
+        catch (Exception ex)
+        {
+            // Decoration only: the photo still opens and closes without it.
+            System.Diagnostics.Debug.WriteLine($"Photo animation skipped: {ex.Message}");
+            return Task.CompletedTask;
+        }
     }
 
     void ReleaseLarge()

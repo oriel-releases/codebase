@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="tone-instant">
   <head>
     <meta charset="UTF-8" />
     <meta name="theme-color" content="#000000" />
@@ -28,6 +28,9 @@
     <main id="stage" class="relative flex h-full flex-col items-center justify-center px-6 pb-14">
       <div class="flex flex-col items-center text-center" data-adapt>
         <div id="clock" class="text-[clamp(4.5rem,10.5vw,8.5rem)] leading-none font-semibold tracking-tight tabular-nums"></div>
+        <!-- Instead of the time (Settings > Clock > Age): your age running on, or a button to give your birthday -->
+        <div id="age" class="age tabular-nums" role="timer" hidden><div class="age-label">Age</div><div class="age-num"><span class="whole"></span><span class="frac"></span></div></div>
+        <button id="age-set" type="button" class="glass age-set" hidden>Set your birthday</button>
         <div id="greeting" class="mt-2 text-[clamp(1.1rem,2vw,1.6rem)] font-medium"></div>
       </div>
 
@@ -63,9 +66,14 @@
     <!-- Settings: a centered dialog with a menu on the left, like the desktop apps -->
     <div id="backdrop" class="backdrop"></div>
     <div id="sc-dialog" class="info-card sc-dialog" role="dialog" aria-modal="true" aria-label="Shortcut" inert></div>
+    <!-- An open folder of shortcuts (folder-view.ts) -->
+    <div id="folder-view" class="info-card folder-card" role="dialog" aria-modal="true" aria-label="Folder" inert></div>
+    <div id="bday-dialog" class="info-card sc-dialog" role="dialog" aria-modal="true" aria-label="Your birthday" inert></div>
     <div id="info" class="info-card" role="dialog" aria-modal="true" aria-label="Photo info" inert></div>
     <div id="panel" class="modal" role="dialog" aria-modal="true" aria-label="Oriel settings" inert></div>
 
+    <!-- Before the first paint: hides what's turned off and restores the tones (public/boot.js); then the page itself -->
+    <script src="/boot.js"></script>
     <script type="module" src="/src/newtab/main.ts"></script>
   </body>
 </html>

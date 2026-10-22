@@ -1,11 +1,27 @@
 # Oriel browser extension
 
-A new tab page with an Unsplash photo, a clock, a quote and an optional search bar. Works in Chrome, Edge, Brave, Opera (Chromium) and Firefox from one codebase. Plain TypeScript + Tailwind 4, built with Vite.
+A new tab page with an Unsplash photo, a clock (or your age, running on: Settings > Clock > Age), a quote and an optional search bar. Works in Chrome, Edge, Brave, Opera (Chromium) and Firefox from one codebase. Plain TypeScript + Tailwind 4, built with Vite.
 
 Two ways to pick the photo, chosen in the extension's own settings (the gear on the new tab):
 
 - **Same as my devices** (needs an Oriel account): shows the wallpaper any device of the account (Windows, Linux, Android) set last, live while the tab is open. The shuffle button here changes it on every device: it publishes a pool photo to `sync/current` (`source: "extension"`) and rings the Realtime Database doorbell `pulse/{uid}`.
 - **Its own**: picks from `src/data/pool.json` (396 curated photos, 14 topics) by topic and frequency (every tab / hourly / daily). Works signed out, with no API key and no API calls.
+
+## Shortcuts and folders
+
+Up to 14 tiles under the clock, synced with the account. Drag a link onto the middle of another tile to make a folder
+(or to add it to one); its sides just reorder. A folder (up to 12 links) opens as a card over the page
+(`src/newtab/folder-view.ts`): rename it in place, drag links to reorder or out of the card to take them out, Ungroup,
+Delete. The editor's Folder choice moves a link without dragging. The list's rules live in `src/lib/shortcuts.ts`
+(`combine`, `takeOut`, `ungroup`, `cleanShortcuts`), tested in `tests/`. Version 1.0.4 and older don't know folders: an
+edit there uploads the list without them.
+
+## The Age clock
+
+Settings > Clock > Show **Age** puts your age with running decimals where the time was (`src/lib/age.ts`). Signed in,
+the birthday is the account's (`users/{uid}.birthday`, set on the website's `/me`; "Set your birthday on Oriel" opens
+`/me?set-age=1`, and the new tab reads it again on coming back). Signed out, it is asked here in a small dialog and kept
+in this browser only.
 
 ## How the sync works
 

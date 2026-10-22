@@ -1,9 +1,10 @@
 "use client";
 
 import { getAuth, onAuthStateChanged, signOut, type User } from "firebase/auth";
-import { collection, doc, getDoc, onSnapshot, writeBatch } from "firebase/firestore";
+import { collection, deleteField, doc, getDoc, onSnapshot, updateDoc, writeBatch } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { isBirthday } from "@/lib/birthday";
 import { firebaseApp, firebaseAuth, firestore } from "@/lib/firebase";
 import { endSession, ensureWebSession, forgetWebSession, localSessionId, toSessionRow, type SessionRow } from "@/lib/sessions";
 import {
@@ -37,6 +38,7 @@ export function MeView() {
   // How the account signs in. Kept as state: the Firebase user object changes in place when a method is added or removed.
   const [methods, setMethods] = useState<Methods | null>(null);
   const [memberSince, setMemberSince] = useState<Date | null>(null);
+  const [birthday, setBirthday] = useState<string | null>(null);
   const [wallpaper, setWallpaper] = useState<WallpaperData | null | undefined>(undefined);
   const [sessions, setSessions] = useState<SessionRow[] | null>(null);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export function MeView() {
       off = onAuthStateChanged(auth, (next) => {
         setUser(next);
         setMethods(next ? methodsOf(next) : null);
-        if (!next) router.replace("/login?next=me");
+        if (!next) router.replace(`/login?next=${encodeURIComponent(`/me${window.location.search}`)}`); // ?set-age=1 comes back too
       });
     });
     return () => {
@@ -81,7 +83,11 @@ export function MeView() {
       setCurrentId(id);
 
       const profile = await getDoc(doc(db, "users", uid)).catch(() => null);
-      if (!cancelled) setMemberSince(profile?.data()?.createdAt?.toDate?.() ?? null);
+      if (!cancelled) {
+        setMemberSince(profile?.data()?.createdAt?.toDate?.() ?? null);
+        const saved = profile?.data()?.birthday;
+        setBirthday(isBirthday(saved) ? saved : null);
+      }
 
       stops.push(
         onSnapshot(doc(db, "users", uid, "sync", "current"), (snap) => {
@@ -198,7 +204,11 @@ export function MeView() {
       {user && ready && methods && (
         <div className="me-enter">
           <MeContent
-            profile={{ name: user.displayName ?? "", email: user.email ?? "", photo: user.photoURL ?? "", memberSince }}
+            profile={{ name: user.displayName ?? "", email: user.email ?? "", photo: user.photoURL ?? "", memberSince, birthday }}
+            onSaveBirthday={async (next) => {
+              await updateDoc(doc(firestore(), "users", user.uid), { birthday: next ?? deleteField() });
+              setBirthday(next);
+            }}
             methods={methods}
             methodActions={methodActions}
             wallpaper={wallpaper}
