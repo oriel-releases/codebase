@@ -14,10 +14,11 @@ import {
 // Firestore "lite" (plain requests, a fraction of the full SDK's size): live updates come from the Realtime Database
 // doorbell instead of a Firestore listener, so a new tab loads much less code.
 import { deleteDoc, doc, getDoc, getFirestore, serverTimestamp, setDoc, setLogLevel, updateDoc } from "firebase/firestore/lite";
+import { isBirthday } from "./age";
 import { firebaseConfig, unsplashRef } from "./config";
 import type { Photo } from "./photo";
 import { remember, type Settings } from "./settings";
-import type { Shortcut } from "./shortcuts";
+import { cleanShortcuts, isFolder, type Shortcut } from "./shortcuts";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -148,6 +149,15 @@ export async function verifySession(user: Profile): Promise<void> {
   }
 }
 
+/** The account's birthday ("YYYY-MM-DD", set on the website's /me), or null when it has none. One read. */
+export async function readBirthday(): Promise<string | null> {
+  await auth.authStateReady();
+  const user = auth.currentUser;
+  if (!user) return null;
+  const birthday = (await getDoc(doc(db, "users", user.uid))).data()?.birthday;
+  return isBirthday(birthday) ? birthday : null;
+}
+
 /** The extension's own settings and shortcuts, kept for every browser of the account (users/{uid}/sync/extension). */
 export interface ExtensionSync {
   settings: Partial<Settings>;
@@ -164,9 +174,7 @@ export async function readExtensionSync(): Promise<ExtensionSync | null> {
   const updated = d.updatedAt as { toMillis?: () => number } | undefined;
   return {
     settings: typeof d.settings === "object" && d.settings ? (d.settings as Partial<Settings>) : {},
-    shortcuts: Array.isArray(d.shortcuts)
-      ? (d.shortcuts as Shortcut[]).filter((s) => s && typeof s.url === "string").map((s) => ({ title: String(s.title ?? ""), url: s.url }))
-      : [],
+    shortcuts: cleanShortcuts(d.shortcuts),
     updatedAt: updated?.toMillis?.() ?? 0,
   };
 }
@@ -188,7 +196,10 @@ export async function publishExtensionSync(settings: Partial<Settings>, shortcut
   if (!user) throw new Error("Not signed in");
   await setDoc(doc(db, "users", user.uid, "sync", "extension"), {
     settings,
-    shortcuts: shortcuts.map((s) => ({ title: s.title, url: s.url })),
+    // Links as {title, url}, folders as {title, items: [{title, url}]}.
+    shortcuts: cleanShortcuts(shortcuts).map((s) =>
+      isFolder(s) ? { title: s.title, items: s.items.map((l) => ({ title: l.title, url: l.url })) } : { title: s.title, url: s.url },
+    ),
     updatedAt: serverTimestamp(),
     device: browserId(),
   });

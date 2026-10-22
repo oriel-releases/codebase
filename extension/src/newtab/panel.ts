@@ -5,6 +5,7 @@ import type { Change, Mode, Settings } from "../lib/settings";
 import { imageUrl, type Photo } from "../lib/photo";
 import { todayPhoto } from "../lib/today";
 import { siteUrl, supportUrl } from "../lib/config";
+import { birthdayText } from "../lib/age";
 
 export interface PanelState {
   settings: Settings;
@@ -21,6 +22,8 @@ export interface PanelState {
   photo?: Photo | null;
   /** True while Change now or "Set as wallpaper" is working. */
   changing?: boolean;
+  /** The birthday the Age clock uses (the account's when signed in); undefined while it is still being read. */
+  birthday?: string | null;
   /** Only in the toolbar popup: the page you're on, offered as a new shortcut. */
   here?: { title: string; url: string; favicon: string | null; added: boolean; full: boolean } | "checking" | null;
 }
@@ -42,6 +45,8 @@ export interface PanelActions {
   changeNow(): void;
   /** Home: makes this photo the wallpaper (Wallpaper of the day). */
   setPhoto(photo: Photo): void;
+  /** Clock > Age: give or change the birthday (on the website when signed in, in a dialog here otherwise). */
+  editBirthday(): void;
 }
 
 export type Page = "home" | "interests" | "settings" | "account" | "help";
@@ -121,6 +126,14 @@ const row = (title: string, hint: string, control: string, icon?: keyof typeof i
 
 function toggle(c: Settings, name: "clock" | "hour12" | "clockAnimation" | "greeting" | "quote" | "search" | "photoInfo" | "avatar" | "settingsButton" | "shuffle" | "shortcuts", title: string, hint = "", icon?: keyof typeof iconPaths): string {
   return row(title, hint, `<label class="switch"><input type="checkbox" data-act="toggle" data-v="${name}" ${c[name] ? "checked" : ""} aria-label="${esc(title)}" /><span></span></label>`, icon);
+}
+
+/** Clock > Age: whose birthday it counts from, and the button to give or change it. */
+function birthdayLine(s: PanelState): string {
+  const b = s.birthday;
+  const text = b ? `Born ${esc(birthdayText(b))}` : b === undefined ? "Reading your account…" : s.profile ? "Your account has no birthday yet" : "No birthday yet";
+  const button = b === undefined ? "" : `<button type="button" class="btn btn-ghost" data-act="birthday">${b ? "Change" : s.profile ? "Set on Oriel" : "Set"}</button>`;
+  return `<div class="bday-line"><span>${text}</span>${button}</div>`;
 }
 
 /** The popup's first card: the page you're on, one click from becoming a shortcut on the new tab. */
@@ -232,13 +245,20 @@ function settingsPage(s: PanelState): string {
       seg("change", "How often the photo changes", changeOptions.map(([value, text]) => ({ value, text, disabled: following, title: following ? "Your devices decide while it's Same as my devices" : "" })), c.change, "change"),
       "calendar",
     )}</div>
-    <div class="group-title">Clock</div>
-    <div class="list">
+    <div class="group-title">Clock &amp; age</div>
+    <div class="list" data-ease-height>
     <div class="card stack clock-card">
-      <div class="clock-head"><span class="tile-ico sm round" aria-hidden="true">${ico("clock")}</span><div class="t min-w-0 flex-1">Clock</div><label class="switch"><input type="checkbox" data-act="toggle" data-v="clock" ${c.clock ? "checked" : ""} aria-label="Clock" /><span></span></label></div>
-      <div class="fold ${c.clock ? "open" : ""}" ${c.clock ? "" : "inert"}><div class="inner clock-format">${seg("hour12", "Time format", [{ value: "24", text: "24-hour" }, { value: "12", text: "12-hour" }], c.hour12 ? "12" : "24", "hour12")}</div></div>
+      ${seg("clockShows", "What the big text shows", [{ value: "time", text: "Time" }, { value: "age", text: "Age" }], c.clockShows, "clockShows")}
+      <div class="clock-body" data-swap="${c.clockShows}" data-swap-i="${c.clockShows === "age" ? 1 : 0}">
+      <div class="clock-head"><span class="tile-ico sm round" aria-hidden="true">${ico(c.clockShows === "age" ? "cake" : "clock")}</span><div class="t min-w-0 flex-1">${c.clockShows === "age" ? "Show your age" : "Show the time"}</div><label class="switch"><input type="checkbox" data-act="toggle" data-v="clock" ${c.clock ? "checked" : ""} aria-label="${c.clockShows === "age" ? "Show your age" : "Show the time"}" /><span></span></label></div>
+      <div class="fold ${c.clock ? "open" : ""}" ${c.clock ? "" : "inert"}><div class="inner clock-format">${
+        c.clockShows === "age"
+          ? birthdayLine(s)
+          : seg("hour12", "Time format", [{ value: "24", text: "24-hour" }, { value: "12", text: "12-hour" }], c.hour12 ? "12" : "24", "hour12")
+      }</div></div>
+      </div>
     </div>
-    ${toggle(c, "clockAnimation", "Animate clock", "", "sparkle")}
+    <div class="fold row-fold ${c.clock && c.clockShows === "time" ? "open" : ""}" ${c.clock && c.clockShows === "time" ? "" : "inert"}>${toggle(c, "clockAnimation", "Animate clock", "", "sparkle")}</div>
     </div>
     <div class="group-title">On the page</div>
     <div class="list">
@@ -267,6 +287,7 @@ const iconPaths = {
   shuffle: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
   gear: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
   clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  cake: '<path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3M12 8v3M17 8v3"/><path d="M7 4h.01M12 4h.01M17 4h.01"/>',
   smile: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>',
   quote: '<path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>',
   search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
@@ -467,6 +488,7 @@ function morphChildren(from: Element, to: Element): void {
 
 function morph(from: Element, to: Element): void {
   if (from.hasAttribute("data-keep")) return; // owned by script (the menu marker, a site icon that faded in)
+  if (from.hasAttribute("data-swap") && from.getAttribute("data-swap") !== to.getAttribute("data-swap")) return swap(from as HTMLElement, to);
   for (const attr of [...from.attributes]) if (!to.hasAttribute(attr.name)) from.removeAttribute(attr.name);
   for (const attr of [...to.attributes]) if (from.getAttribute(attr.name) !== attr.value) from.setAttribute(attr.name, attr.value);
   if (from instanceof HTMLInputElement && to instanceof HTMLInputElement) {
@@ -475,6 +497,19 @@ function morph(from: Element, to: Element): void {
     return;
   }
   morphChildren(from, to);
+}
+
+/**
+ * A block whose content depends on a choice (data-swap, e.g. Clock > Time | Age): when the choice changes it is
+ * replaced, and the new content glides in from the side of the option picked (data-swap-i: its place in the switch).
+ * The group around it eases to its new height (data-ease-height in renderPanel).
+ */
+function swap(from: HTMLElement, to: Element): void {
+  const fresh = to.cloneNode(true) as HTMLElement;
+  const forward = Number(to.getAttribute("data-swap-i")) >= Number(from.getAttribute("data-swap-i"));
+  from.replaceWith(fresh);
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches || !fresh.closest("#panel.open, html[data-popup]")) return;
+  fresh.classList.add(forward ? "swap-next" : "swap-prev");
 }
 
 /** Draws the dialog. Same page: patched in place (animated). New page: the menu is patched and the content swaps in with a soft stagger. */
@@ -493,7 +528,15 @@ export function renderPanel(root: HTMLElement, state: PanelState, actions: Panel
     content.scrollTop = 0;
     if (visible) fade(content);
   } else {
+    // Groups marked data-ease-height (Clock & age) glide to their new height as their rows change, instead of jumping.
+    const heights = [...root.querySelectorAll<HTMLElement>("[data-ease-height]")].map((el) => [el, el.offsetHeight] as const);
     morphChildren(root, next);
+    if (visible && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      for (const [el, before] of heights) {
+        const after = el.isConnected ? el.offsetHeight : before;
+        if (after !== before) el.animate([{ height: `${before}px` }, { height: `${after}px` }], { duration: 420, easing: "cubic-bezier(0.3, 0.9, 0.3, 1)" });
+      }
+    }
   }
   renderedPage = page;
   placeBar(root, !content || !visible);
@@ -762,6 +805,10 @@ function bind(root: HTMLElement, state: PanelState, actions: PanelActions): void
         return actions.change({ change: v as Change });
       case "hour12":
         return actions.change({ hour12: v === "12" });
+      case "clockShows":
+        return actions.change({ clockShows: v === "age" ? "age" : "time" });
+      case "birthday":
+        return actions.editBirthday();
       case "topic": {
         const topics = state.settings.topics.includes(v) ? state.settings.topics.filter((t) => t !== v) : [...state.settings.topics, v];
         return topics.length ? actions.change({ topics }) : undefined; // at least one topic stays on

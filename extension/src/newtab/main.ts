@@ -12,6 +12,8 @@ import { openPage, renderPanel, resetQuestions, type PanelActions } from "./pane
 import { createAccountSync } from "./account-sync";
 import { createShortcutsRow } from "./shortcuts-row";
 import { showTime } from "./clock-view";
+import { createBirthdayDialog } from "./birthday-dialog";
+import { ageParts, exactAge } from "../lib/age";
 import { protectImages } from "../lib/protect";
 
 protectImages();
@@ -27,7 +29,7 @@ const info = $("info");
 
 let settings = loadSettings();
 /** The links under the clock (UI: shortcuts-row.ts). */
-const shortcuts = createShortcutsRow($("shortcuts"), $("sc-dialog"), {
+const shortcuts = createShortcutsRow($("shortcuts"), $("sc-dialog"), $("folder-view"), {
   visible: () => settings.shortcuts,
   edited() {
     drawPanel();
@@ -67,6 +69,10 @@ const sync = createAccountSync({
   },
   busyChanged: () => drawPanel(),
   toast: (message) => toast(message),
+  birthdayChanged() {
+    renderClock();
+    drawPanel();
+  },
   applySynced(remote, items) {
     const before = settings.mode;
     // Only settings this build knows, of the right type: an older or newer browser may send others.
@@ -326,10 +332,84 @@ let clockAt = 0;
 
 function renderClock(): void {
   const now = new Date();
-  showTime($("clock"), settings.clock ? timeText(now, settings.hour12) : "", now.getTime() >= clockAt, settings.clockAnimation);
+  const showAge = settings.clock && settings.clockShows === "age";
+  showTime($("clock"), settings.clock && !showAge ? timeText(now, settings.hour12) : "", now.getTime() >= clockAt, settings.clockAnimation);
   clockAt = now.getTime();
+  renderAge(showAge);
   $("greeting").textContent = settings.greeting ? greetingText(now, sync.profile?.name ?? "") : "";
 }
+
+// ---- The Age clock (Settings > Clock > Age): your age with running decimals, instead of the time.
+
+/** A birthday given here without an account: kept in this browser only. */
+let localBirthday = remember<string>("birthday");
+
+/** The birthday the Age clock uses: the account's when signed in (undefined until it has been read), else this browser's. */
+const birthday = (): string | null | undefined => (sync.profile ? sync.birthday : localBirthday);
+
+let ageTimer = 0;
+
+function renderAge(show: boolean): void {
+  const b = birthday();
+  const age = $("age");
+  const set = $("age-set");
+  age.hidden = !(show && b);
+  // Signed in, the birthday belongs to the account and is set on the website; without one, right here.
+  set.hidden = !(show && b === null);
+  set.textContent = sync.profile ? "Set your birthday on Oriel" : "Set your birthday";
+  if (show && sync.profile) void sync.refreshBirthday(); // at most every 20 s while missing, hourly once known
+  clearInterval(ageTimer);
+  if (!(show && b)) return;
+  const tick = () => {
+    const { whole, fraction } = ageParts(exactAge(b), 11);
+    setDigits(age.querySelector(".whole")!, whole);
+    setDigits(age.querySelector(".frac")!, fraction);
+    age.setAttribute("aria-label", `${whole} years old`);
+  };
+  tick();
+  // Twenty times a second while the tab is on screen, so the last digits run; hidden tabs don't tick (renderClock runs
+  // again on coming back).
+  if (document.visibilityState === "visible") ageTimer = window.setInterval(tick, 50);
+}
+
+/**
+ * Writes a number a character at a time, each digit in a box exactly as wide as "0" (like the clock), so the running
+ * decimals never make it twitch however the system font draws a 1 or an 8. Only changed characters are touched.
+ */
+function setDigits(el: Element, text: string): void {
+  while (el.childElementCount > text.length) el.lastElementChild!.remove();
+  while (el.childElementCount < text.length) el.append(document.createElement("span"));
+  [...text].forEach((ch, i) => {
+    const box = el.children[i] as HTMLElement;
+    if (box.textContent === ch) return;
+    box.textContent = ch;
+    box.className = /\d/.test(ch) ? "d" : "";
+  });
+}
+
+const birthdayDialog = createBirthdayDialog($("bday-dialog"), {
+  modalOpened() {
+    backdrop.classList.add("open");
+    document.body.classList.add("modal-open");
+  },
+  save(next) {
+    localBirthday = remember("birthday", next);
+    renderClock();
+    drawPanel();
+  },
+  close: () => closePanel(),
+});
+
+/** "Set your birthday": the website's account page when signed in, the dialog here otherwise. */
+function editBirthday(): void {
+  if (sync.profile) {
+    window.open(`${siteUrl()}/me?set-age=1`, "_blank");
+    return;
+  }
+  closePanel();
+  birthdayDialog.open(localBirthday);
+}
+$("age-set").addEventListener("click", editBirthday);
 
 let clockTimer = 0;
 
@@ -340,7 +420,7 @@ function scheduleClock(): void {
   clockTimer = window.setTimeout(scheduleClock, 60_000 - (Date.now() % 60_000) + 5);
 }
 // The browser slows timers in tabs out of sight (up to a minute late): back on screen, the clock catches up at once.
-document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && scheduleClock());
+document.addEventListener("visibilitychange", () => (document.visibilityState === "visible" ? scheduleClock() : clearInterval(ageTimer)));
 
 // A new line every time a tab opens (never the same one twice in a row); settings changes keep the one on screen.
 const line = randomQuote(remember<number>("quote-index") ?? undefined);
@@ -407,7 +487,7 @@ $("search").addEventListener("submit", (e) => {
 
 // Typing anywhere starts a search (when the search bar is on).
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") return closePanel();
+  if (e.key === "Escape") return back();
   const target = e.target as HTMLElement;
   if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1 || target.closest("input, textarea") || !settings.search) return;
   if (panel.classList.contains("open")) return;
@@ -437,6 +517,7 @@ function openPanel(): void {
 function closePanel(): void {
   closeInfo();
   shortcuts.closeEditor();
+  birthdayDialog.close();
   panel.classList.remove("open");
   document.body.classList.remove("modal-open");
   // Once the panel has finished fading out (not while it does), a pending "Sign out?" question is dropped too.
@@ -494,6 +575,7 @@ const actions: PanelActions = {
   },
   changeNow: () => void changePhoto(),
   setPhoto: (photo) => void changePhoto(photo),
+  editBirthday,
   async disconnect() {
     // The button shows "Signing out…" (disabled) until it is done; onAuthStateChanged then redraws the page as signed out.
     signingOut = true;
@@ -521,6 +603,7 @@ function drawPanel(): void {
       banner: shown ? imageUrl(shown, 560, 224, 45) : null,
       photo: shown,
       changing,
+      birthday: birthday(),
     },
     actions,
   );
@@ -549,7 +632,14 @@ $("avatar").addEventListener("keydown", (e) => {
     openAccount();
   }
 });
-backdrop.addEventListener("click", closePanel);
+/**
+ * Esc and a click on the backdrop go back one step, like Cancel: from the editor to the folder it came from, from a
+ * folder's "Delete?" or "Ungroup?" to the folder. With nothing to go back to, everything closes.
+ */
+function back(): void {
+  if (!shortcuts.back()) closePanel();
+}
+backdrop.addEventListener("click", back);
 document.addEventListener("oriel:close-panel", closePanel);
 document.addEventListener("oriel:redraw-panel", () => drawPanel());
 $("shuffle").addEventListener("click", (e) => {
@@ -635,6 +725,12 @@ chrome.storage.onChanged.addListener((changes, area) => {
 window.addEventListener("focus", () => void sync.syncExtension());
 
 // ---------------------------------------------------------------- start
+
+// The toolbar popup's "Set" (no account) opens a new tab at #birthday: the dialog lives here.
+if (location.hash === "#birthday") {
+  history.replaceState(null, "", location.pathname);
+  queueMicrotask(editBirthday);
+}
 
 // Paint immediately from what's remembered; everything async only refines it.
 styleBackground();

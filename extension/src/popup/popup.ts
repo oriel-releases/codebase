@@ -7,7 +7,7 @@ import { loadAccount } from "../lib/load-account";
 import { imageUrl, pick, slotKey, type Photo } from "../lib/photo";
 import { readableAccent } from "../lib/accent";
 import { protectImages } from "../lib/protect";
-import { faviconUrl, loadShortcuts, maxShortcuts, normalizeUrl, sameLink, saveShortcuts, titleFor } from "../lib/shortcuts";
+import { allLinks, faviconUrl, loadShortcuts, maxShortcuts, normalizeUrl, sameLink, saveShortcuts, titleFor } from "../lib/shortcuts";
 
 protectImages();
 
@@ -138,11 +138,16 @@ const actions: PanelActions = {
   openApp() {},
   changeNow: () => void changePhoto(),
   setPhoto: (photo) => void changePhoto(photo),
+  // The birthday window needs a page: the account's on the website, or a new tab's own (it opens at #birthday).
+  editBirthday() {
+    window.open(profile ? `${siteUrl()}/me?set-age=1` : chrome.runtime.getURL("newtab.html#birthday"), "_blank");
+    window.close();
+  },
   addHere() {
     if (!here || here === "checking") return;
     const items = loadShortcuts();
     const page = here;
-    if (items.length >= maxShortcuts || items.some((s) => sameLink(s.url, page.url))) return;
+    if (items.length >= maxShortcuts || allLinks(items).some((s) => sameLink(s.url, page.url))) return;
     // Saved here first (the new tabs read it from this browser's storage), then sent to the account.
     saveShortcuts([...items, { title: page.title, url: page.url }]);
     draw();
@@ -160,6 +165,13 @@ const actions: PanelActions = {
   },
 };
 
+/** The birthday the Age clock uses, as the new tab last knew it (the popup doesn't read the account for it). */
+function popupBirthday(): string | null | undefined {
+  if (!profile) return remember<string>("birthday");
+  const known = remember<{ uid: string; birthday: string | null }>("account-birthday");
+  return known?.uid === profile.uid ? known.birthday : undefined;
+}
+
 function draw(): void {
   const items = loadShortcuts();
   const page = here;
@@ -169,13 +181,14 @@ function draw(): void {
       : page && {
           ...page,
           favicon: faviconUrl(page.url),
-          added: items.some((s) => sameLink(s.url, page.url)),
+          added: allLinks(items).some((s) => sameLink(s.url, page.url)),
           full: items.length >= maxShortcuts,
         };
   const state: PanelState = { settings, profile, busy: false, signingOut, desktop: remember<DesktopCurrent>("current"), banner: last ? imageUrl(last.photo, 560, 224, 45) : null,
     photo: last?.photo ?? null,
     changing,
     here: current,
+    birthday: popupBirthday(),
   };
   renderPanel(panel, state, actions);
 }

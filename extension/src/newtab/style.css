@@ -23,6 +23,8 @@ img:not([role="button"]) { pointer-events: none; }
   text-shadow: 0 1px 2px rgb(255 255 255 / 0.3);
 }
 [data-adapt] a { text-underline-offset: 3px; }
+/* Until the photo's first tones are in (lib/tone.ts), they switch without fading: no white-to-dark flash on load. */
+.tone-instant [data-adapt], .tone-instant [data-adapt] * { transition: none !important; }
 [data-adapt] a:not(.sc-link):hover { text-decoration: underline; }
 
 /* The search bar follows the photo too: dark text and a lighter glass over bright photos. */
@@ -378,11 +380,33 @@ input.slider-input::-moz-range-thumb { width: 0.95rem; height: 0.95rem; box-shad
 
 
 .clock-card { gap: 0; }
-.clock-head { display: flex; align-items: center; gap: 1rem; }
-.clock-card .fold.open { max-height: 4rem; }
-.clock-format { display: flex; padding-top: 0.75rem; }
+/* Time | Age on top, the switch for it under it. */
+.clock-card > .seg { margin-bottom: 0.7rem; }
+/* What's under Time | Age glides in from the side picked (panel.ts swap); its rows follow one after the other. */
+.swap-next > *, .swap-prev > * { animation: 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.swap-next > * { animation-name: swap-in-next; }
+.swap-prev > * { animation-name: swap-in-prev; }
+.swap-next > * + *, .swap-prev > * + * { animation-delay: 0.06s; }
+@keyframes swap-in-next { from { opacity: 0; translate: 16px 0; filter: blur(3px); } }
+@keyframes swap-in-prev { from { opacity: 0; translate: -16px 0; filter: blur(3px); } }
+/* "Animate clock" folds away with Age (it only moves the time's digits). */
+/* Folds in a group that eases its height (data-ease-height, panel.ts) open and close at once: the group glides
+   instead, so the clock's options and "Animate clock" move as one. */
+[data-ease-height] .fold { transition: opacity 0.3s ease; }
+.list > .row-fold.open { max-height: 4.5rem; }
+.list > .row-fold > .card { margin: 0; border: 0; border-radius: 0; background: transparent; border-top: 1px solid rgb(255 255 255 / 0.07); }
+@media (prefers-reduced-motion: reduce) {
+  .swap-next > *, .swap-prev > * { animation: none; }
+}
+/* "Show the time" / "Show your age": the card itself has no hover, so this row gets the list rows' one, edge to edge
+   like theirs (the card's 1rem sides, given back as padding so nothing moves). */
+.clock-head { display: flex; align-items: center; gap: 1rem; margin: 0 -1rem; padding: 0.45rem 1rem; transition: background-color 0.2s; }
+.clock-head:hover { background: rgb(255 255 255 / 0.04); }
+.clock-card .fold.open { max-height: 8rem; }
+.clock-format { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.75rem; }
 .clock-format .seg { flex: 1; }
-.clock-card:hover { background: rgb(255 255 255 / 0.07); }
+/* It holds several controls (Time | Age, a switch, the format or birthday): no hover wash over all of it. */
+.list > .card.clock-card:hover { background: transparent; }
 
 /* The toolbar popup (popup.html): the same dialog, over the same blurred, dimmed photo, as large as a popup may be. */
 html[data-popup], html[data-popup] body { width: 800px; height: 560px; overflow: hidden; margin: 0; }
@@ -443,6 +467,119 @@ html[data-popup] .modal { inset: 0; width: 100%; height: 100%; border-radius: 0;
 .sc-error { font-size: 0.78rem; color: #ff9c9c; }
 .sc-error:empty { display: none; }
 .sc-actions { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.6rem; }
+/* The editor opens over an open folder too. */
+.sc-dialog { z-index: 60; }
+/* The editor's Folder choice: None, a folder, or a new one. */
+.sc-folder-field { display: flex; align-items: center; gap: 0.65rem; padding-left: 0.35rem; font-size: 0.82rem; color: rgb(255 255 255 / 0.75); }
+.sc-folder-field > span { display: inline-flex; align-items: center; gap: 0.4rem; flex: none; }
+.sc-folder-field svg { width: 1rem; height: 1rem; }
+.sc-folder-field select { flex: 1; min-width: 0; appearance: none; cursor: pointer; padding-block: 0.5rem; }
+.sc-folder-field option { color: #111; }
+
+/* ---- Folders ---- */
+/* In the row: a rounded square (not a circle), its first four sites in a 2×2 grid. */
+.sc-ico.sc-stack { border-radius: 0.95rem; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 0.18rem; padding: 0.38rem; place-items: stretch; }
+.sc-stack .mini { position: relative; display: grid; place-items: center; border-radius: 0.38rem; overflow: hidden; background: rgb(255 255 255 / 0.16); font-size: 0.55rem; font-weight: 600; text-transform: uppercase; }
+.sc-stack .mini img { position: absolute; inset: 0; margin: auto; width: 0.82rem; height: 0.82rem; }
+.sc-stack .mini-letter { transition: opacity 0.3s ease; }
+.sc-stack .mini:has(img.loaded) .mini-letter { opacity: 0; }
+.sc-stack .mini:has(img.loaded) { background: transparent; }
+.sc-folder .sc-link { cursor: pointer; }
+/* A link held over the middle of another tile: that tile swells and glows, ready to take it. */
+.sc.merge-target { background: rgb(255 255 255 / 0.14); }
+.sc.merge-target .sc-ico { scale: 1.16; box-shadow: 0 0 0 3px rgb(255 255 255 / 0.6), 0 0 26px rgb(255 255 255 / 0.35); }
+.sc .sc-ico { transition: background-color 0.25s ease, border-color 0.25s ease, scale 0.25s cubic-bezier(0.3, 1.5, 0.5, 1), box-shadow 0.25s ease; }
+
+/* Open: a wider glass card, the name you can type over, the links in a grid, Ungroup and Delete at the bottom. */
+/* Opening and closing are animated in folder-view.ts (the card grows out of the tile): no CSS fade on top of it. */
+.folder-card { width: min(24rem, calc(100vw - 2rem)); padding: 1rem 1rem 0.9rem; transition: none; transform-origin: center; }
+.folder-card.open { opacity: 1; scale: 1; visibility: visible; }
+/* Growing or shrinking (folder-view.ts morphing): no glass blur, which would be redone every frame; a fuller fill. */
+.folder-card.morphing { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgb(28 28 33 / 0.9); will-change: translate, scale, opacity; }
+/* Its tile in the row stays empty while it's open: the card is that tile, grown. */
+.sc.fv-source .sc-ico { opacity: 0; }
+/* A link dragged out of the card: everything else in it fades, saying "let go to take it out". */
+.folder-card .fv-head, .folder-card .fv-foot, .folder-card .fv-grid > .sc { transition: opacity 0.2s ease; }
+.folder-card.dropping-out .fv-head, .folder-card.dropping-out .fv-foot, .folder-card.dropping-out .fv-grid > .sc:not(.held) { opacity: 0.35; }
+.fv-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.fv-title { flex: 1; min-width: 0; padding: 0.35rem 0.6rem; border-radius: 0.7rem; background: transparent; border: 0; outline: none; color: #fff; font-size: 1.2rem; font-weight: 600; letter-spacing: -0.02em; transition: background-color 0.2s; }
+.fv-title:hover { background: rgb(255 255 255 / 0.06); }
+.fv-title:focus { background: rgb(255 255 255 / 0.1); }
+.fv-x { display: grid; place-items: center; width: 2rem; height: 2rem; flex: none; border-radius: 9999px; color: rgb(255 255 255 / 0.8); cursor: pointer; transition: background-color 0.2s; }
+.fv-x:hover { background: rgb(255 255 255 / 0.12); color: #fff; }
+.fv-x svg { width: 1.05rem; height: 1.05rem; }
+.fv-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.2rem; }
+.fv-grid .sc { width: auto; }
+.folder-card.sorting .sc:not(.held):hover { background: none; }
+.fv-foot { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgb(255 255 255 / 0.1); }
+.fv-foot .btn { width: auto; margin: 0; }
+/* While a link is dragged in a folder, the footer's place says how to take it out (and, outside, what letting go does). */
+.folder-card.sorting .fv-foot { display: none; }
+.fv-drag-hint { display: flex; align-items: center; justify-content: center; min-height: 2.35rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgb(255 255 255 / 0.1); font-size: 0.8rem !important; color: rgb(255 255 255 / 0.65) !important; text-align: center; }
+.folder-card.dropping-out .fv-drag-hint { color: #fff !important; font-weight: 500; }
+/* Over a held tile: what letting go will do ("Make a folder", "Add to “Work”"). */
+.sc-hint { position: absolute; left: 50%; bottom: calc(100% + 0.35rem); translate: -50% 4px; padding: 0.28rem 0.65rem; border-radius: 9999px; background: rgb(18 18 22 / 0.88); color: #fff; font-size: 0.72rem; font-weight: 600; white-space: nowrap; text-shadow: none; pointer-events: none; opacity: 0; transition: opacity 0.18s ease, translate 0.18s ease; box-shadow: 0 6px 18px rgb(0 0 0 / 0.3); }
+.sc-hint.show { opacity: 1; translate: -50% 0; }
+
+/* Names of the links in an open folder: plain, like the row's (the card's links are underlined otherwise). */
+.info-card a.sc-link { text-decoration: none; font-weight: inherit; }
+.sc-pick-empty { padding: 0.6rem 0.35rem; font-size: 0.82rem; color: rgb(255 255 255 / 0.6); }
+/* Delete folder?: the card itself turns into the question. */
+.fv-confirm { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0.6rem 0.4rem 0.2rem; }
+.fv-confirm-ico { display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 9999px; background: rgb(255 255 255 / 0.1); margin-bottom: 0.8rem; }
+.fv-confirm-ico.danger { background: rgb(255 90 90 / 0.14); color: #ff9c9c; }
+.fv-confirm .fv-note { max-width: 18rem; text-wrap: pretty; }
+.fv-confirm-ico svg { width: 1.3rem; height: 1.3rem; }
+.fv-confirm h2 { margin-bottom: 0.9rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fv-also { display: flex; align-items: center; justify-content: space-between; gap: 1rem; width: 100%; padding: 0.7rem 0.9rem; border-radius: 0.9rem; background: rgb(255 255 255 / 0.07); font-size: 0.88rem; cursor: pointer; }
+.fv-note { margin-top: 0.5rem; font-size: 0.8rem !important; color: rgb(255 255 255 / 0.6) !important; }
+.fv-confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; width: 100%; margin-top: 1.1rem; }
+.fv-confirm-actions .btn { width: 100%; margin: 0; padding-block: 0.6rem; }
+.fv-foot .btn svg { width: 0.95rem; height: 0.95rem; }
+
+/* Add: Shortcut | Folder, then that form. */
+.sc-kind { margin-bottom: 0.9rem; }
+.sc-kind button { display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; padding-block: 0.5rem; font-size: 0.85rem; }
+.sc-kind svg { width: 0.95rem; height: 0.95rem; flex: none; }
+/* A new folder's links, picked from the row: tiles that tick, four to a line in a wider dialog, all in view when they
+   fit (a thin, quiet scrollbar when the window is short). */
+.sc-dialog.wide { width: min(28rem, calc(100vw - 2rem)); }
+.sc-pick-label { display: flex; align-items: center; justify-content: space-between; margin: 0.45rem 0.1rem 0.1rem 0.35rem; font-size: 0.8rem; color: rgb(255 255 255 / 0.65); }
+.sc-pick-count { color: #fff; font-weight: 600; }
+.sc-pick-all { padding: 0.2rem 0.65rem; border-radius: 9999px; font-size: 0.76rem; font-weight: 500; color: rgb(255 255 255 / 0.85); cursor: pointer; transition: background-color 0.2s; }
+.sc-pick-all:hover { background: rgb(255 255 255 / 0.1); color: #fff; }
+.sc-pick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.3rem; max-height: min(21rem, 48vh); overflow-y: auto; padding: 0.15rem; scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.25) transparent; }
+.sc-pick-item { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; min-width: 0; padding: 0.7rem 0.3rem 0.55rem; border-radius: 1rem; color: inherit; cursor: pointer; transition: background-color 0.2s, box-shadow 0.2s; }
+.sc-pick-item:hover { background: rgb(255 255 255 / 0.08); }
+.sc-pick-item[aria-pressed="true"] { background: rgb(255 255 255 / 0.13); box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / 0.75); }
+.sc-pick-item .sc-ico { width: 2.75rem; height: 2.75rem; }
+.sc-pick-item .sc-ico img { width: 1.35rem; height: 1.35rem; }
+.sc-pick-item .sc-title { max-width: 100%; font-size: 0.76rem; }
+.sc-check { position: absolute; top: 0.35rem; right: 0.35rem; display: grid; place-items: center; width: 1.15rem; height: 1.15rem; border-radius: 9999px; background: #fff; color: #111; opacity: 0; scale: 0.6; transition: opacity 0.2s, scale 0.25s cubic-bezier(0.3, 1.5, 0.5, 1); }
+.sc-check svg { width: 0.7rem; height: 0.7rem; stroke-width: 3; }
+.sc-pick-item[aria-pressed="true"] .sc-check { opacity: 1; scale: 1; }
+
+/* The Age clock: a small AGE over the whole years (as big as the time), the running decimals beside them, top-aligned. */
+.age { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
+.age-label { font-size: clamp(0.8rem, 1.3vw, 1.05rem); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 0.15rem 0.2rem; }
+.age-num { display: flex; align-items: flex-start; line-height: 0.82; }
+/* Every digit in a box as wide as "0" (main.ts setDigits): the running decimals never shift. */
+.age .whole > span, .age .frac > span { display: inline-block; }
+.age .d { width: 1ch; text-align: center; }
+.age .whole { font-size: clamp(4.5rem, 10.5vw, 8.5rem); font-weight: 700; }
+.age .frac { font-size: clamp(1.9rem, 4.4vw, 3.6rem); font-weight: 600; margin: 0.12em 0 0 0.12em; }
+.age-set { cursor: pointer; margin: 0.6rem 0 0.2rem; padding: 0.75rem 1.5rem; border-radius: 9999px; font-size: 1.05rem; font-weight: 500; transition: background-color 0.2s, transform 0.2s; }
+.age-set:hover { background: rgb(255 255 255 / 0.25); }
+.age-set:active { transform: scale(0.97); }
+/* The birthday dialog: day, month and year side by side, then the age they make. */
+.bday-row { display: grid; grid-template-columns: 1fr 1.6fr 1.3fr; gap: 0.45rem; }
+.bday-row select { appearance: none; cursor: pointer; text-align: center; padding-inline: 0.5rem; }
+.bday-row option { color: #111; }
+.bday-age { text-align: center; font-size: 1rem; font-weight: 600; min-height: 1.5rem; margin-top: 0.35rem; }
+/* Settings > Clock: the birthday line under Time / Age. */
+.bday-line { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.25rem 0 0.25rem; font-size: 0.8rem; color: rgb(255 255 255 / 0.75); }
+.bday-line span { flex: 1; min-width: 0; }
+.bday-line .btn { padding: 0.3rem 0.85rem; }
 
 /* Popup: "this page" card at the top of the first page. */
 .card.here .tile-ico img { width: 1.15rem; height: 1.15rem; }
@@ -528,6 +665,7 @@ html[data-popup] #bg:not([hidden]) { animation: fade-only 0.4s ease both; }
 .list > .card { margin: 0; border: 0; border-radius: 0; background: transparent; }
 .list > .card + .card { border-top: 1px solid rgb(255 255 255 / 0.07); }
 .list > .card:hover { background: rgb(255 255 255 / 0.04); }
+.list > .row-fold > .card:hover { background: rgb(255 255 255 / 0.04); }
 /* Holding a slider shows the photo as it is: the group card fades with the rest, only that slider's row stays. */
 #panel[data-adjusting] .list { background: transparent; border-color: transparent; }
 #panel[data-adjusting] .list > .card + .card { border-top-color: transparent; }

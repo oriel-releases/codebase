@@ -10,7 +10,14 @@ interface Sample {
 }
 
 let sample: Sample | null = null;
+/** False until the photo has been measured (or found unreadable): until then the tones from last time stay. */
+let known = false;
 const size = 96;
+const savedKey = "oriel.tones";
+
+const adapting = () => [...document.querySelectorAll<HTMLElement>("[data-adapt]")];
+// The tones saved below are put back before the first paint by public/boot.js (by the elements' order on the page), so
+// buttons and text don't start white over a bright photo. The page starts with `tone-instant` on <html>: no fading yet.
 
 /** Reads the photo the way it is shown (cropped to the window, "cover") into a tiny grid. Returns false if the browser won't let us read it. */
 export function measure(img: HTMLImageElement): boolean {
@@ -26,22 +33,32 @@ export function measure(img: HTMLImageElement): boolean {
     const h = img.naturalHeight * scale;
     ctx.drawImage(img, (width - w) / 2, (height - h) / 2, w, h);
     sample = { data: ctx.getImageData(0, 0, width, height).data, width, height };
+    known = true;
     return true;
   } catch {
     sample = null; // a photo that isn't CORS-readable taints the canvas
+    known = true;
     return false;
   }
 }
 
 export function forget(): void {
   sample = null;
+  known = true;
 }
 
 /** Sets data-tone="dark" on elements over a bright photo (so they use dark text), "light" otherwise. `dim` is the 0 to 1 darkening. */
 export function applyTone(dim: number): void {
-  document.querySelectorAll<HTMLElement>("[data-adapt]").forEach((el) => {
-    el.dataset.tone = sample && brightness(el) * (1 - dim) > 0.6 ? "dark" : "light";
-  });
+  if (!known) return; // the photo isn't measured yet: keep the remembered tones
+  const tones = adapting().map((el) => (el.dataset.tone = sample && brightness(el) * (1 - dim) > 0.6 ? "dark" : "light"));
+  try {
+    localStorage.setItem(savedKey, JSON.stringify(tones));
+  } catch {
+    // Storage blocked: the next tab starts white.
+  }
+  // The first real tones land at once; from then on, changes (a new photo, the dim slider) fade as before.
+  const root = document.documentElement;
+  if (root.classList.contains("tone-instant")) requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("tone-instant")));
 }
 
 function brightness(el: HTMLElement): number {
