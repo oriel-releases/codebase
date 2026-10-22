@@ -131,7 +131,7 @@
                                                     Background="#33000000" BorderBrush="#CCFFFFFF" BorderThickness="1.5" IsVisible="{Binding IsNotSelected}" />
                                         </Panel>
                                     </Button>
-                                    <Border CornerRadius="14" BorderBrush="White" BorderThickness="2" IsHitTestVisible="False" IsVisible="{Binding IsSelected}" />
+                                    <Border Margin="-1" CornerRadius="15" BorderBrush="White" BorderThickness="2.5" IsHitTestVisible="False" IsVisible="{Binding IsSelected}" />
                                 </Panel>
                             </DataTemplate>
                         </ItemsRepeater.ItemTemplate>

@@ -164,7 +164,7 @@
                                                         Background="#33000000" BorderBrush="#CCFFFFFF" BorderThickness="1.5" IsVisible="{Binding IsOff}" />
                                             </Panel>
                                         </Button>
-                                        <Border CornerRadius="16" BorderBrush="White" BorderThickness="2" IsHitTestVisible="False" IsVisible="{Binding IsEnabled}" />
+                                        <Border Margin="-1" CornerRadius="17" BorderBrush="White" BorderThickness="2.5" IsHitTestVisible="False" IsVisible="{Binding IsEnabled}" />
                                         <!--  Your own ones can be removed  -->
                                         <Button Width="28" Height="28" Margin="8" Padding="0" HorizontalAlignment="Left" VerticalAlignment="Top"
                                                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="14" Background="#66000000"
@@ -214,7 +214,7 @@
                                                         Background="#33000000" BorderBrush="#CCFFFFFF" BorderThickness="1.5" IsVisible="{Binding IsOff}" />
                                             </Panel>
                                         </Button>
-                                        <Border CornerRadius="16" BorderBrush="White" BorderThickness="2" IsHitTestVisible="False" IsVisible="{Binding IsEnabled}" />
+                                        <Border Margin="-1" CornerRadius="17" BorderBrush="White" BorderThickness="2.5" IsHitTestVisible="False" IsVisible="{Binding IsEnabled}" />
                                         <!--  Your own ones can be removed  -->
                                         <Button Width="28" Height="28" Margin="8" Padding="0" HorizontalAlignment="Left" VerticalAlignment="Top"
                                                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="14" Background="#66000000"

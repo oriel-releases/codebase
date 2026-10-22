@@ -3,6 +3,7 @@ using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.Styling;
 
@@ -22,7 +23,11 @@ public partial class MainWindow : Window
             // so Section is still the page being left.)
             if (button.Content is Panel panel && panel.Children.OfType<PathIcon>().FirstOrDefault() is { } icon &&
                 DataContext is ViewModels.MainViewModel vm && vm.Section != button.CommandParameter as string)
-                PlayIcon(icon, button.CommandParameter as string);
+            {
+                // Only decoration: whatever happens to it, the page still changes (the command runs after this).
+                try { PlayIcon(icon, button.CommandParameter as string); }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Menu icon animation skipped: {ex.Message}"); }
+            }
         }, RoutingStrategies.Bubble);
         // A page picked in the menu fades in, rising softly into place (PageIn).
         PageHost.PropertyChanged += (_, e) => { if (e.Property == ContentControl.ContentProperty) PageIn(); };
@@ -78,14 +83,22 @@ public partial class MainWindow : Window
             Duration = TimeSpan.FromMilliseconds(length),
             Easing = section == "history" ? new ExponentialEaseOut() : new CubicEaseInOut(),
         };
+        // Avalonia animates a transform's own numbers (lift, turn, scale), not RenderTransform as a whole (that has no
+        // animator, and threw on every click): the icon gets one transform of each kind, and each keyframe sets them.
+        if (icon.RenderTransform is not TransformGroup { Children.Count: 3 })
+            icon.RenderTransform = new TransformGroup { Children = { new ScaleTransform(), new RotateTransform(), new TranslateTransform() } };
         foreach (var (ms, turn, scale, lift) in frames)
         {
-            var transform = TransformOperations.Parse(FormattableString.Invariant(
-                $"translate(0px, {lift}px) rotate({turn}deg) scale({scale})"));
             animation.Children.Add(new KeyFrame
             {
                 Cue = new Cue((double)ms / length),
-                Setters = { new Setter(Visual.RenderTransformProperty, transform) },
+                Setters =
+                {
+                    new Setter(ScaleTransform.ScaleXProperty, scale),
+                    new Setter(ScaleTransform.ScaleYProperty, scale),
+                    new Setter(RotateTransform.AngleProperty, turn),
+                    new Setter(TranslateTransform.YProperty, lift),
+                },
             });
         }
 
