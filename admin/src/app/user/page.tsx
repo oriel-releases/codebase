@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowLeft, Bell, ChevronRight, Copy, Database, ExternalLink, FolderOpen, Lock, Puzzle, Star, Users } from "lucide-react";
+import { ArrowLeft, Bell, ChevronRight, Copy, Database, ExternalLink, FolderOpen, Flame, Lock, Puzzle, Star, Users } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState, type ReactNode } from "react";
 import { Empty, ErrorNote, PlatformBadge, RefreshButton } from "@/components/bits";
 import { FieldList, Value } from "@/components/fields";
@@ -39,7 +39,7 @@ import { useRemembered } from "@/lib/use-remembered";
 export default function UserPage() {
   // A static export has no page per account: the uid rides in the query (?uid=...).
   return (
-    <Suspense>
+    <Suspense fallback={<UserSkeleton />}>
       <UserView />
     </Suspense>
   );
@@ -49,6 +49,7 @@ const s = (v: unknown) => (typeof v === "string" ? v : "");
 const date = (v: unknown) => (v instanceof Date ? v : toDate(v));
 
 function UserView() {
+  const router = useRouter();
   const uid = useSearchParams().get("uid") ?? "";
   const accounts = useLoad(overview);
   const basics = useLoad((refresh) => accountBasics(uid, refresh), [uid]);
@@ -66,30 +67,46 @@ function UserView() {
   return (
     <>
       <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2">
-        <Link href="/users">
+        <Link
+          href="/users"
+          onClick={(e) => {
+            // Back keeps the list's filters (they live in its URL); a page opened directly goes to the plain list.
+            if (window.history.length > 1 && document.referrer.startsWith(window.location.origin)) {
+              e.preventDefault();
+              router.back();
+            }
+          }}
+        >
           <ArrowLeft /> Users
         </Link>
       </Button>
       <PageHeader
         title={account ? account.displayName || account.email : "Account"}
-        description={account?.email}
         actions={
-          <RefreshButton
-            loading={basics.loading}
-            onClick={() => {
-              basics.reload();
-              setRound((r) => r + 1);
-            }}
-          />
+          <div className="flex items-center gap-2">
+            <Button asChild variant="secondary" size="sm">
+              <a href={`https://console.firebase.google.com/project/oriel-gcp/firestore/databases/-default-/data/~2Fusers~2F${uid}`} target="_blank" rel="noreferrer">
+                <Flame /> Firebase
+              </a>
+            </Button>
+            <RefreshButton
+              loading={basics.loading}
+              onClick={() => {
+                basics.reload();
+                setRound((r) => r + 1);
+              }}
+            />
+          </div>
         }
       />
       {(accounts.error ?? basics.error) && <ErrorNote message={(accounts.error ?? basics.error)!} />}
       {accounts.data && !account && <Empty>No account with this uid.</Empty>}
+      {!accounts.data && !accounts.error && <UserSkeleton header={false} />}
       {account && (
         <div className="space-y-4">
           <Profile account={account} basics={b} />
           {!b ? (
-            <Skeleton className="h-80 rounded-xl" />
+            <DevicesSkeleton />
           ) : (
             <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
               <Devices sessions={b.sessions} />
@@ -100,16 +117,16 @@ function UserView() {
             </div>
           )}
 
-          <LazySection title="Browser extension" icon={Puzzle} hint="shortcuts and settings" load={(r) => accountExtension(uid, r)} round={round}>
+          <LazySection title="Browser extension" icon={Puzzle} load={(r) => accountExtension(uid, r)} round={round}>
             {(doc) => <Extension doc={doc} names={names} />}
           </LazySection>
           <LazySection title="Favorites" icon={Star} load={(r) => accountFavorites(uid, r)} round={round}>
             {(docs) => <Favorites docs={docs} />}
           </LazySection>
-          <LazySection title="Friends & sharing" icon={Users} hint="followers, following, shares" load={(r) => accountSocial(uid, r)} round={round}>
+          <LazySection title="Friends & sharing" icon={Users} load={(r) => accountSocial(uid, r)} round={round}>
             {(social) => <Social social={social} people={people} />}
           </LazySection>
-          <LazySection title="Live sync" icon={Bell} hint="doorbell and last scheduled change" load={(r) => accountLive(uid, r)} round={round}>
+          <LazySection title="Live sync" icon={Bell} load={(r) => accountLive(uid, r)} round={round}>
             {(live) => (
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
@@ -132,7 +149,6 @@ function UserView() {
           <LazySection
             title="All data"
             icon={Database}
-            hint="every document, every field"
             load={async (r) => {
               const [ext, fav, social, live] = await Promise.all([accountExtension(uid, r), accountFavorites(uid, r), accountSocial(uid, r), accountLive(uid, r)]);
               const docs = [b?.profile, b?.current, b?.settings, ext, live.slot, ...(b?.sessions ?? []), ...social.followers, ...social.following.map((f) => f.doc), ...social.codes, ...social.shares, ...fav];
@@ -145,6 +161,40 @@ function UserView() {
         </div>
       )}
     </>
+  );
+}
+
+/** The account page's shape while it loads: profile card, devices beside wallpaper and schedule, then the folded sections. */
+function UserSkeleton({ header = true }: { header?: boolean }) {
+  return (
+    <div className="space-y-4">
+      {header && (
+        <>
+          <Skeleton className="mb-4 h-8 w-24" />
+          <div className="mb-6 space-y-2">
+            <Skeleton className="h-8 w-56" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+        </>
+      )}
+      <Skeleton className="h-24 rounded-xl" />
+      <DevicesSkeleton />
+      {Array.from({ length: 5 }, (_, i) => (
+        <Skeleton key={i} className="h-16 rounded-xl" />
+      ))}
+    </div>
+  );
+}
+
+function DevicesSkeleton() {
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
+      <Skeleton className="h-64 rounded-xl" />
+      <div className="space-y-4">
+        <Skeleton className="aspect-video w-full rounded-xl" />
+        <Skeleton className="h-28 rounded-xl" />
+      </div>
+    </div>
   );
 }
 

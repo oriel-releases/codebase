@@ -14,7 +14,7 @@ export default function SharesPage() {
   const { data, error, loading, reload } = useLoad(shares);
   return (
     <>
-      <PageHeader title="Shares" description="Wallpapers sent by link, newest first (up to 200)" actions={<RefreshButton loading={loading} onClick={reload} />} />
+      <PageHeader title="Shares" actions={<RefreshButton loading={loading} onClick={reload} />} />
       {error && <ErrorNote message={error} />}
       {data?.length === 0 && <Empty>No shares yet.</Empty>}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">

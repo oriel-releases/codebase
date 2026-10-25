@@ -44,6 +44,8 @@ export type Account = {
   sessions: Session[];
   /** The latest lastSeenAt of any of its sessions. */
   lastSeenAt: Date | null;
+  /** When its wallpaper last changed (users/{uid}/sync/current.updatedAt): Oriel works in the background, so this can be newer than lastSeenAt. */
+  changedAt: Date | null;
 };
 
 export type Overview = {
@@ -73,13 +75,15 @@ function toSession(uid: string, id: string, d: DocumentData): Session {
 }
 
 /** Every account with its sessions, the published app versions and a few counts. */
-export const overview = (refresh = false) => cached("overview", loadOverview, refresh);
+export const overview = (refresh = false) => cached("overview:2", loadOverview, refresh);
 
 async function loadOverview(): Promise<Overview> {
   const store = db();
-  const [users, sessions, shares, codes, versions] = await Promise.all([
+  const [users, sessions, syncDocs, shares, codes, versions] = await Promise.all([
     getDocs(collection(store, "users")),
     getDocs(collectionGroup(store, "sessions")),
+    // Every account's sync documents (about 4 reads each); only "current" is used, for when the wallpaper last changed.
+    getDocs(collectionGroup(store, "sync")),
     getCountFromServer(collection(store, "shares")),
     getCountFromServer(collection(store, "codes")),
     Promise.all(
@@ -94,6 +98,9 @@ async function loadOverview(): Promise<Overview> {
   const byUser = new Map<string, Session[]>();
   for (const s of allSessions) byUser.set(s.uid, [...(byUser.get(s.uid) ?? []), s]);
 
+  const changed = new Map<string, Date | null>();
+  for (const s of syncDocs.docs) if (s.id === "current") changed.set(s.ref.parent.parent?.id ?? "", toDate(s.data().updatedAt));
+
   const accounts = users.docs.map((u): Account => {
     const d = u.data();
     const own = (byUser.get(u.id) ?? []).sort((a, b) => time(b.lastSeenAt) - time(a.lastSeenAt));
@@ -106,6 +113,7 @@ async function loadOverview(): Promise<Overview> {
       birthday: /^\d{4}-\d{2}-\d{2}$/.test(str(d.birthday)) ? str(d.birthday) : "",
       sessions: own,
       lastSeenAt: own[0]?.lastSeenAt ?? null,
+      changedAt: changed.get(u.id) ?? null,
     };
   });
   accounts.sort((a, b) => time(b.createdAt) - time(a.createdAt));

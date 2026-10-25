@@ -1,6 +1,7 @@
 "use client";
 
 import { Activity, CalendarCheck, Layers, Link2, MonitorSmartphone, Share2, UserPlus, Users } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { BarList } from "@/components/bar-list";
 import { ErrorNote, RefreshButton, Stat } from "@/components/bits";
@@ -11,9 +12,9 @@ import { PageHeader } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { overview, type Overview, type Session } from "@/lib/data";
-import { ageFrom, compareVersions, DAY, platformNames, platformOrder, timeAgo, within } from "@/lib/format";
+import { ageFrom, compareVersions, DAY, platformNames, platformOrder, within } from "@/lib/format";
 import { useLoad } from "@/lib/use-load";
 import { useRemembered } from "@/lib/use-remembered";
 
@@ -28,16 +29,20 @@ export default function OverviewPage() {
     <>
       <PageHeader
         title="Overview"
-        description={data ? `Read ${timeAgo(data.loadedAt)}` : "Everyone, every device"}
         actions={
           <div className="flex items-center gap-2">
-            <ToggleGroup type="single" value={String(range)} onValueChange={(v) => v && setRange(Number(v) as Range)} variant="outline" size="sm">
-              {ranges.map((r) => (
-                <ToggleGroupItem key={r} value={String(r)}>
-                  {r} days
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+            <Select value={String(range)} onValueChange={(v) => setRange(Number(v) as Range)}>
+              <SelectTrigger size="sm" aria-label="Range">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {ranges.map((r) => (
+                  <SelectItem key={r} value={String(r)}>
+                    {r} days
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <RefreshButton loading={loading} onClick={reload} />
           </div>
         }
@@ -75,36 +80,35 @@ function Dashboard({ data, range }: { data: Overview; range: Range }) {
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[3fr_2fr]">
-        <ChartCard title="Accounts over time" description={`Running total since the first sign-up · ${accounts.length} now`}>
+        <ChartCard title="Accounts over time">
           <GrowthLine dates={accounts.map((a) => a.createdAt)} unit={["account", "accounts"]} />
         </ChartCard>
-        <ChartCard title="Last seen" description="How long since each account's latest device checked in">
+        <ChartCard title="Last seen">
           <BarList rows={lastSeenRows(data)} total={accounts.length} />
         </ChartCard>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <ChartCard title="New accounts" description={`Per day, last ${range} days · ${newIn(range * DAY)} in all`}>
+        <ChartCard title="New accounts">
           <DailyBars dates={accounts.map((a) => a.createdAt)} days={range} unit={["new account", "new accounts"]} />
         </ChartCard>
-        <ChartCard title="New devices" description={`Sign-ins on a new app, browser or phone, per day · ${newDevices} in all`}>
+        <ChartCard title="New devices">
           <DailyBars dates={sessions.map((s) => s.createdAt)} days={range} unit={["new device", "new devices"]} />
         </ChartCard>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-3">
         <PlatformMix sessions={sessions} />
-        <ChartCard title="Devices per account" description="How many signed-in devices each account has">
+        <ChartCard title="Devices per account">
           <BarList rows={devicesPerAccountRows(data)} total={accounts.length} />
         </ChartCard>
-        <ChartCard title="Ages" description={`From birthdays set on the website · ${accounts.filter((a) => a.birthday).length} of ${accounts.length} accounts`}>
+        <ChartCard title="Ages">
           <BarList rows={ageRows(data)} total={accounts.filter((a) => a.birthday).length} />
         </ChartCard>
       </div>
 
       <section>
         <h2 className="mb-1 text-lg font-semibold tracking-tight">App versions</h2>
-        <p className="mb-4 text-sm text-muted-foreground">Which version each signed-in device runs. Older than the latest release in red.</p>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {platformOrder
             .filter((p) => p !== "web")
@@ -117,12 +121,11 @@ function Dashboard({ data, range }: { data: Overview; range: Range }) {
   );
 }
 
-function ChartCard({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+function ChartCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="pt-4">{children}</CardContent>
     </Card>
@@ -251,8 +254,10 @@ function VersionCard({ platform, sessions, published }: { platform: string; sess
             )}
             <div className="flex flex-wrap gap-1.5">
               {sorted.map(([v, n]) => (
-                <Badge key={v} variant={outdated(v) ? "destructive" : "secondary"} className="font-normal tabular-nums">
-                  {v} · {n}
+                <Badge key={v} asChild variant={outdated(v) ? "destructive" : "secondary"} className="font-normal tabular-nums hover:opacity-80">
+                  <Link href={`/users?platform=${platform}&version=${encodeURIComponent(v)}`} title={`Accounts on ${platformNames[platform]} ${v}`}>
+                    {v} · {n}
+                  </Link>
                 </Badge>
               ))}
             </div>

@@ -16,7 +16,7 @@ export default function CodesPage() {
   const router = useRouter();
   return (
     <>
-      <PageHeader title="Follow codes" description="Each account's code and the wallpaper it shows now (up to 200)" actions={<RefreshButton loading={loading} onClick={reload} />} />
+      <PageHeader title="Follow codes" actions={<RefreshButton loading={loading} onClick={reload} />} />
       {error && <ErrorNote message={error} />}
       <Card className="py-0">
         <Table>
