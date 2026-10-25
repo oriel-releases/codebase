@@ -1,11 +1,11 @@
 import { escapeHtml } from "../lib/html";
-import { poolTopics } from "../lib/photo";
 import type { Profile } from "../lib/account";
 import type { Change, Mode, Settings } from "../lib/settings";
 import { imageUrl, type Photo } from "../lib/photo";
 import { todayPhoto } from "../lib/today";
 import { siteUrl, supportUrl } from "../lib/config";
 import { birthdayText } from "../lib/age";
+import { spin } from "./spinner";
 
 export interface PanelState {
   settings: Settings;
@@ -49,13 +49,11 @@ export interface PanelActions {
   editBirthday(): void;
 }
 
-export type Page = "home" | "interests" | "settings" | "account" | "help";
+export type Page = "home" | "settings" | "account" | "help";
 
 /** Outline icons (24px grid, 2px stroke). */
 const icons: Record<Page, string> = {
   home: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
-  interests:
-    '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
   settings:
     '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
   account: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/>',
@@ -63,29 +61,11 @@ const icons: Record<Page, string> = {
 };
 const menu: [Page, string][] = [
   ["home", "Home"],
-  ["interests", "Interests"],
   ["settings", "Settings"],
   ["help", "Help"],
 ];
-const titles: Record<Page, string> = { home: "Home", interests: "Interests", settings: "Settings", account: "Account", help: "Help" };
-const svg = (p: Page) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icons[p]}</svg>`;
-
-const emoji: Record<string, string> = {
-  nature: "🌿",
-  mountains: "🏔️",
-  ocean: "🌊",
-  space: "🪐",
-  cities: "🌆",
-  architecture: "🏛️",
-  minimal: "◻️",
-  dark: "🌑",
-  abstract: "🎨",
-  forest: "🌲",
-  desert: "🏜️",
-  aerial: "🛩️",
-  "night sky": "🌌",
-  snow: "❄️",
-};
+const titles: Record<Page, string> = { home: "Home", settings: "Settings", account: "Account", help: "Help" };
+const svg = (p: Page) => `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icons[p]}</svg>`;
 
 let page: Page = "home";
 /** True while the "Disconnect this browser?" question is showing. */
@@ -102,7 +82,6 @@ const googleG =
   '<svg class="g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
 
 const esc = escapeHtml;
-const label = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const device = (source: string) =>
   source === "linux" ? "Linux PC" : source === "windows" ? "Windows PC" : source === "android" ? "phone" : source === "extension" ? "browser" : "computer";
 
@@ -165,7 +144,6 @@ function herePage(h: NonNullable<PanelState["here"]>): string {
 }
 
 /** Change now's icon turns once after a click. */
-let turnUntil = 0;
 
 /**
  * Home, the first page, like the apps' Home: the photo on screen with its credit and Change now, the Wallpaper of the
@@ -186,7 +164,7 @@ function homePage(s: PanelState): string {
     "Wallpaper source",
     [
       { value: "desktop", text: `${ico("monitor")}My devices`, title: s.profile ? "Same wallpaper as your devices" : "Connect your account first" },
-      { value: "own", text: `${ico("sparkle")}Its own`, title: "Photos picked here, from your interests" },
+      { value: "own", text: `${ico("sparkle")}Its own`, title: "This hour's photos from Oriel Explore" },
     ],
     following ? "desktop" : "own",
     "mode",
@@ -195,7 +173,6 @@ function homePage(s: PanelState): string {
   const credit = (x: Photo) =>
     `Photo by <a class="credit-name" href="${esc(x.photographerUrl)}" target="_blank" rel="noopener">${esc(x.photographer)}</a> on <a href="${esc(x.pageUrl)}" target="_blank" rel="noopener">Unsplash</a>`;
   const busy = s.changing ? "disabled aria-busy=\"true\"" : "";
-  const icon = s.changing ? "spinning" : Date.now() < turnUntil ? "turn" : "";
   // The image itself is placed by showHomePhoto (after each draw), so a new photo can fade in once it has loaded.
   // Following the account's devices, the photo comes from them: no Change now here.
   const photo = `<div class="home-photo" data-src="${p ? esc(imageUrl(p, 1200, 560, 75)) : ""}"><div class="layers" data-keep></div>${source}</div>
@@ -204,31 +181,18 @@ function homePage(s: PanelState): string {
         <div class="t truncate home-credit" data-photo="${p?.photographer ? esc(p.id) : ""}">${p?.photographer ? credit(p) : "&nbsp;"}</div>
         <div class="d truncate">${from}</div>
       </div>
-      ${following ? "" : `<button class="btn btn-accent" data-act="change-now" ${busy}>${ico("refresh", icon)}${s.changing ? "Changing…" : "Change now"}</button>`}
+      ${following ? "" : `<button class="btn btn-accent" data-act="change-now" ${busy}>${ico("refresh")}${s.changing ? "Changing…" : "Change now"}</button>`}
     </div>`;
+  // Wallpaper of the day, once its list has been fetched (lib/today.ts).
   const t = todayPhoto();
-  const isToday = p?.id === t.id;
-  const today = `<div class="card today">
+  const isToday = p?.id === t?.id;
+  const today = !t ? "" : `<div class="card today">
       <img class="today-thumb" src="${esc(imageUrl(t, 320, 200, 60))}" alt="" loading="lazy" />
       <div class="min-w-0 flex-1"><div class="t">Wallpaper of the day</div><div class="d truncate">${credit(t)}</div></div>
       ${isToday ? `<span class="pill">${ico("check", "size-3")}On your screen</span>` : `<button class="btn btn-ghost" data-act="set-today" ${busy}>Set as wallpaper</button>`}
     </div>`;
   const here = s.here ? `<div class="group-title">This page</div>${herePage(s.here)}` : "";
   return photo + today + here;
-}
-
-/** Interests: the topics "Its own" picks its photos from. */
-function interestsPage(s: PanelState): string {
-  const c = s.settings;
-  const following = c.mode === "desktop" && !!s.profile;
-  return `${
-    following
-      ? `<div class="note">${ico("monitor")}<span>Your devices choose the photo while it's <b>Same as my devices</b>. These are used for <b>Its own</b>.</span></div>`
-      : ""
-  }
-    <div class="card stack"><div class="flex flex-wrap gap-2" role="group" aria-label="Interests">
-      ${poolTopics.map((t) => `<button class="chip" aria-pressed="${c.topics.includes(t)}" data-act="topic" data-v="${esc(t)}"><span class="emoji" aria-hidden="true">${emoji[t] ?? "🖼️"}</span>${esc(label(t))}</button>`).join("")}
-    </div></div>`;
 }
 
 /** Settings: how often the photo changes, and what the new tab shows. Each group is one card, its rows split by lines. */
@@ -437,7 +401,6 @@ function avatar(p: Profile, size: string): string {
 function html(s: PanelState): string {
   const body = {
     home: () => homePage(s),
-    interests: () => interestsPage(s),
     settings: () => settingsPage(s),
     account: () => accountPage(s),
     help: helpPage,
@@ -541,6 +504,8 @@ export function renderPanel(root: HTMLElement, state: PanelState, actions: Panel
   renderedPage = page;
   placeBar(root, !content || !visible);
   showHomePhoto(root);
+  // Change now's icon turns while it works, then glides on to upright (spinner.ts).
+  spin(root.querySelector('[data-act="change-now"] svg'), !!state.changing);
   showCredit(root, visible);
   bind(root, state, actions);
 }
@@ -684,7 +649,7 @@ let imageErrorsBound = false;
 
 /**
  * The Android app's tab animations (ui/NavBar.kt), same keyframes and timings, scaled to these smaller icons: Home hops,
- * Interests beats (like AI), the gear springs half a turn (like Settings), Help winds back a full turn (like History),
+ * the gear springs half a turn (like Settings), Help winds back a full turn (like History),
  * Account wiggles (like Search). Compose keyframes move in straight lines between points, as these do.
  */
 const navMotion: Record<Page, { frames: Keyframe[]; duration: number; easing?: string }> = {
@@ -697,17 +662,6 @@ const navMotion: Record<Page, { frames: Keyframe[]; duration: number; easing?: s
       { transform: "translateY(0) scale(1)" },
     ],
     duration: 520,
-  },
-  interests: {
-    frames: [
-      { transform: "scale(1)" },
-      { transform: "scale(1.28)", offset: 120 / 620 },
-      { transform: "scale(0.95)", offset: 240 / 620 },
-      { transform: "scale(1.15)", offset: 360 / 620 },
-      { transform: "scale(1)", offset: 480 / 620 },
-      { transform: "scale(1)" },
-    ],
-    duration: 620,
   },
   // spring(dampingRatio 0.5, stiffness 110) to 180 degrees: overshoots to about 209, swings back to 175, settles.
   settings: {
@@ -785,16 +739,13 @@ function bind(root: HTMLElement, state: PanelState, actions: PanelActions): void
       case "add-here":
         return actions.addHere?.();
       case "change-now": {
-        // Restart the turn even if the icon still has it from the last click.
-        turnUntil = Date.now() + 650;
-        const icon = el.querySelector("svg");
-        icon?.classList.remove("turn");
-        void icon?.getBoundingClientRect();
-        icon?.classList.add("turn");
+        spin(el.querySelector("svg"), true);
         return actions.changeNow();
       }
-      case "set-today":
-        return actions.setPhoto(todayPhoto());
+      case "set-today": {
+        const t = todayPhoto();
+        return t ? actions.setPhoto(t) : undefined;
+      }
       case "mode":
         if (v === "desktop" && !state.profile) {
           page = "account";
@@ -809,10 +760,6 @@ function bind(root: HTMLElement, state: PanelState, actions: PanelActions): void
         return actions.change({ clockShows: v === "age" ? "age" : "time" });
       case "birthday":
         return actions.editBirthday();
-      case "topic": {
-        const topics = state.settings.topics.includes(v) ? state.settings.topics.filter((t) => t !== v) : [...state.settings.topics, v];
-        return topics.length ? actions.change({ topics }) : undefined; // at least one topic stays on
-      }
     }
   };
   root.onchange = (e) => {

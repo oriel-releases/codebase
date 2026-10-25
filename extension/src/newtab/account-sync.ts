@@ -32,6 +32,8 @@ interface KnownBirthday {
   uid: string;
   birthday: string | null;
   at: number;
+  /** The doorbell's birthdayAt this read follows (the website rings it on each change); a newer ring reads it again. */
+  version?: number;
 }
 
 
@@ -48,26 +50,49 @@ export function createAccountSync(host: AccountSyncHost) {
   let started: Promise<void> | null = null;
   let known = remember<KnownBirthday>("account-birthday");
   let readingBirthday = false;
+  /** A birthday ring that came during a read: read once more after it, for that version. */
+  let ringDuringRead: number | undefined;
+
+  const showsAge = () => host.settings().clock && host.settings().clockShows === "age";
 
   /**
-   * Reads the account's birthday for the Age clock, only while that's shown. A known birthday is read again after an
-   * hour; a missing one after 20 seconds, so setting it on the website (it opens from here) shows up on coming back.
+   * Reads the account's birthday for the Age clock, only while that's shown. A change on the website rings the
+   * doorbell (onBirthday below), which reads it at once; besides that, a known birthday is read again after an hour
+   * and a missing one after 20 seconds.
    */
-  async function refreshBirthday(force = false): Promise<void> {
-    if (!profile || readingBirthday) return;
+  async function refreshBirthday(force = false, version = known?.uid === profile?.uid ? known?.version : undefined): Promise<void> {
+    if (!profile) return;
+    if (readingBirthday) {
+      if (force) ringDuringRead = version;
+      return;
+    }
     const fresh = known?.uid === profile.uid && Date.now() - known.at < (known.birthday ? 3_600_000 : 20_000);
     if (fresh && !force) return;
     readingBirthday = true;
     try {
       const birthday = await (await load()).readBirthday();
       const changed = known?.uid !== profile.uid || known.birthday !== birthday;
-      known = remember<KnownBirthday>("account-birthday", { uid: profile.uid, birthday, at: Date.now() });
+      known = remember<KnownBirthday>("account-birthday", { uid: profile.uid, birthday, at: Date.now(), version });
       if (changed) host.birthdayChanged();
     } catch {
       // Offline: the last one read stays, and the next tab tries again.
     } finally {
       readingBirthday = false;
+      if (ringDuringRead !== undefined) {
+        const next = ringDuringRead;
+        ringDuringRead = undefined;
+        void refreshBirthday(true, next);
+      }
     }
+  }
+
+  /** The doorbell's birthdayAt: newer than the read this browser has, so the birthday was set or removed on the website. */
+  function onBirthday(at: number | undefined): void {
+    if (!profile || at === undefined) return;
+    if (known?.uid === profile.uid && known.version !== undefined && known.version >= at) return;
+    if (showsAge()) return void refreshBirthday(true, at);
+    // Not on screen: forget the read, so the Age clock reads it when it's shown next.
+    if (known?.uid === profile.uid) known = remember<KnownBirthday>("account-birthday", { ...known, at: 0, version: at });
   }
 
   const load = async (): Promise<Account> => (account ??= await loadAccount());
@@ -95,6 +120,7 @@ export function createAccountSync(host: AccountSyncHost) {
         host.changed();
       },
       onError: () => host.toast("Couldn't read your desktop wallpaper. Showing a photo from here for now."),
+      onBirthday,
       onExtension(at, mine) {
         const have = remember<number>("ext-version");
         if (mine) {

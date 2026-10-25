@@ -5,11 +5,20 @@ const hex = /^#[0-9a-f]{6}$/i;
 /**
  * The accent color for the page's controls. Following the devices: the vivid color the desktop app picked from the
  * wallpaper (the same one it sets as the Windows accent), only while the page shows that very photo. Its own photos:
- * the vivid color stored with each pool photo.
+ * the photo's color from Unsplash, lifted when it's too dark to see.
  */
 export function accentFor(photo: Photo, followsDesktop: boolean, desktopPhotoId: string | undefined): string | undefined {
-  if (!followsDesktop) return readableAccent(photo.accent);
+  if (!followsDesktop) return readableAccent(photo.color);
   return desktopPhotoId === photo.id ? readableAccent(photo.color) : undefined;
+}
+
+/** The text color on an accent-filled button: near-black on a light accent (a pale photo), else white. */
+export function inkOn(color: string): string {
+  if (!hex.test(color)) return "#fff";
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16) / 255);
+  const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  // Only pale ones (greys, creams, a white photo): the vivid accents keep the white text the design uses.
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b) > 0.4 ? "#111" : "#fff";
 }
 
 /**

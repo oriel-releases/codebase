@@ -1,6 +1,3 @@
-import { unsplashRef } from "./config";
-import pool from "../data/pool.json";
-
 export interface Photo {
   id: string;
   /** images.unsplash.com URL; sizing parameters are added per screen by {@link imageUrl}. */
@@ -12,44 +9,6 @@ export interface Photo {
   topic?: string;
   /** Average colour, shown while the photo loads. */
   color?: string;
-  /** A vivid colour from the photo (pool photos), tinting the page's controls. */
-  accent?: string;
-}
-
-export interface PoolPhoto {
-  id: string;
-  u: string;
-  w: number;
-  h: number;
-  c: string;
-  n: string;
-  l: string;
-  d: string;
-  t: string;
-  /** Vibrant accent colour (imgix palette, see scripts/build-pool.mjs). */
-  a?: string;
-}
-
-export const poolPhotos = pool.photos as PoolPhoto[];
-export const poolTopics = pool.topics as string[];
-
-export function fromPool(p: PoolPhoto): Photo {
-  return {
-    id: p.id,
-    url: `https://images.unsplash.com/${p.u}`,
-    photographer: p.n,
-    photographerUrl: `https://unsplash.com/@${p.l}?${unsplashRef}`,
-    pageUrl: `https://unsplash.com/photos/${p.id}?${unsplashRef}`,
-    description: p.d,
-    topic: p.t,
-    color: p.c,
-    accent: p.a,
-  };
-}
-
-/** A photo remembered from before accents were stored (today's pick) gets its own from the pool. */
-export function withPoolAccent(photo: Photo): Photo {
-  return photo.accent ? photo : { ...photo, accent: poolPhotos.find((p) => p.id === photo.id)?.a };
 }
 
 /** The photo sized and cropped for this screen (Unsplash crops on its side, so only the pixels we show are sent). */
@@ -80,24 +39,4 @@ export function slotKey(change: "tab" | "hourly" | "daily", bump: number, now = 
   if (change === "tab") return null;
   const day = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
   return `${change === "hourly" ? `${day}T${now.getHours()}` : day}#${bump}`;
-}
-
-/** Picks a photo for the time slot; the same inputs always give the same photo. */
-export function pick(topics: string[], change: "tab" | "hourly" | "daily", bump: number, now = new Date()): Photo {
-  const wanted = new Set(topics);
-  const candidates = poolPhotos.filter((p) => wanted.has(p.t));
-  const from = candidates.length ? candidates : poolPhotos;
-  const day = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
-  const slot = change === "tab" ? String(Math.random()) : change === "hourly" ? `${day}T${now.getHours()}` : day;
-  return fromPool(from[hash(`${slot}#${bump}`) % from.length]);
-}
-
-/** FNV-1a: small, fast and well spread. */
-function hash(text: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return h >>> 0;
 }

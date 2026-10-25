@@ -4,12 +4,16 @@ import type { DesktopCurrent, Profile } from "../lib/account";
 import { loadSettings, remember, saveSettings, syncedSettings, type Settings } from "../lib/settings";
 import { siteUrl } from "../lib/config";
 import { loadAccount } from "../lib/load-account";
-import { imageUrl, pick, slotKey, type Photo } from "../lib/photo";
-import { readableAccent } from "../lib/accent";
+import { imageUrl, slotKey, type Photo } from "../lib/photo";
+import { pick } from "../lib/explore";
+import { todayPhoto } from "../lib/today";
+import { inkOn, readableAccent } from "../lib/accent";
 import { protectImages } from "../lib/protect";
+import { setUpKeyboard } from "../newtab/keyboard";
 import { allLinks, faviconUrl, loadShortcuts, maxShortcuts, normalizeUrl, sameLink, saveShortcuts, titleFor } from "../lib/shortcuts";
 
 protectImages();
+setUpKeyboard([document.getElementById("panel")!]);
 
 /**
  * The toolbar icon's popup: the same settings dialog as the new tab, drawn under the icon. Settings are saved to the
@@ -35,6 +39,7 @@ function paintBackground(): void {
   // The new tab's accent, or else the photo's own color, so the popup is never plain white.
   const accent = readableAccent(last.accent || last.photo.color);
   if (accent) document.documentElement.style.setProperty("--accent", accent);
+  if (accent) document.documentElement.style.setProperty("--accent-ink", inkOn(accent));
 }
 // After the page has loaded: the browser shows the popup only then, and shouldn't wait for this download.
 if (document.readyState === "complete") paintBackground();
@@ -52,13 +57,15 @@ async function changePhoto(chosen?: Photo): Promise<void> {
     settings = loadSettings();
     let photo = chosen;
     if (settings.mode === "desktop" && profile) {
-      photo ??= pick(settings.topics, "tab", 0);
+      photo ??= pick("tab", 0) ?? todayPhoto() ?? undefined;
+      if (!photo) return;
       await (await watchAccount()).publishWallpaper(photo);
     } else {
       if (!photo) {
         settings = { ...settings, bump: settings.bump + 1 };
         saveSettings(settings);
-        photo = pick(settings.topics, settings.change, settings.bump);
+        photo = pick(settings.change, settings.bump) ?? todayPhoto() ?? undefined;
+        if (!photo) return;
       }
       const key = slotKey(settings.change, settings.bump);
       if (key) remember("slot", { key, photo });
@@ -200,7 +207,7 @@ draw();
 // The tab you clicked the icon on ("activeTab" lets the popup see its address).
 // Until it answers, the card says "Checking…"; a page that can't be a shortcut (chrome://, a PDF viewer) drops it.
 void chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
-  const url = tab?.url && /^https?:/.test(tab.url) ? normalizeUrl(tab.url) : null;
+  const url = tab?.url && /^(https?|file):/.test(tab.url) ? normalizeUrl(tab.url) : null;
   here = url ? { title: (tab.title?.trim() || titleFor(url)).slice(0, 40), url } : null;
   draw();
 });

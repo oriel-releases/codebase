@@ -34,9 +34,9 @@
         <div id="greeting" class="mt-2 text-[clamp(1.1rem,2vw,1.6rem)] font-medium"></div>
       </div>
 
-      <form id="search" data-adapt class="glass mt-8 cursor-text flex w-full max-w-md items-center gap-2.5 rounded-full px-4 py-2.5 transition focus-within:bg-white/25 focus-within:ring-2 focus-within:ring-white/40" autocomplete="off">
+      <form id="search" role="search" data-adapt class="glass mt-8 cursor-text flex w-full max-w-md items-center gap-2.5 rounded-full px-4 py-2.5 transition focus-within:bg-white/25 focus-within:ring-2 focus-within:ring-white/40" autocomplete="off">
         <svg viewBox="0 0 24 24" class="size-4 shrink-0 opacity-70" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-        <input id="q" type="text" spellcheck="false" placeholder="Search the web" class="min-w-0 flex-1 bg-transparent text-base outline-none" />
+        <input id="q" type="text" spellcheck="false" placeholder="Search the web" aria-label="Search the web" class="min-w-0 flex-1 bg-transparent text-base outline-none" />
       </form>
 
       <!-- Shortcuts: links you add, synced with your account (main.ts renderShortcuts) -->
