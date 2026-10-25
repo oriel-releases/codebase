@@ -1,5 +1,5 @@
-// Builds src/data/pool.json: a curated set of Unsplash photos per topic, so the extension needs no API key
-// and makes no API calls (the photos are hotlinked from images.unsplash.com, as Unsplash asks).
+// Builds src/data/pool.json: a curated set of Unsplash photos per topic, which the Wallpaper of the day list
+// (scripts/build-today.mjs) is taken from (the photos are hotlinked from images.unsplash.com, as Unsplash asks).
 // Run: npm run pool   (reads UNSPLASH_ACCESS_KEY from ../windows/.env).
 // It adds to the photos already there (the Wallpaper of the day list points at them), up to `perTopic` per topic, at most
 // `rounds` API requests per topic; on hitting the rate limit it keeps what it has. Each photo also gets `a`, its vibrant

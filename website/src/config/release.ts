@@ -13,7 +13,7 @@ const fallbackVersions = {
   windows: "1.1.2",
   macos: "1.0.0",
   linux: "1.1.2",
-  android: "1.1.1",
+  android: "1.1.2",
 } as const satisfies Record<AppPlatform, string>;
 
 const [windowsVersion, macosVersion, linuxVersion, androidVersion] = await Promise.all([
@@ -62,7 +62,7 @@ export const releases = {
     platform: "android",
     name: "Android",
     version: androidVersion ?? fallbackVersions.android,
-    releasedOn: "2026-10-21",
+    releasedOn: "2026-10-25",
     fileName: "Oriel.apk",
     url: process.env.ORIEL_ANDROID_DOWNLOAD_URL || `${repoUrls.android}/releases/latest/download/Oriel.apk`,
     requirements: "Android 8.0 or newer",

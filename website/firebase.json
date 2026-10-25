@@ -43,6 +43,15 @@
         ]
       },
       {
+        "source": "/today.json",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          }
+        ]
+      },
+      {
         "source": "/_next/static/**",
         "headers": [
           {

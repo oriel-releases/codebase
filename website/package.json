@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "pool": "node scripts/build-pool.mjs",
     "today": "node scripts/build-today.mjs"
   },
   "dependencies": {
