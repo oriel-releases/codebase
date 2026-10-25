@@ -94,16 +94,20 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
 ## Browser extension (built)
 
 - Code in `extension/` (see its README): new tab page for Chrome/Edge/Brave/Firefox. "Same as my devices" shows the
-  account's `sync/current`; "Its own" picks from a bundled pool (`extension/src/data/pool.json`).
+  account's `sync/current`; "Its own" picks from the hourly Explore feed (below; `src/lib/explore.ts`, kept in `localStorage`; the Wallpaper of the day until the first one arrives, the plain color before either). No Interests in the extension. Arrow keys move the focus spatially (`src/newtab/keyboard.ts`); dialogs take, trap and give back the focus.
 - Its settings and **shortcuts** (max 14 tiles, drag to reorder; drag a link onto another to make a **folder**, up to 12
   links each) are its own, not the apps': kept in the browser, and when signed in synced to `users/{uid}/sync/extension` =
   {settings, shortcuts[{title, url} | {title, items[{title, url}]}], updatedAt, device} (1.0.4 and older drop folders), last write
   wins, rung on the doorbell as {extensionAt, extensionDevice}. Local first: a tab reads `sync/extension` only when the
   doorbell's `extensionAt` is newer than its `ext-version`, and `sync/current` only when the doorbell names another
-  photo. Signing out erases the shortcuts from that browser.
-- Settings panel (Home, Interests, Settings, Help, Account) on the new tab and as the toolbar **popup** (`popup.html`);
+  photo. Signing out erases the shortcuts from that browser. A shortcut can also be a file (`file:///…` or a pasted
+  path); it opens through `chrome.tabs` and needs "Allow access to file URLs" (Firefox can't, so it copies the path).
+- **Age clock:** the account's `users/{uid}.birthday` is set or removed on the website's `/me`, which then rings the
+  doorbell with `{birthdayAt}`; open extension tabs read the birthday again on that ring.
+- Settings panel (Home, Settings, Help, Account) on the new tab and as the toolbar **popup** (`popup.html`);
   on an Oriel new tab the icon opens the page's own panel instead (`src/background.ts`). Wallpaper of the day comes
-  from `src/data/today.json`, written together with the website's by `website/scripts/build-today.mjs`.
+  from the website's `/today.json` (fetched once a day, kept in `localStorage`; the hosting sends a CORS header
+  for it). The extension bundles no photos.
 - Sign-in, in Settings > Account: **email and password right in the panel** (`signInWithEmailAndPassword`, with
   password reset), or **Google** through the website: `/login?for=extension` posts the Google credential to the
   extension's content script (`src/content/bridge.ts`). Either way it records a `users/{uid}/sessions/{id}`.
@@ -181,7 +185,7 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   `sharesSet`. Rules allow only +1 on today's doc. Keep it this small: no per-click events, no user IDs.
   Last online = `sessions/{id}.lastSeenAt`.
 - **Wallpaper of the day:** `/today`, photos from `website/src/data/today.json` (`npm run today` rebuilds it from the
-  extension's pool).
+  curated pool `website/src/data/pool.json`, refreshed by `npm run pool`).
 
 ## Notes
 
