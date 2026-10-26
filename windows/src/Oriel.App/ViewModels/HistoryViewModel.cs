@@ -65,7 +65,9 @@ public sealed partial class HistoryItemViewModel(HistoryViewModel owner, History
     public string ButtonText => Stage ?? (IsApplied ? "Wallpaper set ✓" : "Set as wallpaper");
     public bool IsIdle => Stage is null && CanReapply;
 
-    public IReadOnlyList<string> Chips => PhotoText.Topic(Entry.Topic) is { } topic ? [DateText, topic] : [DateText];
+    public IReadOnlyList<PhotoFact> Chips => PhotoText.Topic(Entry.Topic) is { } topic
+        ? [new(PhotoFactKind.Date, DateText), new(PhotoFactKind.Topic, topic)]
+        : [new(PhotoFactKind.Date, DateText)];
 
     /// <summary>
     /// The wallpaper's own file, decoded at the screen's real pixels. Without one here (a favorite from another device),

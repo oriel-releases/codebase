@@ -21,7 +21,14 @@ public sealed partial class PhotoDetailPage : Page
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
+        if (Photo is not null) Photo.PropertyChanged -= Photo_PropertyChanged;
         Photo = e.Parameter as IPhotoDetail;
+        if (Photo is not null)
+        {
+            Photo.PropertyChanged += Photo_PropertyChanged;
+            _shownText = SetText.Text = Photo.ButtonText;
+            ShowCurrent();
+        }
         Message.IsOpen = false;
         ShareButton.Visibility = Photo is not null && Oriel.Core.Services.ShareService.CanShare(Photo.ShareEntry)
             ? Visibility.Visible : Visibility.Collapsed;
@@ -82,6 +89,67 @@ public sealed partial class PhotoDetailPage : Page
 
     void Back_Click(object sender, RoutedEventArgs e) => GoBack();
 
+    void Photo_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(IPhotoDetail.ButtonText) && e.PropertyName != nameof(IPhotoDetail.IsIdle)) return;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (Photo is null) return;
+            SwapText(Photo.ButtonText);
+            ShowCurrent();
+        });
+    }
+
+    /// <summary>
+    /// The photo already on the screen (the newest in History) has nothing to set: "Your wallpaper" shows instead of the
+    /// button. Not while it's being set from here: the steps show on the button until it's done.
+    /// </summary>
+    void ShowCurrent()
+    {
+        var current = Photo is { IsIdle: true } photo
+            && App.Get<Oriel.Core.Storage.IHistoryStore>().List().FirstOrDefault()?.PhotoId == photo.ShareEntry.PhotoId;
+        SetButton.Visibility = current ? Visibility.Collapsed : Visibility.Visible;
+        CurrentPill.Visibility = current ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    string _shownText = "";
+
+    /// <summary>The button's old words slide up and fade, the new ones rise in from below (Finding a photo…, Downloading…).</summary>
+    void SwapText(string text)
+    {
+        if (text == _shownText) return;
+        _shownText = text;
+        var fadeOut = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
+        fadeOut.Children.Add(Animate(SetText, "Opacity", 0, Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseIn));
+        fadeOut.Children.Add(Animate(SetTextShift, "Y", -8, Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseIn));
+        fadeOut.Completed += (_, _) =>
+        {
+            if (_shownText != text) return; // a newer word is on its way
+            SetText.Text = text;
+            SetTextShift.Y = 8;
+            var fadeIn = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
+            fadeIn.Children.Add(Animate(SetText, "Opacity", 1, Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut));
+            fadeIn.Children.Add(Animate(SetTextShift, "Y", 0, Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut));
+            fadeIn.Begin();
+        };
+        fadeOut.Begin();
+    }
+
+    static Microsoft.UI.Xaml.Media.Animation.DoubleAnimation Animate(DependencyObject target, string property, double to,
+        Microsoft.UI.Xaml.Media.Animation.EasingMode mode)
+    {
+        var animation = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
+        {
+            To = to,
+            Duration = TimeSpan.FromMilliseconds(130),
+            EasingFunction = new Microsoft.UI.Xaml.Media.Animation.CubicEase { EasingMode = mode },
+            EnableDependentAnimation = true,
+        };
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(animation, target);
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(animation, property);
+        return animation;
+    }
+
     /// <summary>A link to this photo, by the system share sheet (copied when that can't open), like on Home.</summary>
     async void Share_Click(object sender, RoutedEventArgs e)
     {
@@ -96,12 +164,12 @@ public sealed partial class PhotoDetailPage : Page
             Show(ex.Message);
             return;
         }
+        var image = await Oriel.UI.Services.ShareImage.FileForAsync(Photo.ShareEntry);
         if (Oriel.UI.Services.ShareSheet.Show(App.MainWindowHandle, "A wallpaper for you",
-                "A wallpaper I like. Open this link to set it on your computer in one click:", new Uri(link))) return;
+                "A wallpaper I like. Open this link to set it on your computer in one click:", new Uri(link), image)) return;
         var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
         package.SetText(link);
         Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
-        Show("Link copied.");
     }
 
     void Folder_Click(object sender, RoutedEventArgs e) => Photo?.OpenFolder();

@@ -466,11 +466,9 @@
                         </StackPanel>
                         <ToggleSwitch
                             Grid.Column="2"
-                            MinWidth="0"
                             AutomationProperties.Name="Match the Windows accent color"
                             IsOn="{x:Bind ViewModel.MatchAccentColor, Mode=TwoWay}"
-                            OffContent=""
-                            OnContent="" />
+                            Style="{StaticResource FlushToggleSwitchStyle}" />
                     </Grid>
 
                     <Grid
@@ -495,11 +493,9 @@
                         </StackPanel>
                         <ToggleSwitch
                             Grid.Column="2"
-                            MinWidth="0"
                             AutomationProperties.Name="Use it on the lock screen too"
                             IsOn="{x:Bind ViewModel.ChangeLockScreen, Mode=TwoWay}"
-                            OffContent=""
-                            OnContent="" />
+                            Style="{StaticResource FlushToggleSwitchStyle}" />
                     </Grid>
 
                     <Grid
@@ -524,11 +520,9 @@
                         </StackPanel>
                         <ToggleSwitch
                             Grid.Column="2"
-                            MinWidth="0"
                             AutomationProperties.Name="Start with Windows"
                             IsOn="{x:Bind ViewModel.RunInBackground, Mode=TwoWay}"
-                            OffContent=""
-                            OnContent="" />
+                            Style="{StaticResource FlushToggleSwitchStyle}" />
                     </Grid>
                 </StackPanel>
 

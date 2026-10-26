@@ -107,8 +107,12 @@ public sealed partial class PhotoResultViewModel(CollectionsViewModel owner, Pho
         PhotographerName = Photo.PhotographerName, PhotographerUrl = Photo.PhotographerUrl, AppliedAt = DateTimeOffset.Now,
     };
 
-    public IReadOnlyList<string> Chips => [.. new[] { Size, Photo.Likes > 0 ? $"{Photo.Likes:N0} likes" : null,
-        Topic is null or "explore" or "search" ? null : PhotoText.Topic(Topic) }.OfType<string>()];
+    public IReadOnlyList<PhotoFact> Chips => [.. new[]
+    {
+        new PhotoFact(PhotoFactKind.Size, Size),
+        Photo.Likes > 0 ? new PhotoFact(PhotoFactKind.Likes, PhotoFact.Count(Photo.Likes)) : null,
+        Topic is null or "explore" or "search" || PhotoText.Topic(Topic) is not { } topic ? null : new PhotoFact(PhotoFactKind.Topic, topic),
+    }.OfType<PhotoFact>()];
 
     /// <summary>Unsplash makes it at exactly the size asked for (up to the photo's own), so it's sharp on any screen.</summary>
     public Task<ImageSource?> LoadLargeAsync(int pixelWidth)
@@ -367,6 +371,37 @@ public sealed partial class CollectionsViewModel : ObservableObject
         finally
         {
             IsExploreLoading = false;
+        }
+    }
+
+    [ObservableProperty] public partial bool IsExploreRefreshing { get; set; }
+
+    /// <summary>
+    /// Refresh: a new hour's photos when they're out; else the same photos in a new order, so it still looks fresh.
+    /// </summary>
+    [RelayCommand]
+    async Task RefreshExploreAsync()
+    {
+        if (IsExploreRefreshing || IsExploreLoading) return;
+        IsExploreRefreshing = true;
+        // It takes a moment even when nothing new is out: a refresh that answers at once looks like it did nothing.
+        var moment = Task.Delay(1400);
+        try
+        {
+            var feed = await _explore.GetAsync(force: true);
+            await moment;
+            if (feed.Photos.Count == 0) return;
+            ExploreUnavailable = false;
+            var photos = feed.Photos.ToArray();
+            if (feed.Hour == _exploreHour) Random.Shared.Shuffle(photos);
+            _exploreHour = feed.Hour;
+            _explorePhotos = photos;
+            Explore.Clear();
+            ShowMoreExplore();
+        }
+        finally
+        {
+            IsExploreRefreshing = false;
         }
     }
 
