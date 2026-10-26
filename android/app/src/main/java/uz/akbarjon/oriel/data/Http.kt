@@ -66,13 +66,26 @@ object Http {
         }
 
     /** Streams [url] into [target] (via a temporary file, so a broken download never leaves half a file). */
-    suspend fun download(url: String, target: File) = withContext(Dispatchers.IO) {
+    suspend fun download(url: String, target: File, onProgress: ((done: Long, total: Long) -> Unit)? = null) = withContext(Dispatchers.IO) {
         val conn = open(url)
         conn.useCaches = false // full-size images are used once; keep them out of the cache
         try {
             if (conn.responseCode !in 200..299) throw IOException("HTTP ${conn.responseCode}")
             val part = File(target.path + ".part")
-            conn.inputStream.use { input -> part.outputStream().use { input.copyTo(it, 64 * 1024) } }
+            val total = conn.contentLengthLong
+            conn.inputStream.use { input ->
+                part.outputStream().use { out ->
+                    val buffer = ByteArray(64 * 1024)
+                    var done = 0L
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        out.write(buffer, 0, n)
+                        done += n
+                        onProgress?.invoke(done, total)
+                    }
+                }
+            }
             if (!part.renameTo(target)) throw IOException("Couldn't save the photo")
         } finally {
             conn.disconnect()

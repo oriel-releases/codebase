@@ -1,14 +1,20 @@
 package uz.akbarjon.oriel.ui
 
+import androidx.compose.foundation.layout.wrapContentWidth
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.material3.pulltorefresh.pullToRefresh
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.material3.SheetState
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.slideInVertically
@@ -129,6 +135,29 @@ val LocalSnackbar = staticCompositionLocalOf { SnackbarHostState() }
 fun shareText(context: Context, text: String, title: String = "Share") {
     val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
     context.startActivity(Intent.createChooser(send, title).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+}
+
+/**
+ * Shares a wallpaper: the picture itself and [text] (the link) together, so chat apps send the photo with the link
+ * under it. The picture is downloaded once (full quality, at most 2160 wide) into the cache and lent to the app it goes
+ * to; when it can't be had, the link goes alone.
+ */
+suspend fun sharePhoto(context: Context, photo: uz.akbarjon.oriel.data.Photo, text: String, title: String = "Share") {
+    val file = withContext(Dispatchers.IO) {
+        runCatching {
+            val dir = java.io.File(context.cacheDir, "shared").apply { mkdirs() }
+            val out = java.io.File(dir, "oriel-${photo.id.filter { it.isLetterOrDigit() }}.jpg")
+            if (!out.exists() || out.length() == 0L) uz.akbarjon.oriel.data.Http.download(photo.sized(2160, quality = 90), out)
+            out
+        }.getOrNull()
+    }
+    if (file == null) { shareText(context, text, title); return }
+    val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.shared", file)
+    val send = Intent(Intent.ACTION_SEND).setType("image/jpeg")
+        .putExtra(Intent.EXTRA_STREAM, uri).putExtra(Intent.EXTRA_TEXT, text)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    send.clipData = android.content.ClipData.newRawUri(null, uri)
+    context.startActivity(Intent.createChooser(send, title).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION))
 }
 
 fun openUrl(context: Context, url: String) {
@@ -381,6 +410,51 @@ fun SecondaryButton(
     }
 }
 
+/**
+ * Pull to refresh, in Oriel's colors: [content] is a list that scrolls; pulled down from its top, [onRefresh] runs and
+ * an ink spinner on a paper disc shows until it's done (at least a moment, so a quick answer still reads as done).
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun PullRefresh(
+    onRefresh: suspend () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+    /** The spinner shows at least this long: a refresh that answers at once still looks like it did something. */
+    minimumMs: Long = 700,
+    content: @Composable () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    var refreshing by remember { mutableStateOf(false) }
+    val state = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
+    val c = Palette.colors
+    Box(
+        modifier.pullToRefresh(refreshing, state, enabled) {
+            refreshing = true
+            haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.GestureThresholdActivate)
+            scope.launch {
+                val started = System.currentTimeMillis()
+                try { onRefresh() } finally {
+                    kotlinx.coroutines.delay((minimumMs - (System.currentTimeMillis() - started)).coerceAtLeast(0))
+                    refreshing = false
+                }
+            }
+        },
+    ) {
+        content()
+        androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator(
+            state, refreshing, Modifier.align(Alignment.TopCenter),
+            containerColor = c.paper, color = c.ink,
+        )
+    }
+}
+
+/**
+ * Lists and forms keep a comfortable reading width on a wide screen (a phone on its side): centered, at most 640dp.
+ * Upright, a phone is narrower than that, so nothing changes there.
+ */
+fun Modifier.readableWidth(): Modifier =
+    fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = 640.dp)
+
 /** A quiet text action ("Forgot password?"). */
 @Composable
 fun TextAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, color: Color = Palette.colors.ink, enabled: Boolean = true) {
@@ -466,11 +540,15 @@ fun ToggleChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: 
     }
 }
 
-/** Options in one track, with the ink selection sliding between them. */
+/**
+ * Options in one track, with the ink selection sliding between them. [position], when given, places it exactly (an
+ * index with its fraction, like a pager's while it's dragged): the pill then moves with the finger, and each label's
+ * color blends as the pill passes over it.
+ */
 @Composable
 fun <T> Segmented(
     options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit, modifier: Modifier = Modifier,
-    track: Color = Palette.colors.surface,
+    track: Color = Palette.colors.surface, position: (() -> Float)? = null,
 ) {
     val c = Palette.colors
     val haptics = LocalHapticFeedback.current
@@ -479,11 +557,17 @@ fun <T> Segmented(
         val w = maxWidth / options.size
         val index = options.indexOfFirst { it.first == selected }.coerceAtLeast(0)
         val x by animateDpAsState(w * index, spring(dampingRatio = 0.8f, stiffness = 600f), label = "segment")
-        Box(Modifier.offset(x = x).width(w).fillMaxHeight().clip(CircleShape).background(c.ink))
+        val wPx = with(LocalDensity.current) { w.toPx() }
+        Box(
+            Modifier.offset { IntOffset(if (position != null) (wPx * position()).roundToInt() else x.roundToPx(), 0) }
+                .width(w).fillMaxHeight().clip(CircleShape).background(c.ink),
+        )
         Row(Modifier.fillMaxSize()) {
             options.forEachIndexed { i, (value, label) ->
                 val on = i == index
-                val fg by animateColorAsState(if (on) c.paper else c.muted, label = "segmentText")
+                val animated by animateColorAsState(if (on) c.paper else c.muted, label = "segmentText")
+                val fg = if (position != null) androidx.compose.ui.graphics.lerp(c.muted, c.paper, (1f - kotlin.math.abs(position() - i)).coerceIn(0f, 1f))
+                else animated
                 Box(
                     Modifier.weight(1f).fillMaxHeight().clip(CircleShape)
                         .clickable(remember { MutableInteractionSource() }, null) {

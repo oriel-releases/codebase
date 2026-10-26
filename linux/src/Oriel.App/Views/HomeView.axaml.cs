@@ -119,6 +119,31 @@ public partial class HomeView : UserControl
 
     const string Message = "A wallpaper I like. Open this link to set it on your computer in one click:";
 
+    /// <summary>The picture itself on the clipboard (Telegram, WhatsApp and most apps paste it as a photo).</summary>
+    async void CopyImage_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not HomeViewModel { ShareEntry: { } entry } vm || TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard) return;
+        if (await Oriel.UI.Services.ShareImage.FileForAsync(entry) is not { } file) return;
+        var link = await vm.CreateShareLinkAsync();
+        await CopyImageAsync(clipboard, file, link is null ? null : $"{Message} {link}");
+        await vm.MarkLinkCopiedAsync();
+    }
+
+    /// <summary>
+    /// The picture and the words with the link on the clipboard together: an app that pastes pictures takes the photo,
+    /// one that pastes text takes the words.
+    /// </summary>
+    static async Task CopyImageAsync(Avalonia.Input.Platform.IClipboard clipboard, string file, string? text)
+    {
+        using var bitmap = new Avalonia.Media.Imaging.Bitmap(file);
+        var item = new Avalonia.Input.DataTransferItem();
+        item.SetBitmap(bitmap);
+        if (text is not null) item.SetText(text);
+        var data = new Avalonia.Input.DataTransfer();
+        data.Add(item);
+        await clipboard.SetDataAsync(data);
+    }
+
     async void CopyLink_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is not HomeViewModel vm || await vm.CreateShareLinkAsync() is not { } link) return;

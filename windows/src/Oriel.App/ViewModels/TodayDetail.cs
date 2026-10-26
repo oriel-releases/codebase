@@ -34,7 +34,7 @@ public sealed partial class TodayDetail : ObservableObject, IPhotoDetail
     public string Headline => "Wallpaper of the day";
     public string Facts => DateTime.Now.ToString("dddd, d MMMM");
     public string Subtitle => $"Photo by {_photo.By}";
-    public IReadOnlyList<string> Chips => [Facts];
+    public IReadOnlyList<PhotoFact> Chips => [new(PhotoFactKind.Date, Facts)];
     public string PhotographerName => _photo.By;
     public Uri PhotographerUri => _photo.AuthorUri;
     public Uri PhotoPageUri => new($"https://unsplash.com/photos/{_photo.Id}?utm_source=oriel&utm_medium=referral");

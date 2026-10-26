@@ -103,7 +103,7 @@ fun OnboardingScreen(onDone: () -> Unit) {
         firstWallpaper()
     }
 
-    Column(Modifier.fillMaxSize().background(c.paper).systemBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp)) {
+    Column(Modifier.fillMaxSize().background(c.paper).systemBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp).readableWidth()) {
         // Progress on the question steps, and Skip until the end.
         Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
             if (step in 1..3) {
@@ -123,7 +123,13 @@ fun OnboardingScreen(onDone: () -> Unit) {
             }
         }
 
-        AnimatedContent(step, Modifier.weight(1f), transitionSpec = { slideThrough(forward = targetState > initialState) }, label = "tourStep") { s ->
+        AnimatedContent(
+            step,
+            // Swiping goes where Back and Next would (Next waits for an interest on that step); the end is a button.
+            Modifier.weight(1f).swipeSteps(
+                can = { dir -> if (dir == 1) step in 0..3 && (step != 1 || picked.isNotEmpty()) else step in 1..3 },
+            ) { dir -> step += dir },
+            transitionSpec = { slideThrough(forward = targetState > initialState) }, label = "tourStep") { s ->
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 12.dp, bottom = 16.dp)) {
                 when (s) {
                     0 -> Welcome()

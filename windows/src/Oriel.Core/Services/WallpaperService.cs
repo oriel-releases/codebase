@@ -654,6 +654,16 @@ public sealed class WallpaperService(
         }
     }
 
+    /// <summary>How far apart two "#RRGGBB" colors are (the channels' differences added up; 0 to 765).</summary>
+    public static int ColorDistance(string a, string b)
+    {
+        static (int R, int G, int B) Parse(string h) =>
+            (Convert.ToInt32(h[1..3], 16), Convert.ToInt32(h[3..5], 16), Convert.ToInt32(h[5..7], 16));
+        if (a.Length != 7 || b.Length != 7) return int.MaxValue;
+        var (x, y) = (Parse(a), Parse(b));
+        return Math.Abs(x.R - y.R) + Math.Abs(x.G - y.G) + Math.Abs(x.B - y.B);
+    }
+
     /// <summary>The accent color chosen for the photo, or null when Oriel picks it.</summary>
     public string? ChosenAccent(string? photoId) =>
         settingsStore.LoadState() is { AccentPhotoId: { } id, AccentColor: { } hex } && id == photoId ? hex : null;
@@ -664,6 +674,7 @@ public sealed class WallpaperService(
     /// </summary>
     public async Task ChooseAccentAsync(HistoryEntry entry, string hex)
     {
+        _accentChosenAt = DateTimeOffset.UtcNow;
         RememberAccent(entry.PhotoId, hex);
         if (accent is not null)
         {
@@ -672,6 +683,14 @@ public sealed class WallpaperService(
         }
         if (sync is not null) await sync.PublishColorAsync(entry, hex);
     }
+
+    DateTimeOffset _accentChosenAt;
+
+    /// <summary>
+    /// A color was chosen here moments ago: the account's copy may still be the old one (the write is on its way), so a
+    /// check now must not take it back.
+    /// </summary>
+    public bool RecentlyChoseAccent => DateTimeOffset.UtcNow - _accentChosenAt < TimeSpan.FromSeconds(20);
 
     /// <summary>Another device chose this color for the photo on screen: used here too (when the accent follows the photo).</summary>
     public async Task ReceiveAccentAsync(string photoId, string hex)

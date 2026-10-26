@@ -67,6 +67,8 @@
                         <Button.Flyout>
                             <MenuFlyout Placement="TopEdgeAlignedRight">
                                 <MenuItem Header="Copy link" Click="CopyLink_Click" />
+                                <!--  No system share sheet here: the picture goes on the clipboard, to paste into a chat with the link.  -->
+                                <MenuItem Header="Copy image" Click="CopyImage_Click" />
                                 <MenuItem Header="Telegram" Click="ShareTelegram_Click" />
                                 <MenuItem Header="WhatsApp" Click="ShareWhatsApp_Click" />
                                 <MenuItem Header="Email" Click="ShareEmail_Click" />

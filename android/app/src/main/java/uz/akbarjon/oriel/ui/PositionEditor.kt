@@ -1,5 +1,8 @@
 package uz.akbarjon.oriel.ui
 
+import kotlin.math.roundToInt
+import kotlinx.coroutines.withContext
+import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -87,10 +90,13 @@ fun PositionEditor(photo: Photo, onSet: (suspend (Position) -> ChangeResult)? = 
     val screenAspect = screenW.toFloat() / screenH
     val bitmap by produceState<ImageBitmap?>(null, photo.id) { value = loadBitmap(photo.sized(1400, quality = 85, format = "webp")) }
 
-    val start = remember(photo.id) { Positions.custom(photo.id) }
+    val current = remember(photo.id) { Positions.of(photo.id) }
+    val start = current as? Position.Focus
     var mode by remember(photo.id) {
-        mutableStateOf(if (start != null) Mode.Custom else if (Positions.default() == Position.Center) Mode.Center else Mode.Smart)
+        mutableStateOf(when (current) { is Position.Focus -> Mode.Custom; Position.Center -> Mode.Center; else -> Mode.Smart })
     }
+    // Where Unsplash's smart crop really falls on this photo (0..1 along it), found once; the middle until then.
+    val smartAt by produceState<Float?>(null, photo.id) { value = if (photo.isAi) 0.5f else smartCenter(photo, screenAspect) }
     // The window's center, 0..1 across (or down) the photo.
     var focus by remember(photo.id) { mutableFloatStateOf(start?.let { it.x } ?: 0.5f) }
     var focusY by remember(photo.id) { mutableFloatStateOf(start?.let { it.y } ?: 0.5f) }
@@ -125,7 +131,8 @@ fun PositionEditor(photo: Photo, onSet: (suspend (Position) -> ChangeResult)? = 
                     val slack = if (across) pw - ww else ph - wh
                     val shown = when (mode) {
                         Mode.Custom -> if (across) focus else focusY
-                        else -> 0.5f // Smart crops where Unsplash finds faces or detail: shown from the middle
+                        Mode.Smart -> smartAt ?: 0.5f   // where Unsplash finds faces or detail (an AI picture: the middle)
+                        Mode.Center -> 0.5f
                     }
                     val center by animateFloatAsState(shown, if (dragging) spring(stiffness = 3000f) else spring(dampingRatio = 0.8f, stiffness = 500f), label = "window")
                     val density = LocalDensity.current
@@ -210,7 +217,8 @@ fun PositionEditor(photo: Photo, onSet: (suspend (Position) -> ChangeResult)? = 
                         Oriel.scope.launch(Dispatchers.Main) {
                             // A picture not set yet (the AI tab) is set with this crop; the wallpaper on screen is cropped again.
                             when (val result = onSet?.invoke(position) ?: Oriel.wallpapers.reposition(photo, position)) {
-                                is ChangeResult.Applied -> { onDismiss(); snackbar.showSnackbar("Position set") }
+                                // Done: the editor closes with a tick, and the wallpaper itself shows it (no message).
+                                is ChangeResult.Applied -> { haptics.performHapticFeedback(HapticFeedbackType.Confirm); onDismiss() }
                                 is ChangeResult.Failed -> snackbar.showSnackbar(result.message)
                                 ChangeResult.Skipped -> Unit
                             }
@@ -223,3 +231,48 @@ fun PositionEditor(photo: Photo, onSet: (suspend (Position) -> ChangeResult)? = 
         }
     }
 }
+
+/**
+ * Where Unsplash's smart crop (faces, then detail) puts the phone-shaped window on [photo]: 0..1 along the side it
+ * moves on (across a wide photo, down a tall one), the window's middle. Unsplash doesn't say, so it's found by looking:
+ * the smart-cropped picture and the whole photo, both small and the same height (or width), and the place along the
+ * photo where the crop matches best. Null when either can't be had.
+ */
+private suspend fun smartCenter(photo: Photo, screenAspect: Float): Float? = withContext(Dispatchers.Default) {
+    runCatching {
+        val whole = decode(photo.sized(400, quality = 80)) ?: return@runCatching null
+        val photoAspect = whole.width.toFloat() / whole.height
+        val across = photoAspect > screenAspect
+        // Both pictures with the same fixed side, so the crop slides along the other one.
+        val fixed = 160
+        val full = decode(if (across) photo.sized((fixed * photoAspect).roundToInt(), quality = 80) else photo.sized(fixed, quality = 80))
+            ?: return@runCatching null
+        val crop = decode(
+            if (across) photo.sized((fixed * screenAspect).roundToInt(), fixed, quality = 80, position = Position.Smart)
+            else photo.sized(fixed, (fixed / screenAspect).roundToInt(), quality = 80, position = Position.Smart),
+        ) ?: return@runCatching null
+        val length = if (across) full.width else full.height
+        val window = if (across) crop.width else crop.height
+        val side = minOf(if (across) full.height else full.width, if (across) crop.height else crop.width)
+        if (window >= length) return@runCatching 0.5f
+        fun luma(b: Bitmap, x: Int, y: Int): Int = b.getPixel(x, y).let { ((it shr 16 and 0xFF) * 3 + (it shr 8 and 0xFF) * 6 + (it and 0xFF)) / 10 }
+        var best = 0
+        var bestCost = Long.MAX_VALUE
+        for (shift in 0..(length - window)) {
+            var cost = 0L
+            // Every 3rd pixel both ways: plenty to tell the places apart, and quick.
+            for (a in 0 until window step 3) for (b in 0 until side step 3) {
+                val c = if (across) luma(crop, a, b) else luma(crop, b, a)
+                val f = if (across) luma(full, a + shift, b) else luma(full, b, a + shift)
+                cost += kotlin.math.abs(c - f)
+            }
+            if (cost < bestCost) { bestCost = cost; best = shift }
+        }
+        (best + window / 2f) / length
+    }.getOrNull()
+}
+
+private suspend fun decode(url: String): Bitmap? = runCatching {
+    val bytes = uz.akbarjon.oriel.data.Http.bytes(url)
+    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+}.getOrNull()

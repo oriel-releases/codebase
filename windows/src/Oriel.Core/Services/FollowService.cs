@@ -304,7 +304,8 @@ public sealed class FollowService(AuthService auth, FirebaseClient firebase, ISe
             if (Providers.PollinationsClient.IsAiPhoto(photoId))
             {
                 if (Providers.PollinationsClient.FromLink(current!.ImageUrl ?? "", current.Description) is not { } made) return;
-                if (color is not null) wallpapers.RememberAccent(photoId, color);
+                // Its accent is this computer's own first pick (the other device's, read from its own copy, is a shade
+                // off and would show as a custom color); a color chosen there comes over afterwards (TakeAccentAsync).
                 wallpapers.ReportPhase(ApplyPhase.Receiving);
                 if ((await wallpapers.ApplyLinkedAsync(made, following ? $"from {settings.FollowName}" : "synced", following, ct)).Status
                     != ApplyStatus.Applied) return;
@@ -323,8 +324,8 @@ public sealed class FollowService(AuthService auth, FirebaseClient firebase, ISe
                 wallpapers.FinishPhase();
                 throw;
             }
-            // Its accent: the color the other device chose, so every device shows the same one.
-            if (color is not null) wallpapers.RememberAccent(photoId, color);
+            // Its accent: this computer's own first pick; a color chosen on the other device comes over once it's
+            // here (TakeAccentAsync matches it to this computer's choices).
             // A friend's photo is passed on to this account's other devices; the account's own isn't sent back.
             var result = await wallpapers.ApplyPhotoAsync(photo, following ? $"from {settings.FollowName}" : "synced", ct, publish: following);
             if (result.Status != ApplyStatus.Applied) return;
@@ -354,6 +355,15 @@ public sealed class FollowService(AuthService auth, FirebaseClient firebase, ISe
     async Task TakeAccentAsync(string? photoId, string? color)
     {
         if (photoId is null || color is null || history?.List().FirstOrDefault()?.PhotoId != photoId) return;
+        if (wallpapers.RecentlyChoseAccent) return; // its own choice, not saved to the account yet
+        // The other device read its colors from its own copy: the same choice is a shade off here. Matched to this
+        // computer's nearest one; its first pick (what it uses unasked) means nothing to change.
+        if (history?.List().FirstOrDefault() is { } shown && await wallpapers.AccentOptionsAsync(shown) is { Count: > 0 } options)
+        {
+            var nearest = options.MinBy(o => WallpaperService.ColorDistance(o, color));
+            if (nearest is not null && WallpaperService.ColorDistance(nearest, color) < 90) color = nearest;
+            if (wallpapers.ChosenAccent(photoId) is null && string.Equals(color, options[0], StringComparison.OrdinalIgnoreCase)) return;
+        }
         if (string.Equals(wallpapers.ChosenAccent(photoId), color, StringComparison.OrdinalIgnoreCase)) return;
         await wallpapers.ReceiveAccentAsync(photoId, color);
         log.LogInformation("Using the accent color {Color} chosen on another device", color);

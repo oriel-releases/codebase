@@ -40,8 +40,10 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         _ = LoadAccountPhotoAsync();
     }
 
-    public string[] IntervalOptions { get; } = ["Once a day", "Every hour", "Every 3 hours", "Every 6 hours", "Every 12 hours"];
-    static readonly int[] IntervalMinutes = [0, 60, 180, 360, 720];
+    // "Once a day" last: the choices run from the most often to the least.
+    public string[] IntervalOptions { get; } = ["Every hour", "Every 3 hours", "Every 6 hours", "Every 12 hours", "Once a day"];
+    static readonly int[] IntervalMinutes = [60, 180, 360, 720, 0];
+    static readonly int DailyIndex = Array.IndexOf(IntervalMinutes, 0);
     public string[] FitModes { get; } = ["Fill", "Fit", "Stretch", "Tile", "Center", "Span"];
 
     // Photos
@@ -76,7 +78,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsDaily))]
     public partial int IntervalIndex { get; set; }
     /// <summary>The daily time and login options only make sense when not running a slideshow.</summary>
-    public bool IsDaily => IntervalIndex <= 0;
+    public bool IsDaily => IntervalIndex < 0 || IntervalMinutes[IntervalIndex] == 0;
     [ObservableProperty] public partial int SourceIndex { get; set; }
     public string[] SourceOptions { get; } = ["New photos", "My favorites"];
     [ObservableProperty] public partial bool ApplyAtLogin { get; set; }
@@ -149,7 +151,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         _loading = true;
         var s = _settings.Load();
         DailyTime = s.GetDailyTime().ToTimeSpan();
-        IntervalIndex = Math.Max(0, Array.IndexOf(IntervalMinutes, s.IntervalMinutes));
+        IntervalIndex = Array.IndexOf(IntervalMinutes, s.IntervalMinutes) is var i and >= 0 ? i : DailyIndex;
         ShowZone(s.TimeZone);
         SourceIndex = s.FavoritesOnly ? 1 : 0;
         Shortcut = s.Hotkey;
@@ -202,9 +204,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         IsMovingFolder = true;
         try
         {
-            var count = await Task.Run(() => _folderMover.MoveTo(folder));
+            await Task.Run(() => _folderMover.MoveTo(folder));
             PicturesFolder = _paths.WallpaperFolder(_settings.Load());
-            FolderInfo.Show(InfoSeverity.Success, "", count == 1 ? "Moved 1 photo." : $"Moved {count} photos.");
+            // Moved: nothing to say (only a failure is).
         }
         catch (WallpaperException ex)
         {

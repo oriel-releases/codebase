@@ -118,6 +118,68 @@ public partial class PhotoDetailView : UserControl
         LargeImage.Opacity = 1;
     }
 
+    IPhotoDetail? _watched;
+
+    /// <summary>A new photo on the page: its button's words, and whether it's the wallpaper already.</summary>
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        if (_watched is not null) _watched.PropertyChanged -= Photo_PropertyChanged;
+        _watched = DataContext as IPhotoDetail;
+        if (_watched is null) return;
+        _watched.PropertyChanged += Photo_PropertyChanged;
+        _shownText = SetText.Text = _watched.ButtonText;
+        ShowCurrent();
+    }
+
+    void Photo_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(IPhotoDetail.ButtonText) && e.PropertyName != nameof(IPhotoDetail.IsIdle)) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_watched is null) return;
+            _ = SwapTextAsync(_watched.ButtonText);
+            ShowCurrent();
+        });
+    }
+
+    /// <summary>
+    /// The photo already on the screen (the newest in History) has nothing to set: "Your wallpaper" shows instead of the
+    /// button. Not while it's being set from here: the steps show on the button until it's done.
+    /// </summary>
+    void ShowCurrent()
+    {
+        var current = _watched is { IsIdle: true } photo
+            && App.Get<Oriel.Core.Storage.IHistoryStore>().List().FirstOrDefault()?.PhotoId == photo.ShareEntry.PhotoId;
+        SetButton.IsVisible = !current;
+        CurrentPill.IsVisible = current;
+    }
+
+    string _shownText = "";
+
+    /// <summary>The button's old words slide up and fade, the new ones rise in from below (Finding a photo…, Downloading…).</summary>
+    async Task SwapTextAsync(string text)
+    {
+        if (text == _shownText) return;
+        _shownText = text;
+        await Slide(0, -8, 1, 0, new CubicEaseIn()).RunAsync(SetText);
+        if (_shownText != text) return; // a newer word is on its way
+        SetText.Text = text;
+        await Slide(8, 0, 0, 1, new CubicEaseOut()).RunAsync(SetText);
+    }
+
+    static Animation Slide(double fromY, double toY, double fromOpacity, double toOpacity, Easing easing) => new()
+    {
+        Duration = TimeSpan.FromMilliseconds(130),
+        Easing = easing,
+        FillMode = FillMode.Forward,
+        Children =
+        {
+            new KeyFrame { Cue = new Cue(0), Setters = { new Setter(TranslateTransform.YProperty, fromY), new Setter(OpacityProperty, fromOpacity) } },
+            new KeyFrame { Cue = new Cue(1), Setters = { new Setter(TranslateTransform.YProperty, toY), new Setter(OpacityProperty, toOpacity) } },
+        },
+    };
+
     /// <summary>Back: the photo flies into its card (gone: the page just goes), then the page underneath shows again.</summary>
     public async void Close()
     {
@@ -211,11 +273,38 @@ public partial class PhotoDetailView : UserControl
         }
     }
 
+    /// <summary>The picture itself on the clipboard (Telegram, WhatsApp and most apps paste it as a photo).</summary>
+    async void CopyImage_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not IPhotoDetail photo || TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard) return;
+        if (await Oriel.UI.Services.ShareImage.FileForAsync(photo.ShareEntry) is not { } file)
+        {
+            Show("Couldn't get the picture. Check your connection.");
+            return;
+        }
+        var link = await LinkAsync();
+        await CopyImageAsync(clipboard, file, link is null ? null : $"{ShareText} {link}");
+    }
+
+    /// <summary>
+    /// The picture and the words with the link on the clipboard together: an app that pastes pictures takes the photo,
+    /// one that pastes text takes the words.
+    /// </summary>
+    static async Task CopyImageAsync(Avalonia.Input.Platform.IClipboard clipboard, string file, string? text)
+    {
+        using var bitmap = new Avalonia.Media.Imaging.Bitmap(file);
+        var item = new Avalonia.Input.DataTransferItem();
+        item.SetBitmap(bitmap);
+        if (text is not null) item.SetText(text);
+        var data = new Avalonia.Input.DataTransfer();
+        data.Add(item);
+        await clipboard.SetDataAsync(data);
+    }
+
     async void CopyLink_Click(object? sender, RoutedEventArgs e)
     {
         if (await LinkAsync() is not { } link) return;
         if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard) await clipboard.SetTextAsync(link);
-        Show("Link copied.");
     }
 
     void ShareTelegram_Click(object? sender, RoutedEventArgs e) =>

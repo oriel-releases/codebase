@@ -67,21 +67,26 @@ import uz.akbarjon.oriel.data.Source
 
 private enum class Sheet { Interval, Time, Zone, Screen, Position, SignOut }
 
-internal val INTERVALS = listOf(0 to "Once a day", 60 to "Every hour", 180 to "Every 3 hours", 360 to "Every 6 hours", 720 to "Every 12 hours")
+// "Once a day" last: the choices run from the most often to the least.
+internal val INTERVALS = listOf(60 to "Every hour", 180 to "Every 3 hours", 360 to "Every 6 hours", 720 to "Every 12 hours", 0 to "Once a day")
 
 @Composable
 fun SettingsScreen(onSignedOut: () -> Unit) {
-    // Friends lives here (not in the tab bar): set up once, opened now and then. It slides in like Interests in Explore.
-    var friends by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-    androidx.compose.animation.AnimatedContent(friends, transitionSpec = { slideThrough(forward = targetState) }, label = "friends") { open ->
+    // Friends and Updates live here (not in the tab bar): opened now and then. They slide in like Interests in Explore.
+    var page by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    androidx.compose.animation.AnimatedContent(page, transitionSpec = { slideThrough(forward = targetState != null) }, label = "subpage") { open ->
         Box(Modifier.fillMaxSize().clipToBounds()) {
-            if (open) FriendsScreen(onBack = { friends = false }) else SettingsPage(onSignedOut, onFriends = { friends = true })
+            when (open) {
+                "friends" -> FriendsScreen(onBack = { page = null })
+                "updates" -> UpdatesScreen(onBack = { page = null })
+                else -> SettingsPage(onSignedOut, onFriends = { page = "friends" }, onUpdates = { page = "updates" })
+            }
         }
     }
 }
 
 @Composable
-private fun SettingsPage(onSignedOut: () -> Unit, onFriends: () -> Unit) {
+private fun SettingsPage(onSignedOut: () -> Unit, onFriends: () -> Unit, onUpdates: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settings by Oriel.store.settings.collectAsState()
@@ -96,7 +101,7 @@ private fun SettingsPage(onSignedOut: () -> Unit, onFriends: () -> Unit) {
     }
 
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).readableWidth()) {
         ScreenTitle("Settings")
 
         // The same sections as the computers: Account, Schedule and Photos (every device), Display (this phone), About.
@@ -171,35 +176,40 @@ private fun SettingsPage(onSignedOut: () -> Unit, onFriends: () -> Unit) {
             SettingRow("Photo position", if (settings.photoPosition == "center") "Center" else "Smart", OrielIcons.Crop,
                 onClick = { sheet = Sheet.Position })
         }
-        Text("Adjust any wallpaper on Home. These stay on this phone.", style = MaterialTheme.typography.bodySmall,
-            color = Palette.colors.muted, modifier = Modifier.padding(start = 32.dp, end = 32.dp, top = 8.dp))
 
         SectionLabel("About")
         Group {
+            // Updates have their own page: the version, a button for the next step, and what's new.
             val update by Updater.state.collectAsState()
             SettingRow(
-                "Version",
+                "Updates",
                 when (val u = update) {
                     is UpdateState.Checking -> "Checking…"
-                    is UpdateState.Downloading -> "Downloading ${u.version}…"
+                    is UpdateState.Downloading -> u.progress?.let { "Downloading ${(it * 100).toInt()}%" } ?: "Downloading…"
                     is UpdateState.Installing -> "Installing ${u.version}…"
-                    is UpdateState.NeedsConfirm -> "Install ${u.version}"
-                    is UpdateState.UpToDate -> "${BuildConfig.VERSION_NAME} · Up to date"
-                    else -> "${BuildConfig.VERSION_NAME} beta"
+                    is UpdateState.NeedsConfirm -> "${u.version} ready"
+                    is UpdateState.ReadyToRestart -> "${u.version} ready"
+                    else -> BuildConfig.VERSION_NAME
                 },
-                OrielIcons.Info,
-                onClick = if (Updater.enabled) ({ if (!Updater.confirm(context)) Updater.checkSoon(context, force = true) }) else null,
+                OrielIcons.Download, onClick = onUpdates,
             )
-            RowDivider()
-            SettingRow("Photos by Unsplash", icon = OrielIcons.Image,
+        }
+        // These open in the browser: a link icon on the right instead of the arrow (which means a page inside the app).
+        Spacer(Modifier.height(12.dp))
+        Group {
+            val link: @Composable () -> Unit = {
+                Icon(OrielIcons.ExternalLink, null, tint = Palette.colors.muted.copy(alpha = 0.6f), modifier = Modifier.size(17.dp))
+            }
+            SettingRow("Photos by Unsplash", icon = OrielIcons.Image, trailing = link,
                 onClick = { openUrl(context, "https://unsplash.com/?utm_source=oriel&utm_medium=referral") })
             RowDivider()
             // The AI wallpapers come from Pollinations: credited like Unsplash.
-            SettingRow("Pictures made with Pollinations", icon = OrielIcons.Sparkles, onClick = { openUrl(context, "https://pollinations.ai/") })
+            SettingRow("Pictures made with Pollinations", icon = OrielIcons.Sparkles, trailing = link,
+                onClick = { openUrl(context, "https://pollinations.ai/") })
             RowDivider()
-            SettingRow("Get help", icon = OrielIcons.Send, onClick = { openUrl(context, "https://t.me/oriel_support_bot") })
+            SettingRow("Get help", icon = OrielIcons.Send, trailing = link, onClick = { openUrl(context, "https://t.me/oriel_support_bot") })
             RowDivider()
-            SettingRow("Privacy", icon = OrielIcons.Shield, onClick = { openUrl(context, "https://oriel.akbarjon.uz/privacy") })
+            SettingRow("Privacy", icon = OrielIcons.Shield, trailing = link, onClick = { openUrl(context, "https://oriel.akbarjon.uz/privacy") })
         }
         BottomBarSpacer()
     }

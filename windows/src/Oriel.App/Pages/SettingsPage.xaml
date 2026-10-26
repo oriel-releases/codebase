@@ -149,11 +149,9 @@
                         <Vector3Transition Duration="0:0:0.26" />
                     </controls:SettingRow.TranslationTransition>
                     <ToggleSwitch
-                        MinWidth="0"
                         AutomationProperties.Name="Change at sign-in"
                         IsOn="{x:Bind ViewModel.ApplyAtLogin, Mode=TwoWay}"
-                        OffContent=""
-                        OnContent="" />
+                        Style="{StaticResource FlushToggleSwitchStyle}" />
                 </controls:SettingRow>
             </StackPanel>
 
@@ -182,22 +180,18 @@
                     Glyph="&#xE708;"
                     Header="Match the time of day">
                     <ToggleSwitch
-                        MinWidth="0"
                         AutomationProperties.Name="Match the time of day"
                         IsOn="{x:Bind ViewModel.MatchTimeOfDay, Mode=TwoWay}"
-                        OffContent=""
-                        OnContent="" />
+                        Style="{StaticResource FlushToggleSwitchStyle}" />
                 </controls:SettingRow>
                 <controls:SettingRow
                     Description="Prefer photos other people liked on Unsplash."
                     Glyph="&#xE8E1;"
                     Header="Popular photos only">
                     <ToggleSwitch
-                        MinWidth="0"
                         AutomationProperties.Name="Popular photos only"
                         IsOn="{x:Bind ViewModel.SkipLowLikes, Mode=TwoWay}"
-                        OffContent=""
-                        OnContent="" />
+                        Style="{StaticResource FlushToggleSwitchStyle}" />
                 </controls:SettingRow>
                 <!--  Slides and fades in under its switch, and back out (SettingsPage.ShowMinLikes).  -->
                 <controls:SettingRow
@@ -210,7 +204,7 @@
                     <controls:SettingRow.TranslationTransition>
                         <Vector3Transition Duration="0:0:0.26" />
                     </controls:SettingRow.TranslationTransition>
-                    <StackPanel Orientation="Horizontal" Spacing="14">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
                         <Slider
                             Width="220"
                             VerticalAlignment="Center"
@@ -222,10 +216,12 @@
                             SmallChange="50"
                             StepFrequency="50"
                             Value="{x:Bind ViewModel.MinLikes, Mode=TwoWay}" />
+                        <!--  Just wide enough for "1,000+ likes" (so the slider doesn't shift as the number changes), flush right.  -->
                         <TextBlock
-                            MinWidth="90"
+                            MinWidth="76"
                             VerticalAlignment="Center"
-                            Text="{x:Bind ViewModel.MinLikesText, Mode=OneWay}" />
+                            Text="{x:Bind ViewModel.MinLikesText, Mode=OneWay}"
+                            TextAlignment="Right" />
                     </StackPanel>
                 </controls:SettingRow>
             </StackPanel>
@@ -260,22 +256,18 @@
                     Header="A photo for each monitor"
                     Visibility="{x:Bind ViewModel.HasMonitors}">
                     <ToggleSwitch
-                        MinWidth="0"
                         AutomationProperties.Name="A photo for each monitor"
                         IsOn="{x:Bind ViewModel.PhotoPerMonitor, Mode=TwoWay}"
-                        OffContent=""
-                        OnContent="" />
+                        Style="{StaticResource FlushToggleSwitchStyle}" />
                 </controls:SettingRow>
                 <controls:SettingRow
                     Description="Start, taskbar and buttons take a color from each new photo."
                     Glyph="&#xE790;"
                     Header="Match accent color">
                     <ToggleSwitch
-                        MinWidth="0"
                         AutomationProperties.Name="Match accent color"
                         IsOn="{x:Bind ViewModel.MatchAccentColor, Mode=TwoWay}"
-                        OffContent=""
-                        OnContent="" />
+                        Style="{StaticResource FlushToggleSwitchStyle}" />
                 </controls:SettingRow>
             </StackPanel>
 
@@ -294,11 +286,9 @@
                     Glyph="&#xE7E8;"
                     Header="Start with Windows">
                     <ToggleSwitch
-                        MinWidth="0"
                         AutomationProperties.Name="Start with Windows"
                         IsOn="{x:Bind ViewModel.StartWithWindows, Mode=TwoWay}"
-                        OffContent=""
-                        OnContent="" />
+                        Style="{StaticResource FlushToggleSwitchStyle}" />
                 </controls:SettingRow>
                 <controls:SettingRow
                     Description="{x:Bind ViewModel.ShortcutNote, Mode=OneWay}"

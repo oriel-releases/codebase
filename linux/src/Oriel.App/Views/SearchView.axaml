@@ -6,7 +6,8 @@
              x:Class="Oriel.UI.Views.SearchView"
              x:DataType="vm:CollectionsViewModel">
 
-    <ScrollViewer x:Name="Scroller">
+    <!--  A focus change never scrolls the page (opening a card could jump it to the search box first).  -->
+    <ScrollViewer x:Name="Scroller" BringIntoViewOnFocusChange="False">
         <Panel>
             <!--  ============ Explore: search at the top, then this hour's wallpapers ============  -->
             <StackPanel MaxWidth="960" Margin="40,32,40,40" IsVisible="{Binding IsSearchShown}">
@@ -55,7 +56,18 @@
 
                 <!--  This hour's wallpapers, the same for everyone (gone while searching)  -->
                 <StackPanel Margin="0,28,0,0" IsVisible="{Binding ShowStart}">
-                    <TextBlock Classes="section" Margin="2,0,0,12" Text="Fresh picks for you" />
+                    <!--  Refresh: a new hour's photos when they're out, else these in a new order.  -->
+                    <Grid Margin="2,0,0,12" ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="section" VerticalAlignment="Center" Text="Fresh picks for you" />
+                        <Button Grid.Column="1" Classes="icon" Command="{Binding RefreshExploreCommand}"
+                                IsEnabled="{Binding !IsExploreRefreshing}" ToolTip.Tip="Refresh">
+                            <Panel>
+                                <PathIcon Data="{StaticResource IconRefresh}" Width="15" Height="15" IsVisible="{Binding !IsExploreRefreshing}" />
+                                <Arc Classes="spinner" Classes.busy="{Binding IsExploreRefreshing}" Width="15" Height="15"
+                                     IsVisible="{Binding IsExploreRefreshing}" />
+                            </Panel>
+                        </Button>
+                    </Grid>
                     <Arc Classes="spinner" Classes.busy="{Binding IsExploreLoading}" Width="24" Height="24" Margin="0,24"
                          HorizontalAlignment="Center" />
                     <TextBlock Classes="muted" Margin="2,0,0,0" TextWrapping="Wrap" IsVisible="{Binding ExploreUnavailable}"

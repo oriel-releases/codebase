@@ -36,10 +36,34 @@ public interface IPhotoDetail : INotifyPropertyChanged
     void OpenFolder();
     /// <summary>Asks with <paramref name="confirm"/> first; true once it's gone.</summary>
     Task<bool> RemoveAsync(Func<string, Task<bool>> confirm);
-    /// <summary>Small facts shown as chips on its page: "6000 × 4000", "812 likes", "Nature".</summary>
-    IReadOnlyList<string> Chips { get; }
+    /// <summary>Small facts shown as pills on its page, each with its icon: "6000 × 4000", "812", "Nature".</summary>
+    IReadOnlyList<PhotoFact> Chips { get; }
     /// <summary>The photo, sharp at <paramref name="pixelWidth"/> real screen pixels (never stretched up from less).</summary>
     Task<ImageSource?> LoadLargeAsync(int pixelWidth);
+}
+
+public enum PhotoFactKind { Size, Likes, Date, Topic }
+
+/// <summary>One fact on a photo's page, shown as a small pill: what it is (its icon) and its words.</summary>
+public sealed record PhotoFact(PhotoFactKind Kind, string Text)
+{
+    /// <summary>Its icon (Segoe Fluent Icons).</summary>
+    public string Glyph => Kind switch
+    {
+        PhotoFactKind.Size => "\uE740",
+        PhotoFactKind.Likes => "\uEB51",
+        PhotoFactKind.Date => "\uE787",
+        _ => "\uE8EC",
+    };
+
+    /// <summary>Likes the way people read them at a glance: 812, 1.2K, 34K, 1.5M.</summary>
+    public static string Count(int n) => n switch
+    {
+        < 1_000 => n.ToString("N0"),
+        < 10_000 => $"{n / 1000.0:0.#}K",
+        < 1_000_000 => $"{n / 1000}K",
+        _ => $"{n / 1_000_000.0:0.#}M",
+    };
 }
 
 static class PhotoText

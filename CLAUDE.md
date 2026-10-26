@@ -62,6 +62,9 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   now), **Explore** (search on top, then this hour's feed; Interests live inside it, added only via "Add to Interests"), **AI** (AI Studio, see Create below),
   **History** (All / Favorites), **Settings** (Friends lives inside it, a row that opens it). Floating blurred navigation bar (Haze), a rail on the right in landscape.
   Black and white design, Lucide-style icons, every dialog a bottom sheet rounded on top only.
+- Gestures: the photo page scrolls up and down through the grid it came from (Explore, History) like a feed, and
+  pulled down at the first photo it closes; pull to refresh on Explore (this hour's feed) and History (favorites);
+  History's All and Favorites are pages side by side; the first-run tour swipes between its steps (`ui/Gestures.kt`).
 - Sign-in: **Google via Credential Manager** (native, no browser) or email and password.
 - First-run tour (`ui/OnboardingScreen.kt`, like the desktop one): once, on a phone that never had an Oriel wallpaper
   (`AppState.onboardingDone`); it ends, or is skipped, with the first wallpaper. Every app sets one on the first sign-in.
@@ -69,7 +72,8 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   A periodic job (~15 min, network + battery not low) checks the account's photo, settings and favorites.
 - **Photo position** (this phone only, not synced): Smart (`crop=faces,entropy`, the default), Center, or a custom focal
   point per photo from the editor (`crop=focalpoint&fp-x&fp-y`). Stored in SharedPreferences `positions`.
-- Updates itself from `oriel-releases/android` on launch and after each wallpaper change (`core/Updater.kt`).
+- Updates itself from `oriel-releases/android` on launch and after each wallpaper change (`core/Updater.kt`);
+  Settings > About > Updates (`ui/UpdatesScreen.kt`) shows the version (green bubbles while it is the latest) and one button at the bottom for the next step.
 - **Builds:** `release` = `uz.akbarjon.oriel`, minified, signed with the **release key**; `debug` and `staging` =
   `uz.akbarjon.oriel.dev` with the debug key (`staging` is non-debuggable, so it runs as fast as release: use it to try
   things on a phone, `./gradlew assembleStaging` + `adb install -r`). `JAVA_HOME` = Android Studio's `jbr`.

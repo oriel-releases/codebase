@@ -102,6 +102,8 @@ public sealed partial class HomeViewModel : ObservableObject
     readonly ShareService _shares;
     /// <summary>The photo on Home, when it can be shared (only Unsplash photos have a page to show).</summary>
     HistoryEntry? _shareEntry;
+    /// <summary>The photo a share sends (its picture goes along with the link).</summary>
+    public HistoryEntry? ShareEntry => _shareEntry;
     [ObservableProperty] public partial bool HasShareLink { get; set; }
 
     /// <summary>

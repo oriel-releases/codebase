@@ -45,11 +45,20 @@ public sealed partial class HomeViewModel : ObservableObject
         _wallpapers.AccentChosen += (_, _) => App.Dispatcher.TryEnqueue(MarkChosenAccent);
     }
 
-    // ---- The accent color: the photo's top three, one of them chosen ----
+    // ---- The accent color: the photo's top three or a custom one picked from it, one of them chosen ----
 
     public System.Collections.ObjectModel.ObservableCollection<AccentSwatchViewModel> Accents { get; } = [];
     [ObservableProperty] public partial bool HasAccents { get; set; }
     HistoryEntry? _accentEntry;
+
+    /// <summary>The custom color (picked with the eyedropper, here or on another device), or null for the plain eyedropper.</summary>
+    [ObservableProperty] public partial Brush? CustomAccent { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CustomRingOpacity))]
+    public partial bool IsCustomChosen { get; set; }
+    public double CustomRingOpacity => IsCustomChosen ? 1 : 0;
+    /// <summary>The pipette on the custom color: near-black on a pale one, else white.</summary>
+    [ObservableProperty] public partial Brush? CustomInk { get; set; }
 
     async Task LoadAccentsAsync(HistoryEntry entry)
     {
@@ -58,27 +67,57 @@ public sealed partial class HomeViewModel : ObservableObject
         if (_accentEntry != entry) return; // a newer photo came meanwhile
         Accents.Clear();
         foreach (var hex in options) Accents.Add(new AccentSwatchViewModel(this, hex));
-        // The chosen color may be one picked from another device's copy: shown first when it isn't among these.
-        if (_wallpapers.ChosenAccent(entry.PhotoId) is { } chosen && !Accents.Any(a => a.Is(chosen)))
-        {
-            Accents.Insert(0, new AccentSwatchViewModel(this, chosen));
-            if (Accents.Count > 3) Accents.RemoveAt(3);
-        }
         HasAccents = Accents.Count > 0;
         MarkChosenAccent();
     }
 
-    void MarkChosenAccent()
+    /// <summary>The photo's file, for the eyedropper (null before a photo is on Home).</summary>
+    public string? AccentPhotoFile => _accentEntry?.FilePath;
+
+    /// <summary>A color picked from the photo with the eyedropper: the accent here and on the other devices.</summary>
+    public async Task PickAccentAsync(string hex)
     {
-        var chosen = _accentEntry is { } e ? _wallpapers.ChosenAccent(e.PhotoId) : null;
+        if (_accentEntry is not { } entry) return;
+        ShowChosen(hex);
+        await Task.Run(() => _wallpapers.ChooseAccentAsync(entry, hex));
+    }
+
+    /// <summary>While the eyedropper is out, the custom button shows the color it would pick; null puts back the chosen one.</summary>
+    public void PreviewCustomAccent(string? hex)
+    {
+        if (hex is null) { MarkChosenAccent(); return; }
+        foreach (var a in Accents) a.IsChosen = false;
+        IsCustomChosen = true;
+        SetCustom(hex);
+    }
+
+    void SetCustom(string? hex)
+    {
+        CustomAccent = hex is null ? null : AccentSwatchViewModel.BrushOf(hex);
+        if (CustomAccent is SolidColorBrush { Color: var c })
+            CustomInk = new SolidColorBrush(0.299 * c.R + 0.587 * c.G + 0.114 * c.B > 160
+                ? Windows.UI.Color.FromArgb(0xFF, 0x14, 0x14, 0x14) : Microsoft.UI.Colors.White);
+    }
+
+    void MarkChosenAccent() => ShowChosen(_accentEntry is { } e ? _wallpapers.ChosenAccent(e.PhotoId) : null);
+
+    /// <summary>
+    /// Rings the chosen color: one of the three, or the eyedropper filled with it when it isn't among them (Oriel's own
+    /// pick, the first, when none was chosen).
+    /// </summary>
+    void ShowChosen(string? chosen)
+    {
+        var custom = chosen is not null && !Accents.Any(a => a.Is(chosen));
         for (var i = 0; i < Accents.Count; i++)
             Accents[i].IsChosen = chosen is null ? i == 0 : Accents[i].Is(chosen);
+        IsCustomChosen = custom;
+        SetCustom(custom ? chosen : null);
     }
 
     internal async Task ChooseAccentAsync(AccentSwatchViewModel swatch)
     {
         if (_accentEntry is not { } entry || swatch.IsChosen) return;
-        foreach (var a in Accents) a.IsChosen = a == swatch;
+        ShowChosen(swatch.Hex);
         await Task.Run(() => _wallpapers.ChooseAccentAsync(entry, swatch.Hex));
     }
 
@@ -100,6 +139,8 @@ public sealed partial class HomeViewModel : ObservableObject
     readonly ShareService _shares;
     /// <summary>The photo on Home, when it can be shared (only Unsplash photos have a page to show).</summary>
     HistoryEntry? _shareEntry;
+    /// <summary>The photo a share sends (its picture goes along with the link).</summary>
+    public HistoryEntry? ShareEntry => _shareEntry;
     [ObservableProperty] public partial bool HasShareLink { get; set; }
 
     /// <summary>
@@ -421,7 +462,8 @@ public sealed partial class HomeViewModel : ObservableObject
 public sealed partial class AccentSwatchViewModel(HomeViewModel owner, string hex) : ObservableObject
 {
     public string Hex { get; } = hex.ToUpperInvariant();
-    public Microsoft.UI.Xaml.Media.SolidColorBrush Brush { get; } = new(Windows.UI.Color.FromArgb(0xFF,
+    public Microsoft.UI.Xaml.Media.SolidColorBrush Brush { get; } = BrushOf(hex);
+    public static Microsoft.UI.Xaml.Media.SolidColorBrush BrushOf(string hex) => new(Windows.UI.Color.FromArgb(0xFF,
         Convert.ToByte(hex[1..3], 16), Convert.ToByte(hex[3..5], 16), Convert.ToByte(hex[5..7], 16)));
     public string Tip => $"Accent color {Hex}";
 

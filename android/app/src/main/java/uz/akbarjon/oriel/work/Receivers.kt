@@ -9,6 +9,7 @@ import uz.akbarjon.oriel.core.Scheduler
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Scheduler.reschedule(context)
+        if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) uz.akbarjon.oriel.core.Updater.relaunch(context)
     }
 }
 

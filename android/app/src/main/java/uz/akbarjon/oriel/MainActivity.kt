@@ -93,6 +93,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         Updater.foreground = false
+        // Not on a rotation: only when Oriel really leaves the screen does a waiting update install.
+        if (!isChangingConfigurations) Updater.onBackground(this)
         Pulse.stop()
         super.onStop()
     }
@@ -225,7 +227,20 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     }
-                    NavBar(tab, { tab = it }, haze, Modifier.align(if (side) Alignment.CenterEnd else Alignment.BottomCenter),
+                    // Taps around and under the bar stop there instead of reaching what scrolls under it.
+                    uz.akbarjon.oriel.ui.NavBarGuard(Modifier.align(if (side) Alignment.CenterEnd else Alignment.BottomCenter), vertical = side)
+                    // A photo flying home into its tile is drawn above everything: while it does, the bar is drawn above it,
+                    // so the photo glides under the bar, as the tiles do.
+                    val overFlight = uz.akbarjon.oriel.ui.LocalSharedScope.current?.let { scope ->
+                        with(scope) {
+                            Modifier.renderInSharedTransitionScopeOverlay(
+                                // All the way to the landing (and a moment past it), not just while the flight runs: let go a
+                                // frame early, the landing photo showed over the bar for that frame.
+                                zIndexInOverlay = 5f, renderInOverlay = { uz.akbarjon.oriel.ui.PhotoPages.leaving },
+                            )
+                        }
+                    } ?: Modifier
+                    NavBar(tab, { tab = it }, haze, overFlight.align(if (side) Alignment.CenterEnd else Alignment.BottomCenter),
                         onPhoto = onHome, vertical = side)
                 }
                 // A photo's own page, over the tabs and the navigation bar.

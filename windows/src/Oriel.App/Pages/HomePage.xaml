@@ -29,23 +29,22 @@
                                     <VisualState x:Name="Normal" />
                                     <VisualState x:Name="PointerOver">
                                         <VisualState.Setters>
-                                            <Setter Target="Scale.ScaleX" Value="1.15" />
-                                            <Setter Target="Scale.ScaleY" Value="1.15" />
+                                            <Setter Target="Presenter.Scale" Value="1.15,1.15,1" />
                                         </VisualState.Setters>
                                     </VisualState>
                                     <VisualState x:Name="Pressed">
                                         <VisualState.Setters>
-                                            <Setter Target="Scale.ScaleX" Value="0.92" />
-                                            <Setter Target="Scale.ScaleY" Value="0.92" />
+                                            <Setter Target="Presenter.Scale" Value="0.92,0.92,1" />
                                         </VisualState.Setters>
                                     </VisualState>
                                     <VisualState x:Name="Disabled" />
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
-                            <ContentPresenter x:Name="Presenter" RenderTransformOrigin="0.5,0.5">
-                                <ContentPresenter.RenderTransform>
-                                    <ScaleTransform x:Name="Scale" />
-                                </ContentPresenter.RenderTransform>
+                            <!--  Grows and dips smoothly (it jumped before), around the middle of its 24px dot.  -->
+                            <ContentPresenter x:Name="Presenter" CenterPoint="12,12,0">
+                                <ContentPresenter.ScaleTransition>
+                                    <Vector3Transition Duration="0:0:0.14" />
+                                </ContentPresenter.ScaleTransition>
                             </ContentPresenter>
                         </Grid>
                     </ControlTemplate>
@@ -54,7 +53,8 @@
         </Style>
     </Page.Resources>
 
-    <ScrollViewer>
+    <!--  A focus change never scrolls the page (opening the Wallpaper of the day could jump it to the top first).  -->
+    <ScrollViewer BringIntoViewOnFocusChange="False">
         <Grid>
         <StackPanel
             MaxWidth="{StaticResource PageMaxWidth}"
@@ -68,31 +68,80 @@
                 Severity="{x:Bind ViewModel.InfoSeverity, Mode=OneWay}" />
 
             <!--  Today's wallpaper. Click it twice (and keep clicking) to favorite it: stars burst up (HomePage.xaml.cs).  -->
-            <Grid
-                PointerPressed="Preview_PointerPressed"
-                Height="440"
-                Background="{ThemeResource OrielSurfaceBrush}"
-                CornerRadius="{StaticResource OrielLargeRadius}">
-                <StackPanel
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Spacing="12"
-                    Visibility="{x:Bind ViewModel.HasNoCurrent, Mode=OneWay}">
-                    <Image
-                        Width="48"
-                        Height="48"
-                        Opacity="0.25"
-                        Source="{ThemeResource OrielLogoImage}" />
-                    <TextBlock
+            <!--  The stars sit over the photo, not in its rounded clip, so they rise past its edge whole.  -->
+            <Grid>
+                <Grid
+                    x:Name="PreviewBox"
+                    PointerPressed="Preview_PointerPressed"
+                    PointerEntered="Preview_PointerMoved"
+                    PointerMoved="Preview_PointerMoved"
+                    PointerExited="Preview_PointerExited"
+                    Height="440"
+                    Background="{ThemeResource OrielSurfaceBrush}"
+                    CornerRadius="{StaticResource OrielLargeRadius}">
+                    <StackPanel
                         HorizontalAlignment="Center"
-                        Style="{StaticResource MutedTextStyle}"
-                        Text="No wallpaper yet. Press Change now." />
-                </StackPanel>
-                <Image
-                    local:ImageReveal.Enabled="True"
-                    AutomationProperties.Name="Current wallpaper"
-                    Source="{x:Bind ViewModel.Preview, Mode=OneWay}"
-                    Stretch="UniformToFill" />
+                        VerticalAlignment="Center"
+                        Spacing="12"
+                        Visibility="{x:Bind ViewModel.HasNoCurrent, Mode=OneWay}">
+                        <Image
+                            Width="48"
+                            Height="48"
+                            Opacity="0.25"
+                            Source="{ThemeResource OrielLogoImage}" />
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            Style="{StaticResource MutedTextStyle}"
+                            Text="No wallpaper yet. Press Change now." />
+                    </StackPanel>
+                    <Image
+                        local:ImageReveal.Enabled="True"
+                        AutomationProperties.Name="Current wallpaper"
+                        Source="{x:Bind ViewModel.Preview, Mode=OneWay}"
+                        Stretch="UniformToFill" />
+                    <!--
+                        The eyedropper (HomePage.xaml.cs): a magnifier on the spot under the pointer, its pixels large, the
+                        picked ones boxed in the middle, its rim in their color.
+                    -->
+                    <Canvas IsHitTestVisible="False">
+                        <Grid
+                            x:Name="PickRing"
+                            Width="108"
+                            Height="108"
+                            CenterPoint="54,54,0"
+                            Opacity="0"
+                            Scale="0.6,0.6,1">
+                            <Grid.OpacityTransition>
+                                <ScalarTransition Duration="0:0:0.15" />
+                            </Grid.OpacityTransition>
+                            <Grid.ScaleTransition>
+                                <Vector3Transition Duration="0:0:0.2" />
+                            </Grid.ScaleTransition>
+                            <Ellipse Fill="#40000000" />
+                            <Ellipse Margin="1" Fill="White" />
+                            <Border
+                                Width="99"
+                                Height="99"
+                                CornerRadius="50">
+                                <Canvas x:Name="PickCells" Width="99" Height="99" />
+                            </Border>
+                            <Ellipse
+                                x:Name="PickRingColor"
+                                Margin="4"
+                                StrokeThickness="6" />
+                            <Rectangle
+                                Width="29"
+                                Height="29"
+                                Stroke="#99000000"
+                                StrokeThickness="1" />
+                            <Rectangle
+                                Width="27"
+                                Height="27"
+                                Stroke="White"
+                                StrokeThickness="1.5" />
+                        </Grid>
+                    </Canvas>
+                </Grid>
                 <Canvas x:Name="StarLayer" IsHitTestVisible="False" />
             </Grid>
 
@@ -139,43 +188,85 @@
                         Background="{ThemeResource OrielSurfaceBrush}"
                         CornerRadius="18"
                         Visibility="{x:Bind ViewModel.HasAccents, Mode=OneWay}">
-                        <ItemsControl VerticalAlignment="Center" ItemsSource="{x:Bind ViewModel.Accents}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" Spacing="1" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:AccentSwatchViewModel">
-                                    <Button
-                                        AutomationProperties.Name="{x:Bind Tip}"
-                                        Command="{x:Bind ChooseCommand}"
-                                        Style="{StaticResource SwatchButtonStyle}"
-                                        ToolTipService.ToolTip="Use as accent color">
-                                        <Grid Width="24" Height="24">
-                                            <!--  The ring starts hidden (the style), so only the chosen one fades in; none flash on first.  -->
-                                            <Ellipse
-                                                Opacity="{x:Bind RingOpacity, Mode=OneWay}"
-                                                Stroke="{ThemeResource OrielInkBrush}"
-                                                StrokeThickness="1.75">
-                                                <Ellipse.Style>
-                                                    <Style TargetType="Ellipse">
-                                                        <Setter Property="Opacity" Value="0" />
-                                                    </Style>
-                                                </Ellipse.Style>
-                                                <Ellipse.OpacityTransition>
-                                                    <ScalarTransition Duration="0:0:0.18" />
-                                                </Ellipse.OpacityTransition>
-                                            </Ellipse>
-                                            <Ellipse
-                                                Width="16"
-                                                Height="16"
-                                                Fill="{x:Bind Brush}" />
-                                        </Grid>
-                                    </Button>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <StackPanel Orientation="Horizontal" Spacing="1">
+                            <ItemsControl VerticalAlignment="Center" ItemsSource="{x:Bind ViewModel.Accents}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="1" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:AccentSwatchViewModel">
+                                        <Button
+                                            AutomationProperties.Name="{x:Bind Tip}"
+                                            Command="{x:Bind ChooseCommand}"
+                                            Style="{StaticResource SwatchButtonStyle}"
+                                            ToolTipService.ToolTip="Use as accent color">
+                                            <Grid Width="24" Height="24">
+                                                <!--  Its fade is added once it shows its first state (Ring_Loaded), so no ring flashes on.  -->
+                                                <Ellipse
+                                                    Loaded="Ring_Loaded"
+                                                    Opacity="{x:Bind RingOpacity, Mode=OneWay}"
+                                                    Stroke="{ThemeResource OrielInkBrush}"
+                                                    StrokeThickness="1.75" />
+                                                <Ellipse
+                                                    Width="16"
+                                                    Height="16"
+                                                    Fill="{x:Bind Brush}" />
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <!--  Custom: pick any color from the photo itself. Once picked, it fills the button like the others.  -->
+                            <Button
+                                x:Name="EyedropperButton"
+                                AutomationProperties.Name="Pick a color from the photo"
+                                Click="Eyedropper_Click"
+                                Style="{StaticResource SwatchButtonStyle}"
+                                ToolTipService.ToolTip="Pick the accent color from the photo">
+                                <Grid Width="24" Height="24">
+                                    <Ellipse
+                                        Loaded="Ring_Loaded"
+                                        Opacity="{x:Bind ViewModel.CustomRingOpacity, Mode=OneWay}"
+                                        Stroke="{ThemeResource OrielInkBrush}"
+                                        StrokeThickness="1.75" />
+                                    <Ellipse
+                                        Width="16"
+                                        Height="16"
+                                        Fill="{x:Bind ViewModel.CustomAccent, Mode=OneWay}" />
+                                    <!--  Lucide "pipette": on its own, or small on the custom color, black or white to show on it.  -->
+                                    <Viewbox
+                                        Width="14"
+                                        Height="14"
+                                        Visibility="{x:Bind local:Star.Hidden(ViewModel.IsCustomChosen), Mode=OneWay}">
+                                        <Path
+                                            Width="24"
+                                            Height="24"
+                                            Data="M2,22 L3,21 H6 L15,12 M3,21 V18 L12,9 M15,6 L18.4,2.6 A2.1,2.1 0 1 1 21.4,5.6 L18,9 L18.4,9.4 A2.1,2.1 0 1 1 15.4,12.4 L11.6,8.6 A2.1,2.1 0 1 1 14.6,5.6 Z"
+                                            Stroke="{ThemeResource OrielInkBrush}"
+                                            StrokeEndLineCap="Round"
+                                            StrokeLineJoin="Round"
+                                            StrokeStartLineCap="Round"
+                                            StrokeThickness="2" />
+                                    </Viewbox>
+                                    <Viewbox
+                                        Width="9"
+                                        Height="9"
+                                        Visibility="{x:Bind local:Star.Shown(ViewModel.IsCustomChosen), Mode=OneWay}">
+                                        <Path
+                                            Width="24"
+                                            Height="24"
+                                            Data="M2,22 L3,21 H6 L15,12 M3,21 V18 L12,9 M15,6 L18.4,2.6 A2.1,2.1 0 1 1 21.4,5.6 L18,9 L18.4,9.4 A2.1,2.1 0 1 1 15.4,12.4 L11.6,8.6 A2.1,2.1 0 1 1 14.6,5.6 Z"
+                                            Stroke="{x:Bind ViewModel.CustomInk, Mode=OneWay}"
+                                            StrokeEndLineCap="Round"
+                                            StrokeLineJoin="Round"
+                                            StrokeStartLineCap="Round"
+                                            StrokeThickness="2" />
+                                    </Viewbox>
+                                </Grid>
+                            </Button>
+                        </StackPanel>
                     </Border>
                     <Button
                         AutomationProperties.Name="Share this wallpaper"
