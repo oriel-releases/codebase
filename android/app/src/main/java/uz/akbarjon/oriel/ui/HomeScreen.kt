@@ -1,5 +1,6 @@
 package uz.akbarjon.oriel.ui
 
+import kotlin.math.roundToInt
 import uz.akbarjon.oriel.ui.Motion
 import uz.akbarjon.oriel.ui.Motion.fadeThrough
 import uz.akbarjon.oriel.ui.Motion.slideThrough
@@ -213,13 +214,22 @@ private fun gestureNavigation(): Boolean {
  * The wallpaper in a phone-shaped frame with its credit on a blurred pill inside it, and the gesture line at the
  * bottom when the phone uses gestures. Tapping twice favorites it; every further quick tap adds another star.
  */
+/** The photo page's feed in [WallpaperPreview]: the neighbors, and how far the pictures are moved (pixels, up < 0). */
+internal class PreviewFeed(val previous: Photo?, val next: Photo?, val offset: () -> Float)
+
 @Composable
 internal fun WallpaperPreview(
-    photo: Photo?, screenW: Int, screenH: Int, modifier: Modifier, onLike: () -> Unit, credit: Boolean = true,
+    photo: Photo?, screenW: Int, screenH: Int, modifier: Modifier,
+    /** Double tap to favorite, with a star burst; null where a photo can't be favorited (Explore, search): no stars. */
+    onLike: (() -> Unit)?, credit: Boolean = true,
     /** Shown at once under the photo while it loads (the tile's picture the page opened from: already loaded). */
     under: String? = null,
     /** The photo's width in pixels, when it's shown bigger than Home's (the photo page). */
     widthPx: Int? = null,
+    /** The photo page's feed: the photos before and after, sliding through the frame (which itself stays still). */
+    feed: PreviewFeed? = null,
+    /** Home's phone frame (rounded, edged, the handle drawn on); false fills its space bare (the photo page, full screen). */
+    framed: Boolean = true,
 ) {
     val context = LocalContext.current
     val previewWidthPx = widthPx?.takeIf { it > 0 } ?: with(LocalDensity.current) { 320.dp.roundToPx() }
@@ -229,13 +239,14 @@ internal fun WallpaperPreview(
     val haze = remember { HazeState() }
     val gestures = gestureNavigation()
 
-    BoxWithConstraints(modifier.aspectRatio(screenW.toFloat() / screenH, matchHeightConstraintsFirst = true)) {
+    BoxWithConstraints(if (framed) modifier.aspectRatio(screenW.toFloat() / screenH, matchHeightConstraintsFirst = true) else modifier) {
         val w = maxWidth
         val h = maxHeight
         val shape = RoundedCornerShape(w * 0.11f)
         Box(
-            Modifier.fillMaxSize().clip(shape).background(White.copy(alpha = 0.08f)).border(1.5.dp, White.copy(alpha = 0.22f), shape)
-                .pointerInput(Unit) {
+            Modifier.fillMaxSize().let { if (framed) it.clip(shape).background(White.copy(alpha = 0.08f)).border(1.5.dp, White.copy(alpha = 0.22f), shape) else it }
+                .pointerInput(onLike != null) {
+                    val like = onLike ?: return@pointerInput
                     // A tap within a moment of the last one is a "like": a star at the finger, every time, no limit.
                     var last = 0L
                     awaitEachGesture {
@@ -243,29 +254,42 @@ internal fun WallpaperPreview(
                         val now = down.uptimeMillis
                         if (now - last < 350) {
                             bursts += Burst(System.nanoTime(), down.position, Random.nextFloat() * 30f - 15f)
-                            onLike()
+                            like()
                         }
                         last = now
                     }
                 },
         ) {
+            /** One photo's picture, filling the frame ([under]: the tile's picture, shown at once while it loads). */
+            @Composable
+            fun Picture(p: Photo, under: String?) {
+                val position = uz.akbarjon.oriel.core.Positions.of(p.id)
+                if (under != null) RemoteImage(under, null, Modifier.fillMaxSize(), placeholder = parseColor(p.color) ?: White.copy(alpha = 0.08f))
+                RemoteImage(
+                    p.thumb(previewWidthPx, previewWidthPx * screenH / screenW, position), p.description, Modifier.fillMaxSize(),
+                    placeholder = if (under != null) androidx.compose.ui.graphics.Color.Transparent else parseColor(p.color) ?: White.copy(alpha = 0.08f),
+                    // Unsplash crops its photos on its side; an AI wallpaper is whole, so the preview is placed here.
+                    focus = if (p.isAi) (position as? uz.akbarjon.oriel.data.Position.Focus)?.let { it.x to it.y } ?: (0.5f to 0.5f) else null,
+                )
+            }
             Box(Modifier.fillMaxSize().hazeSource(haze)) {
-                AnimatedContent(photo, transitionSpec = {
+                if (feed != null) {
+                    // The feed: the previous picture above, this one, the next below, moved by the finger. Each keeps its
+                    // place (keyed by photo), so the one sliding in already has its picture when it becomes this one.
+                    val column = listOfNotNull(feed.previous?.let { -1 to it }, photo?.let { 0 to it }, feed.next?.let { 1 to it })
+                    for ((slot, p) in column) {
+                        key(p.id) {
+                            Box(Modifier.fillMaxSize().graphicsLayer { translationY = feed.offset() + slot * size.height }) {
+                                Picture(p, if (slot == 0) under else null)
+                            }
+                        }
+                    }
+                } else AnimatedContent(photo, transitionSpec = {
                     fadeIn(Motion.enter(Motion.LONG)) togetherWith fadeOut(Motion.exit(Motion.LONG))
                 }, label = "preview") { p ->
                     Box(Modifier.fillMaxSize()) {
-                    if (p != null) {
-                        val position = uz.akbarjon.oriel.core.Positions.of(p.id)
-                        if (under != null) RemoteImage(under, null, Modifier.fillMaxSize(), placeholder = parseColor(p.color) ?: White.copy(alpha = 0.08f))
-                        RemoteImage(
-                            p.thumb(previewWidthPx, previewWidthPx * screenH / screenW, position), p.description, Modifier.fillMaxSize(),
-                            placeholder = if (under != null) androidx.compose.ui.graphics.Color.Transparent else parseColor(p.color) ?: White.copy(alpha = 0.08f),
-                            // Unsplash crops its photos on its side; an AI wallpaper is whole, so the preview is placed here.
-                            focus = if (p.isAi) (position as? uz.akbarjon.oriel.data.Position.Focus)?.let { it.x to it.y } ?: (0.5f to 0.5f) else null,
-                        )
-                    } else {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Logo(32.dp, tint = White.copy(alpha = 0.5f)) }
-                    }
+                        if (p != null) Picture(p, under)
+                        else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Logo(32.dp, tint = White.copy(alpha = 0.5f)) }
                     }
                 }
             }
@@ -276,9 +300,22 @@ internal fun WallpaperPreview(
                         .clip(CircleShape)
                         .hazeEffect(haze, HazeStyle(backgroundColor = Color.Black, tint = HazeTint(Color.Black.copy(alpha = 0.25f)), blurRadius = 18.dp, noiseFactor = 0f))
                         .padding(horizontal = 12.dp, vertical = 6.dp),
-                ) { Credit(photo, context, color = White) }
+                ) {
+                    if (feed == null) Credit(photo, context, color = White)
+                    else {
+                        // Swiping: the pill turns into the next photo's credit with the finger, its width easing from one
+                        // name to the other and the names crossfading, so it feels part of the swipe.
+                        val heightPx = with(LocalDensity.current) { h.toPx() }
+                        val toward = { val o = feed.offset(); if (o < 0) feed.next else if (o > 0) feed.previous else null }
+                        CreditMorph(
+                            from = { Credit(photo, context, color = White) },
+                            to = toward()?.let { other -> { Credit(other, context, color = White) } },
+                            progress = { (kotlin.math.abs(feed.offset()) / heightPx).coerceIn(0f, 1f) },
+                        )
+                    }
+                }
             }
-            if (gestures) {
+            if (gestures && framed) {
                 Box(Modifier.align(Alignment.BottomCenter).padding(bottom = h * 0.018f).width(w * 0.3f).height(4.dp)
                     .clip(CircleShape).background(White.copy(alpha = 0.75f)))
             }
@@ -334,19 +371,22 @@ private fun Controls(photo: Photo?, entry: HistoryEntry?, modifier: Modifier = M
 
     Column(modifier.fillMaxWidth()) {
         val problem = state.followProblem.takeIf { settings.isFollowing } ?: state.lastError.takeIf { !settings.isFollowing }
-        val needsConfirm = update as? UpdateState.NeedsConfirm
+        // An update waiting for a tap: Android's confirmation, or "restart" for one downloaded while Oriel was open.
+        val needsConfirm = (update as? UpdateState.NeedsConfirm)?.version ?: (update as? UpdateState.ReadyToRestart)?.version
         val status: Pair<ImageVector, String>? = when {
-            needsConfirm != null -> OrielIcons.Refresh to "Update ${needsConfirm.version} is ready. Tap to install"
+            needsConfirm != null -> OrielIcons.Refresh to "Update $needsConfirm is ready. Tap to restart"
             problem != null -> OrielIcons.Alert to problem
             settings.source == Source.Friend -> OrielIcons.Users to "Showing ${settings.followName ?: "a friend"}'s wallpaper"
-            settings.paused -> OrielIcons.Lock to "Locked on all your devices"
             else -> null
         }
         AnimatedVisibility(status != null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
             val shown = status ?: (OrielIcons.Info to "")
             Row(
                 Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 10.dp)
-                    .let { m -> if (needsConfirm != null) m.springClick { if (!Updater.confirm(context)) Updater.checkSoon(context, force = true) } else m },
+                    .let { m -> if (needsConfirm != null) m.springClick {
+                        if (update is UpdateState.ReadyToRestart) Updater.restartToUpdate(context)
+                        else if (!Updater.confirm(context)) Updater.checkSoon(context, force = true)
+                    } else m },
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
             ) {
                 Icon(shown.first, null, tint = White, modifier = Modifier.size(15.dp))
@@ -363,7 +403,7 @@ private fun Controls(photo: Photo?, entry: HistoryEntry?, modifier: Modifier = M
                 val p = photo ?: return@RoundAction
                 Oriel.scope.launch(Dispatchers.Main) {
                     try {
-                        shareText(context, "A wallpaper for you: ${Sharing.shareLink(p)}", "Share this wallpaper")
+                        sharePhoto(context, p, "A wallpaper for you: ${Sharing.shareLink(p)}", "Share this wallpaper")
                     } catch (e: OrielException) {
                         snackbar.showSnackbar(e.message ?: "Couldn't share")
                     }
@@ -375,9 +415,7 @@ private fun Controls(photo: Photo?, entry: HistoryEntry?, modifier: Modifier = M
                 haptics.performHapticFeedback(if (lock) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
                 Oriel.store.update { it.copy(paused = lock) }
                 Scheduler.restart(context)
-                Oriel.scope.launch(Dispatchers.Main) {
-                    snackbar.showSnackbar(if (lock) "Locked on all your devices: this wallpaper stays" else "Unlocked: changes are back on")
-                }
+                // No words: the lock's own icon shows it.
             }
             // Where the photo sits on this phone's screen (only this phone's).
             RoundAction(OrielIcons.Crop, "Adjust the position", enabled = photo != null) {
@@ -398,7 +436,7 @@ private fun Controls(photo: Photo?, entry: HistoryEntry?, modifier: Modifier = M
                     scope.launch { spin.snapTo(0f); spin.animateTo(360f, tween(600, easing = FastOutSlowInEasing)) }
                     Oriel.scope.launch(Dispatchers.Main) {
                         when (val result = Oriel.wallpapers.changeNow()) {
-                            is ChangeResult.Applied -> snackbar.showSnackbar("New wallpaper set")
+                            is ChangeResult.Applied -> Unit   // the new wallpaper says it
                             is ChangeResult.Failed -> snackbar.showSnackbar(result.message)
                             ChangeResult.Skipped -> Unit
                         }
@@ -427,4 +465,26 @@ private fun RoundAction(
             .springClick(enabled, pressed = 0.85f, onClick = onClick).graphicsLayer { alpha = if (enabled) 1f else 0.45f },
         contentAlignment = Alignment.Center,
     ) { Icon(icon, description, tint = fg, modifier = Modifier.size(19.dp).graphicsLayer { scaleX = bounce.value; scaleY = bounce.value }) }
+}
+
+/**
+ * One credit turning into another as [progress] goes 0 to 1: as wide as [from] at 0 and as [to] at 1 (in between, in
+ * between), each faded by how far along it is. The one more visible is on top, so it's the one a tap reaches.
+ */
+@Composable
+private fun CreditMorph(from: @Composable () -> Unit, to: (@Composable () -> Unit)?, progress: () -> Float) {
+    androidx.compose.ui.layout.Layout(content = { from(); to?.invoke() }) { measurables, constraints ->
+        val loose = constraints.copy(minWidth = 0)
+        val a = measurables[0].measure(loose)
+        val b = measurables.getOrNull(1)?.measure(loose)
+        val p = if (b == null) 0f else progress()
+        val width = (a.width + ((b?.width ?: a.width) - a.width) * p).roundToInt().coerceIn(constraints.minWidth, constraints.maxWidth)
+        val height = maxOf(a.height, b?.height ?: 0)
+        layout(width, height) {
+            fun place(it: androidx.compose.ui.layout.Placeable, alpha: Float) =
+                it.placeWithLayer((width - it.width) / 2, (height - it.height) / 2) { this.alpha = alpha }
+            if (b == null) place(a, 1f)
+            else if (p < 0.5f) { place(b, p); place(a, 1 - p) } else { place(a, 1 - p); place(b, p) }
+        }
+    }
 }

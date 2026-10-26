@@ -74,7 +74,7 @@ fun InterestsScreen(onBack: () -> Unit) {
         s.copy(interests = s.interests.map { if (it.query == i.query) it.copy(enabled = !it.enabled) else it })
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).readableWidth()) {
         Row(Modifier.fillMaxWidth().height(72.dp).padding(start = 8.dp, end = 24.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onBack) { Icon(OrielIcons.ChevronRight, "Back", Modifier.size(24.dp).graphicsLayer { rotationZ = 180f }) }
             Text("Interests", style = androidx.compose.material3.MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))

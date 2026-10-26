@@ -88,7 +88,7 @@ fun FriendsScreen(onBack: () -> Unit) {
     }
 
     androidx.activity.compose.BackHandler(onBack = onBack)
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).readableWidth()) {
         Row(Modifier.fillMaxWidth().height(72.dp).padding(start = 8.dp, end = 24.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.IconButton(onBack) {
                 Icon(OrielIcons.ChevronRight, "Back", Modifier.size(24.dp).graphicsLayer { rotationZ = 180f })
@@ -130,8 +130,7 @@ fun FriendsScreen(onBack: () -> Unit) {
                             PrimaryButton("Share link", { shareLink(context, c) }, Modifier.weight(1f),
                                 icon = { Icon(OrielIcons.Send, null, Modifier.size(18.dp)) })
                             RoundIconButton(OrielIcons.Copy, "Copy code", {
-                                copy(context, Sharing.format(c))
-                                Oriel.scope.launch(Dispatchers.Main) { snackbar.showSnackbar("Code copied") }
+                                copy(context, Sharing.format(c))   // Android shows its own "copied"
                             })
                         }
                     }
@@ -228,8 +227,7 @@ fun FollowSheet(onDismiss: () -> Unit) {
             busy = true
             scope.launch {
                 try {
-                    val name = Oriel.following.follow(code)
-                    Oriel.scope.launch(Dispatchers.Main) { snackbar.showSnackbar("Following $name") }
+                    Oriel.following.follow(code)   // Friends then shows who's followed
                     closeSheet?.invoke(onDismiss) ?: onDismiss()
                 } catch (e: OrielException) {
                     error = e.message

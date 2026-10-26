@@ -1,5 +1,6 @@
 package uz.akbarjon.oriel.ui
 
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.draw.clipToBounds
 import uz.akbarjon.oriel.ui.Motion
 import uz.akbarjon.oriel.ui.Motion.fadeThrough
@@ -222,13 +223,21 @@ private fun ExplorePage(onInterests: () -> Unit) {
 
     Column(Modifier.fillMaxSize()) {
         // The search bar floats over the photos: they scroll on under it, blurred, like under the navigation bar.
-        Box(Modifier.weight(1f)) {
+        // Pulled down, this hour's photos are asked for again (a new hour may be up). Search results stay as they are:
+        // asking again would only spend the shared Unsplash requests on the same photos.
+        // Pulled down: a new hour's photos when they're out, else these same ones in a new order (so it still looks fresh).
+        PullRefresh({
+            val feed = Explore.feed(force = true)
+            m.explore = if (feed.hour == m.explore.hour) ExploreFeed(feed.hour, feed.photos.shuffled(), feed.topics) else feed
+        }, Modifier.weight(1f), enabled = exploring, minimumMs = 1400) {
+        Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2), state = grid, modifier = Modifier.fillMaxSize().hazeSource(searchHaze),
+            // Two upright; on its side as many as fit, each still a good size.
+            columns = GridCells.Adaptive(160.dp), state = grid, modifier = Modifier.fillMaxSize().hazeSource(searchHaze),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomBarSpace()),
             horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item(span = { GridItemSpan(2) }, key = "title") {
+            item(span = { GridItemSpan(maxLineSpan) }, key = "title") {
                 // Out to the screen's edge like the other tabs' titles, then room for the search bar.
                 Column(Modifier.offset(x = (-16).dp)) {
                     ScreenTitle("Explore")
@@ -236,15 +245,15 @@ private fun ExplorePage(onInterests: () -> Unit) {
                 }
             }
             if (m.query.isEmpty()) {
-                item(span = { GridItemSpan(2) }) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Box(Modifier.padding(bottom = 8.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(22.dp)).background(c.surface)) {
                         SettingRow("Interests", "${settings.interests.count { it.enabled }} on", OrielIcons.Heart, onClick = onInterests)
                     }
                 }
-                item(span = { GridItemSpan(2) }) { TodayCard { selectedTopic = "search"; selectedTile = null; selectedHeading = "Wallpaper of the day"; selected = it } }
+                item(span = { GridItemSpan(maxLineSpan) }) { TodayCard { selectedTopic = "search"; selectedTile = null; selectedHeading = "Wallpaper of the day"; selected = it } }
             }
             if (m.query.isNotEmpty()) {
-                item(span = { GridItemSpan(2) }) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     // A search worth keeping becomes one of your interests: the schedule then picks from it too.
                     val added = settings.interests.any { it.enabled && it.query.equals(m.query.trim(), ignoreCase = true) }
                     Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -254,7 +263,7 @@ private fun ExplorePage(onInterests: () -> Unit) {
                 }
             }
             if (m.query.isEmpty()) {
-                item(span = { GridItemSpan(2) }) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Column(Modifier.padding(top = 10.dp, bottom = 2.dp)) {
                         Text("Fresh picks for you", style = MaterialTheme.typography.titleMedium)
                         if (m.explore.photos.isEmpty() && !m.exploreLoading) {
@@ -265,13 +274,13 @@ private fun ExplorePage(onInterests: () -> Unit) {
                 }
             }
             m.error?.let { message ->
-                item(span = { GridItemSpan(2) }) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(vertical = 8.dp))
                 }
             }
             if (m.query.isNotEmpty() && !m.loading && m.photos.isEmpty() && m.error == null && m.page > 0) {
-                item(span = { GridItemSpan(2) }) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Text("No photos for “${m.query}”", style = MaterialTheme.typography.bodyLarge, color = c.muted,
                         textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 48.dp))
                 }
@@ -290,7 +299,7 @@ private fun ExplorePage(onInterests: () -> Unit) {
                 )
             }
             if (m.loading || (exploring && m.exploreLoading && m.explore.photos.isEmpty())) {
-                item(span = { GridItemSpan(2) }) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                     }
@@ -299,7 +308,8 @@ private fun ExplorePage(onInterests: () -> Unit) {
         }
         OrielTextField(
             m.text, { m.text = it },
-            Modifier.offset { IntOffset(0, barY.roundToInt()) }.padding(horizontal = 24.dp, vertical = 8.dp).clip(CircleShape)
+            // On a wide screen it stays a search bar's width, in the middle.
+            Modifier.align(Alignment.TopCenter).widthIn(max = 640.dp).offset { IntOffset(0, barY.roundToInt()) }.padding(horizontal = 24.dp, vertical = 8.dp).clip(CircleShape)
                 .hazeEffect(searchHaze, HazeStyle(backgroundColor = c.paper, tint = HazeTint(c.surface.copy(alpha = 0.6f)), blurRadius = 20.dp, noiseFactor = 0f)),
             placeholder = "Northern lights, tokyo night…",
             leadingIcon = OrielIcons.Search,
@@ -309,7 +319,23 @@ private fun ExplorePage(onInterests: () -> Unit) {
             background = Color.Transparent,
         )
         }
+        }
     }
 
-    selected?.let { photo -> PhotoSheet(photo, topic = selectedTopic, onDismiss = { selected = null }, heading = selectedHeading, tileUrl = selectedTile) }
+    selected?.let { photo ->
+        // Swiping on the photo page goes through the grid it came from (the Wallpaper of the day stands alone).
+        val at = shown.indexOfFirst { it.id == photo.id }
+        PhotoSheet(
+            photo, topic = selectedTopic, onDismiss = { selected = null }, heading = selectedHeading, tileUrl = selectedTile,
+            peek = { dir -> if (at >= 0) shown.getOrNull(at + dir) else null },
+            onStep = { dir ->
+                val next = shown[at + dir]
+                selectedTopic = if (exploring) m.explore.topics[next.id] ?: "explore" else "search"
+                selectedTile = next.thumb(cellPx, cellPx * screenH / screenW)
+                selected = next
+                // Near the end of the search results, the next page comes in, so the swiping can go on.
+                if (!exploring && at + dir >= shown.size - 4) m.more(scope)
+            },
+        )
+    }
 }

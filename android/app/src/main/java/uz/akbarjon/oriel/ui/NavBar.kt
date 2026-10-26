@@ -1,5 +1,11 @@
 package uz.akbarjon.oriel.ui
 
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -68,6 +74,32 @@ enum class Tab(val label: String, val icon: ImageVector, val selectedIcon: Image
     Create("AI", OrielIcons.Sparkles, OrielIcons.SparklesFilled, Play.Beat),
     History("History", OrielIcons.History, OrielIcons.History, Play.Flip),
     Settings("Settings", OrielIcons.Settings, OrielIcons.Settings, Play.Spin),
+}
+
+/**
+ * The band at the bottom the floating bar sits in (around it, and under it down to the screen's edge): it takes taps
+ * and does nothing with them, so a finger that misses the bar doesn't press a row or a switch scrolled under it.
+ * Invisible; drawn under the bar.
+ */
+@Composable
+fun NavBarGuard(modifier: Modifier = Modifier, vertical: Boolean = false) {
+    if (vertical) {
+        // On its side: the strip along the right edge the bar stands in, top to bottom.
+        Box(
+            modifier.fillMaxHeight().systemBarsPadding().displayCutoutPadding().width(NavBarHeight + NavBarMargin * 2)
+                .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false).consume() } },
+        )
+        return
+    }
+    Box(
+        modifier.fillMaxWidth().navigationBarsPadding().height(NavBarHeight + NavBarMargin * 2)
+            .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false).consume() } },
+    )
+    // The system's own strip under it (the gesture handle's) too.
+    Box(
+        modifier.fillMaxWidth().windowInsetsBottomHeight(WindowInsets.navigationBars)
+            .pointerInput(Unit) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false).consume() } },
+    )
 }
 
 /**

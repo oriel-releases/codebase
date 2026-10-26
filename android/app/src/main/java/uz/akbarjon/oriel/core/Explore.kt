@@ -34,13 +34,16 @@ object Explore {
     private var feed: ExploreFeed? = null
     private var triedAt = 0L
 
-    /** This hour's photos; the last ones kept when the new ones can't be had; empty when there never were any. */
-    suspend fun feed(): ExploreFeed = lock.withLock {
+    /**
+     * This hour's photos; the last ones kept when the new ones can't be had; empty when there never were any.
+     * [force] (a pull to refresh) asks again even if the last try failed moments ago.
+     */
+    suspend fun feed(force: Boolean = false): ExploreFeed = lock.withLock {
         withContext(Dispatchers.IO) {
             val file = File(Oriel.app.filesDir, "explore.json")
             if (feed == null && file.exists()) feed = runCatching { parse(file.readText()) }.getOrNull()
             val now = System.currentTimeMillis()
-            if (!isCurrent(feed, now) && now - triedAt >= RETRY_MS) {
+            if (!isCurrent(feed, now) && (force || now - triedAt >= RETRY_MS)) {
                 triedAt = now
                 runCatching {
                     val r = Http.get(URL)
