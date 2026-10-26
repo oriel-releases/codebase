@@ -267,6 +267,8 @@ export interface AccountWatch {
    * ring. `mine` is a ring from this browser's own upload.
    */
   onExtension(at: number | undefined, mine: boolean): void;
+  /** The doorbell's "birthday changed" time (the website rings it): when the connection opens, and on each ring. */
+  onBirthday(at: number | undefined): void;
 }
 
 /**
@@ -311,6 +313,7 @@ export function watchAccount(uid: string, watch: AccountWatch): () => void {
       }
       void read(data?.photoId);
       watch.onExtension(typeof data?.extensionAt === "number" ? data.extensionAt : undefined, false);
+      watch.onBirthday(typeof data?.birthdayAt === "number" ? data.birthdayAt : undefined);
     });
     // Later rings are PATCHes; the fields say what changed (the apps' shared settings and favorites don't concern this page).
     source.addEventListener("patch", (e) => {
@@ -319,6 +322,7 @@ export function watchAccount(uid: string, watch: AccountWatch): () => void {
         if (!data) return;
         if ("photoId" in data) void read(data.photoId);
         if (typeof data.extensionAt === "number") watch.onExtension(data.extensionAt, data.extensionDevice === browserId());
+        if (typeof data.birthdayAt === "number") watch.onBirthday(data.birthdayAt);
       } catch {
         // not a ring we know
       }

@@ -18,7 +18,7 @@ A beautiful Unsplash photo on every new tab. Match your Oriel desktop wallpaper,
 Oriel turns every new tab into a calm, full-screen photo from Unsplash, with a clock, your shortcuts, a short quote and an optional search bar.
 
 TWO WAYS TO PICK THE PHOTO
-• Its own: choose your interests (nature, architecture, space and more) and how often the photo changes: every tab, hourly or daily. Works right away, with no account.
+• Its own: a fresh set of 300 Unsplash photos every hour, and you choose how often the photo changes: every tab, hourly or daily. Works right away, with no account.
 • My devices: if you use Oriel on Windows, Linux, macOS or Android, your new tab shows the same photo as your wallpaper there, and changes the moment it does. This needs a free Oriel account (Google or email).
 
 FEATURES

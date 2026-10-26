@@ -1,6 +1,6 @@
 {
   "name": "oriel-extension",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,6 @@
     "build:chrome": "vite build --mode chrome",
     "build:firefox": "vite build --mode firefox",
     "package": "node scripts/package.mjs",
-    "pool": "node scripts/build-pool.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"tests/*.test.ts\""
   },

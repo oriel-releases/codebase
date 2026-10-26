@@ -139,7 +139,7 @@ class Wallpapers(private val context: Context) {
      */
     private suspend fun fetch(photo: Photo, w: Int, h: Int, position: Position, file: File) {
         if (!photo.isAi) {
-            fetch(photo, w, h, position, file)
+            Http.download(photo.sized(w, h, position = position), file)
             return
         }
         val whole = File(context.cacheDir, "ai-whole.jpg")
@@ -266,7 +266,8 @@ class Wallpapers(private val context: Context) {
         var accent: String? = null
         try {
             _phase.value = Phase.Downloading
-            Http.download(photo.sized(w, h, position = Positions.of(photo.id)), file)
+            // An AI wallpaper (made here or synced from a desktop) comes whole: cut to this screen like in the editor.
+            fetch(photo, w, h, Positions.of(photo.id), file)
             if (!looksLikeJpeg(file)) throw OrielException("The photo didn't download properly. Your wallpaper wasn't changed.", transient = true)
             _phase.value = Phase.Changing
             setWallpaper(file, store.settings.value.screen)

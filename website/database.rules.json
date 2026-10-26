@@ -25,6 +25,8 @@
         // An "extension settings changed" ring (users/{uid}/sync/extension in Firestore), from one browser to the others.
         "extensionAt": { ".validate": "newData.isNumber()" },
         "extensionDevice": { ".validate": "newData.isString() && newData.val().length <= 64" },
+        // A "birthday changed" ring (users/{uid}.birthday, set or removed on the website's /me): the extension's Age clock reads it again.
+        "birthdayAt": { ".validate": "newData.isNumber()" },
         "$other": { ".validate": false }
       }
     }

@@ -4,8 +4,12 @@ A new tab page with an Unsplash photo, a clock (or your age, running on: Setting
 
 Two ways to pick the photo, chosen in the extension's own settings (the gear on the new tab):
 
-- **Same as my devices** (needs an Oriel account): shows the wallpaper any device of the account (Windows, Linux, Android) set last, live while the tab is open. The shuffle button here changes it on every device: it publishes a pool photo to `sync/current` (`source: "extension"`) and rings the Realtime Database doorbell `pulse/{uid}`.
-- **Its own**: picks from `src/data/pool.json` (396 curated photos, 14 topics) by topic and frequency (every tab / hourly / daily). Works signed out, with no API key and no API calls.
+- **Same as my devices** (needs an Oriel account): shows the wallpaper any device of the account (Windows, Linux, Android) set last, live while the tab is open. The shuffle button here changes it on every device: it publishes a photo of this hour's feed to `sync/current` (`source: "extension"`) and rings the Realtime Database doorbell `pulse/{uid}`.
+- **Its own**: picks from the apps' hourly Explore feed (`https://raw.githubusercontent.com/oriel-releases/explore/feed/explore.json`, 300 landscape photos, the same for everyone, new every hour; `src/lib/explore.ts`), every tab / hourly / daily. The feed is kept in `localStorage` and fetched again once the hour turns (at most every 5 minutes). Before the first one arrives it shows the Wallpaper of the day, read from the website's `/today.json` once a day (`src/lib/today.ts`); with neither (just installed and offline), the plain background. No photos are bundled. Works signed out, with no API key and no Unsplash API calls.
+
+## Keyboard
+
+The arrow keys move the focus to the nearest control that way (`src/newtab/keyboard.ts`, the math in `src/lib/spatial.ts`): across the shortcuts, from the search box down to them, through the settings menu and its page. Enter or Space presses it. A dialog takes the focus when it opens, keeps Tab inside it and gives the focus back when it closes.
 
 ## Shortcuts and folders
 
@@ -53,7 +57,6 @@ Two ways, both under Settings → Account:
 npm install
 npm run build          # dist/chrome and dist/firefox
 npm run dev            # rebuilds dist/chrome on change
-npm run pool           # refresh src/data/pool.json (uses UNSPLASH_ACCESS_KEY from ../windows/.env; 14 API requests)
 npm run typecheck
 ```
 

@@ -3,6 +3,8 @@
  * from it wherever it shows, so it is always right. The extension has the same logic in extension/src/lib/age.ts.
  */
 
+import type { User } from "firebase/auth";
+
 export const MIN_AGE = 5;
 export const MAX_AGE = 120;
 
@@ -29,4 +31,17 @@ export const daysIn = (year: number, month: number) => new Date(year, month, 0).
 export function birthdayText(birthday: string): string {
   const [y, m, d] = birthday.split("-").map(Number);
   return new Date(y!, m! - 1, d!).toLocaleDateString("en", { day: "numeric", month: "long", year: "numeric" });
+}
+
+/**
+ * Rings the account's doorbell (pulse/{uid} in the Realtime Database, see database.rules.json) after the birthday was
+ * set or removed, so an open extension tab reads it again at once. A PATCH: the other fields stay. Best effort.
+ */
+export async function ringBirthday(user: User): Promise<void> {
+  const token = await user.getIdToken();
+  await fetch(`https://oriel-gcp-default-rtdb.firebaseio.com/pulse/${user.uid}.json?auth=${encodeURIComponent(token)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ birthdayAt: { ".sv": "timestamp" } }),
+  }).catch(() => {});
 }

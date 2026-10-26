@@ -142,10 +142,16 @@ export function markUnsynced(): void {
   write("ext-dirty", Date.now());
 }
 
-/** "github.com/x" → "https://github.com/x". Only web links; anything else is null. */
+/**
+ * "github.com/x" → "https://github.com/x", and a file on this computer ("file:///Users/me/a.pdf", "/Users/me/a.pdf",
+ * "C:\Books\a.pdf") → its file:// link. Anything else is null.
+ */
 export function normalizeUrl(input: string): string | null {
   const text = input.trim();
-  if (!text || /\s/.test(text)) return null;
+  if (!text) return null;
+  const file = fileLink(text);
+  if (file !== undefined) return file;
+  if (/\s/.test(text)) return null;
   try {
     const url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`);
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;
@@ -155,6 +161,23 @@ export function normalizeUrl(input: string): string | null {
     return null;
   }
 }
+
+/** A file path or file:// address as a file:// link (spaces and all); undefined when the text isn't one. */
+function fileLink(text: string): string | null | undefined {
+  let href: string;
+  if (/^file:/i.test(text)) href = text;
+  else if (text.startsWith("/")) href = `file://${text}`;
+  else if (/^[a-z]:[\\/]/i.test(text)) href = `file:///${text.replaceAll("\\", "/")}`;
+  else return undefined;
+  try {
+    const url = new URL(href);
+    return url.protocol === "file:" && url.pathname.length > 1 ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+export const isFileLink = (url: string) => url.startsWith("file:");
 
 /**
  * The same page, however it was written: http or https, with or without "www.", a trailing slash or a #fragment.
@@ -172,9 +195,13 @@ export function sameLink(a: string, b: string): boolean {
   return key(a) === key(b);
 }
 
-/** A name from the address when none is given: "www.github.com" → "Github". */
+/** A name from the address when none is given: "www.github.com" → "Github", "file:///…/Grokking.pdf" → "Grokking". */
 export function titleFor(url: string): string {
   try {
+    if (isFileLink(url)) {
+      const name = decodeURIComponent(new URL(url).pathname.replace(/\/+$/, "").split("/").pop() ?? "");
+      return name.replace(/(.)\.[^.]+$/, "$1") || name;
+    }
     const host = new URL(url).hostname.replace(/^www\./, "");
     const name = host.split(".").slice(0, -1).join(".") || host;
     return name.charAt(0).toUpperCase() + name.slice(1);
@@ -185,6 +212,7 @@ export function titleFor(url: string): string {
 
 /** The site's own icon, asked from the site itself (no icon service in between). */
 export function siteIconUrl(url: string): string | null {
+  if (isFileLink(url)) return null; // a file has no site: its tile shows the first letter
   try {
     return `${new URL(url).origin}/favicon.ico`;
   } catch {
@@ -194,6 +222,6 @@ export function siteIconUrl(url: string): string | null {
 
 /** Chrome's own favicon cache (the "favicon" permission); Firefox has none, so its tiles show the first letter. */
 export function faviconUrl(url: string): string | null {
-  if (/Firefox\//.test(navigator.userAgent)) return null;
+  if (/Firefox\//.test(navigator.userAgent) || isFileLink(url)) return null;
   return chrome.runtime.getURL(`/_favicon/?pageUrl=${encodeURIComponent(url)}&size=64`);
 }

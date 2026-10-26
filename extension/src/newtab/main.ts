@@ -1,11 +1,15 @@
 import "./style.css";
-import { imageUrl, pick, placeholderUrl, slotKey, withPoolAccent, type Photo } from "../lib/photo";
+import { imageUrl, placeholderUrl, slotKey, type Photo } from "../lib/photo";
+import { pick, refreshFeed } from "../lib/explore";
+import { refreshToday, todayPhoto } from "../lib/today";
+import { setUpKeyboard } from "./keyboard";
+import { spin } from "./spinner";
 import { remember, loadSettings, saveSettings, defaults, type Settings } from "../lib/settings";
 import { siteUrl } from "../lib/config";
 import { escapeHtml } from "../lib/html";
 import { randomQuote } from "../data/quotes";
 import { applyTone, forget, measure } from "../lib/tone";
-import { accentFor } from "../lib/accent";
+import { accentFor, inkOn } from "../lib/accent";
 import { greetingText, timeText } from "../lib/clock";
 import { parseSearch } from "../lib/search";
 import { openPage, renderPanel, resetQuestions, type PanelActions } from "./panel";
@@ -42,6 +46,35 @@ const shortcuts = createShortcutsRow($("shortcuts"), $("sc-dialog"), $("folder-v
   close: () => closePanel(),
   drawn: () => applyTone(settings.dim / 100),
 });
+
+/**
+ * A file shortcut (file:///…): the browser won't follow a file link from this page, so it opens through the tabs API.
+ * Chrome and Edge allow that only with "Allow access to file URLs" on; Firefox never does, so there the path is copied.
+ */
+async function openFile(url: string, newTab: boolean): Promise<void> {
+  const firefox = /Firefox\//.test(navigator.userAgent);
+  try {
+    if (!firefox && !(await chrome.extension.isAllowedFileSchemeAccess())) {
+      toast('To open files, turn on "Allow access to file URLs" for Oriel');
+      await chrome.tabs.create({ url: `chrome://extensions/?id=${chrome.runtime.id}` });
+      return;
+    }
+    if (newTab) await chrome.tabs.create({ url, active: false });
+    else await chrome.tabs.update({ url });
+  } catch {
+    if (!firefox) return toast("Couldn't open that file");
+    await navigator.clipboard.writeText(decodeURI(url)).catch(() => {});
+    toast("Firefox can't open files from here. Copied: paste it into the address bar");
+  }
+}
+const fileClick = (e: MouseEvent) => {
+  const link = (e.target as HTMLElement).closest<HTMLAnchorElement>('a.sc-link[href^="file:"]');
+  if (!link || e.defaultPrevented || e.button > 1) return; // a drag's release or the ⋮ button already took it
+  e.preventDefault();
+  void openFile(link.href, e.button === 1 || e.ctrlKey || e.metaKey || e.shiftKey);
+};
+document.addEventListener("click", fileClick);
+document.addEventListener("auxclick", fileClick);
 let signingOut = false;
 let shown: Photo | null = null;
 let paintToken = 0;
@@ -106,24 +139,29 @@ const followsDesktop = () => settings.mode === "desktop" && !!sync.profile;
  */
 let tabPhoto: Photo | null = null;
 
-function currentPhoto(): Photo {
+/** The photo to show; null only before anything was ever fetched (just installed and offline): then the plain color. */
+function currentPhoto(): Photo | null {
   if (followsDesktop() && sync.desktop) return sync.desktop.photo;
-  // One photo per slot: changing topics later doesn't swap the photo you are looking at; it applies from the next slot.
+  // One photo per slot: a new hour's feed doesn't swap the photo you are looking at; it applies from the next slot.
   const key = slotKey(settings.change, settings.bump);
-  if (!key) return (tabPhoto ??= pick(settings.topics, settings.change, settings.bump));
+  if (!key) return (tabPhoto ??= pick(settings.change, settings.bump) ?? todayPhoto());
   const kept = remember<{ key: string; photo: Photo }>("slot");
   if (kept?.key === key) return kept.photo;
-  const photo = pick(settings.topics, settings.change, settings.bump);
+  // Before the first feed arrives (just installed, offline): Wallpaper of the day, not kept for the slot.
+  const photo = pick(settings.change, settings.bump);
+  if (!photo) return todayPhoto();
   remember("slot", { key, photo });
   return photo;
 }
 
 /** A vivid color from the wallpaper tints the page's controls (see accentFor). */
 function applyAccent(photo: Photo): void {
-  const accent = accentFor(withPoolAccent(photo), followsDesktop(), sync.desktop?.photo.id);
+  const accent = accentFor(photo, followsDesktop(), sync.desktop?.photo.id);
   const root = document.documentElement;
   if (accent) root.style.setProperty("--accent", accent);
   else root.style.removeProperty("--accent");
+  if (accent) root.style.setProperty("--accent-ink", inkOn(accent));
+  else root.style.removeProperty("--accent-ink");
   document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", accent ?? "#000000");
 }
 
@@ -182,13 +220,15 @@ let changing = false;
 
 /** A photo (a new one, or the one given) on every device of the account. */
 async function shuffleEverywhere(chosen?: Photo): Promise<void> {
-  const photo = chosen ?? pick(settings.topics, "tab", 0);
+  const photo = chosen ?? pick("tab", 0) ?? todayPhoto();
+  if (!photo) return toast("No photos yet. Check your connection.");
   publishing = photo.id;
   setStatus("Downloading…");
   onPainted = () => setStatus("Syncing…");
-  showPhoto(photo);
+  const painted = showPhoto(photo);
   try {
     await sync.publish(photo);
+    await painted;
     lastDesktopId = photo.id;
     setStatus("Synced to your devices", true);
   } catch {
@@ -199,16 +239,27 @@ async function shuffleEverywhere(chosen?: Photo): Promise<void> {
   }
 }
 
-function showPhoto(photo: Photo): void {
+/**
+ * Shows [photo]; resolves once it is on screen. Its accent, credit and Home preview switch together with the photo
+ * itself (as it starts to cross-fade), not while it is still downloading behind the old one.
+ */
+const revealDelayMs = 450;
+
+function showPhoto(photo: Photo): Promise<void> {
   const same = shown?.id === photo.id && shown.url === photo.url;
   shown = photo;
-  applyAccent(photo);
-  // The toolbar popup draws its settings over the same photo and accent (src/popup/popup.ts).
-  remember("shown", { photo, accent: document.documentElement.style.getPropertyValue("--accent") });
-  renderCredit();
-  renderSync();
-  if (panel.classList.contains("open")) drawPanel(); // Home shows the photo on screen
-  if (same) return;
+  const reveal = () => {
+    applyAccent(photo);
+    // The toolbar popup draws its settings over the same photo and accent (src/popup/popup.ts).
+    remember("shown", { photo, accent: document.documentElement.style.getPropertyValue("--accent") });
+    renderCredit();
+    renderSync();
+    if (panel.classList.contains("open")) drawPanel(); // Home shows the photo on screen
+  };
+  // Nothing on screen yet (the first paint): no old photo to keep in step with.
+  if (same || !layer) reveal();
+  if (same) return Promise.resolve();
+  const revealed = !layer;
 
   const token = ++paintToken;
   const dpr = window.devicePixelRatio || 1;
@@ -224,7 +275,7 @@ function showPhoto(photo: Photo): void {
   }
 
   // Loaded as a CORS image so its brightness can be measured for the text colours; if that's refused, show it anyway.
-  loadFull(url, true)
+  return loadFull(url, true)
     .catch(() => {
       forget();
       return loadFull(url, false);
@@ -232,13 +283,18 @@ function showPhoto(photo: Photo): void {
     .then((img) => {
       if (token !== paintToken || !img) return;
       fadeIn(img);
+      // The new photo takes a moment to fade in over the old one: its colors follow once it mostly shows.
+      if (!revealed) window.setTimeout(() => token === paintToken && reveal(), revealDelayMs);
       const painted = onPainted;
       onPainted = null;
       painted?.();
       if (img.crossOrigin) measure(img);
       applyTone(settings.dim / 100);
     })
-    .catch(() => {}); // offline: the blurred sliver stays
+    .catch(() => {
+      // Offline: the old photo (or the blurred sliver) stays; the rest follows the photo that was asked for anyway.
+      if (token === paintToken && !revealed) reveal();
+    });
 }
 
 function blurStyle(el: HTMLElement): void {
@@ -322,7 +378,8 @@ function renderSync(): void {
 }
 
 function refreshPhoto(): void {
-  showPhoto(currentPhoto());
+  const photo = currentPhoto();
+  if (photo) void showPhoto(photo);
 }
 
 // ---------------------------------------------------------------- widgets
@@ -642,13 +699,7 @@ function back(): void {
 backdrop.addEventListener("click", back);
 document.addEventListener("oriel:close-panel", closePanel);
 document.addEventListener("oriel:redraw-panel", () => drawPanel());
-$("shuffle").addEventListener("click", (e) => {
-  const button = e.currentTarget as HTMLElement;
-  button.classList.remove("spin");
-  void button.offsetWidth; // restart the animation
-  button.classList.add("spin");
-  void changePhoto();
-});
+$("shuffle").addEventListener("click", () => void changePhoto());
 
 /**
  * Another photo (Shuffle, Home's Change now), or the one given (Home's Wallpaper of the day). Following the account:
@@ -657,6 +708,7 @@ $("shuffle").addEventListener("click", (e) => {
 async function changePhoto(chosen?: Photo): Promise<void> {
   if (changing) return;
   changing = true;
+  busyShuffle(true);
   drawPanel();
   try {
     if (followsDesktop()) return await shuffleEverywhere(chosen);
@@ -664,19 +716,30 @@ async function changePhoto(chosen?: Photo): Promise<void> {
     if (!photo) {
       updateSettings({ bump: settings.bump + 1 });
       tabPhoto = null; // Shuffle: a new one, even with "Every tab"
-      photo = currentPhoto();
+      photo = currentPhoto() ?? undefined;
+      if (!photo) return toast("No photos yet. Check your connection.");
     } else {
       const key = slotKey(settings.change, settings.bump);
       if (key) remember("slot", { key, photo });
       else tabPhoto = photo;
     }
-    showPhoto(photo);
     // Tell the other open tabs, so they all switch to this photo (see the storage listener below).
     remember("shared-photo", { photo, at: Date.now() });
+    // "Changing…" until the new photo is on screen (at most 15 s on a slow connection).
+    await Promise.race([showPhoto(photo), new Promise((done) => window.setTimeout(done, 15_000))]);
   } finally {
     changing = false;
+    busyShuffle(false);
     drawPanel();
   }
+}
+
+/** The shuffle button turns, and can't be pressed again, while a photo is on its way. */
+function busyShuffle(busy: boolean): void {
+  const button = $<HTMLButtonElement>("shuffle");
+  button.disabled = busy;
+  button.setAttribute("aria-busy", String(busy));
+  spin(button.querySelector("svg"), busy, 180); // two arrows: it looks the same every half turn
 }
 
 // Other tabs of this browser: a photo changed here, or a setting did.
@@ -685,7 +748,7 @@ window.addEventListener("storage", (e) => {
     const shared = (JSON.parse(e.newValue) as { photo?: Photo } | null)?.photo;
     if (shared && !followsDesktop()) {
       if (!slotKey(settings.change, settings.bump)) tabPhoto = shared; // keep it, rather than going back to this tab's pick
-      showPhoto(shared);
+      void showPhoto(shared);
     }
   } else if (e.key === "oriel.shortcuts") {
     shortcuts.reload();
@@ -733,10 +796,24 @@ if (location.hash === "#birthday") {
 }
 
 // Paint immediately from what's remembered; everything async only refines it.
+setUpKeyboard(["panel", "info", "sc-dialog", "folder-view", "bday-dialog"].map((id) => $(id)));
 styleBackground();
 renderLayout();
 scheduleClock();
 refreshPhoto();
+// This hour's Explore feed, once the hour turns, and the Wallpaper of the day list, once a day. The very first ones
+// replace what was shown meanwhile (the day's photo, or nothing at all on a brand new install).
+void refreshToday().then((fresh) => {
+  if (!fresh) return;
+  if (!shown && !followsDesktop()) refreshPhoto();
+  drawPanel(); // Home's Wallpaper of the day
+});
+void refreshFeed().then((fresh) => {
+  const meanwhile = !shown || shown.id === todayPhoto()?.id;
+  if (!fresh || followsDesktop() || !meanwhile || remember<{ key: string }>("slot")?.key === slotKey(settings.change, settings.bump)) return;
+  tabPhoto = null;
+  refreshPhoto();
+});
 
 chrome.storage.local.get("handoff").then(({ handoff }) => {
   if (sync.profile || handoff) void sync.start().then(() => handoff && sync.consumeHandoff());

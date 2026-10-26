@@ -672,7 +672,7 @@ export function createShortcutsRow(row: HTMLElement, dialog: HTMLElement, folder
     }
     const url = normalizeUrl((form.elements.namedItem("url") as HTMLInputElement).value);
     if (!url) {
-      error.textContent = "Enter a web address, like example.com";
+      error.textContent = "Enter a web address, like example.com, or a file path";
       return;
     }
     const title = (form.elements.namedItem("title") as HTMLInputElement).value.trim() || titleFor(url);

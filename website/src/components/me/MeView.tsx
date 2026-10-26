@@ -4,7 +4,7 @@ import { getAuth, onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { collection, deleteField, doc, getDoc, onSnapshot, updateDoc, writeBatch } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { isBirthday } from "@/lib/birthday";
+import { isBirthday, ringBirthday } from "@/lib/birthday";
 import { firebaseApp, firebaseAuth, firestore } from "@/lib/firebase";
 import { endSession, ensureWebSession, forgetWebSession, localSessionId, toSessionRow, type SessionRow } from "@/lib/sessions";
 import {
@@ -208,6 +208,7 @@ export function MeView() {
             onSaveBirthday={async (next) => {
               await updateDoc(doc(firestore(), "users", user.uid), { birthday: next ?? deleteField() });
               setBirthday(next);
+              void ringBirthday(user);
             }}
             methods={methods}
             methodActions={methodActions}

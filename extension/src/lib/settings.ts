@@ -6,8 +6,6 @@ export type ClockShows = "time" | "age";
 export interface Settings {
   /** "desktop" shows what Oriel on your PC set as wallpaper; "own" picks its own. Only "own" works without an account. */
   mode: Mode;
-  /** Topics for "own" mode. */
-  topics: string[];
   change: Change;
   /** Bumped by Shuffle so the next pick differs within the same time slot. */
   bump: number;
@@ -38,7 +36,6 @@ export interface Settings {
 
 export const defaults: Settings = {
   mode: "own",
-  topics: ["nature", "mountains", "ocean", "space", "architecture"],
   change: "daily",
   bump: 0,
   clock: true,
@@ -75,7 +72,9 @@ export function lacksSettings(remote: Partial<Settings>): boolean {
 
 export function loadSettings(): Settings {
   try {
-    return { ...defaults, ...JSON.parse(localStorage.getItem(key) ?? "{}") };
+    // "topics" was the Interests of the bundled pool, gone since "Its own" picks from the hourly Explore feed.
+    const { topics: _topics, ...saved } = JSON.parse(localStorage.getItem(key) ?? "{}");
+    return { ...defaults, ...saved };
   } catch {
     return { ...defaults };
   }

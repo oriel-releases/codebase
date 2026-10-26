@@ -27,6 +27,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-svh md:grid md:grid-cols-[232px_1fr]">
+      <Glow />
       <aside className="sticky top-0 z-20 flex flex-col border-b bg-background/85 backdrop-blur md:h-svh md:border-r md:border-b-0">
         <div className="flex items-center gap-2.5 px-4 py-3 md:px-5 md:py-5">
           <Logo size={24} />
@@ -88,6 +89,17 @@ export function PageHeader({ title, description, actions }: { title: string; des
         {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
       </div>
       {actions}
+    </div>
+  );
+}
+
+/** Soft colored bubbles behind every page, fixed to the window so the content scrolls over them. */
+function Glow() {
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      <div className="absolute -top-40 -left-24 size-[34rem] rounded-full bg-[#4f6fe0]/25 blur-3xl dark:bg-[#4f6fe0]/20" />
+      <div className="absolute top-1/4 -right-32 size-[30rem] rounded-full bg-[#c46bd8]/20 blur-3xl dark:bg-[#c46bd8]/15" />
+      <div className="absolute -bottom-48 left-1/3 size-[32rem] rounded-full bg-[#3fc4b0]/20 blur-3xl dark:bg-[#3fc4b0]/15" />
     </div>
   );
 }
