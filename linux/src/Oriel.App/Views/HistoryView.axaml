@@ -4,7 +4,8 @@
              xmlns:views="using:Oriel.UI.Views"
              x:Class="Oriel.UI.Views.HistoryView"
              x:DataType="vm:HistoryViewModel">
-    <ScrollViewer>
+    <!--  A focus change never scrolls the page (opening a card could jump it to the top first).  -->
+    <ScrollViewer BringIntoViewOnFocusChange="False">
         <StackPanel MaxWidth="960" Margin="40,8,40,40">
             <Grid>
                 <TextBlock Classes="title" Text="{Binding Title}" />
