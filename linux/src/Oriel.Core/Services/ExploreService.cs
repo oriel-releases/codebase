@@ -27,8 +27,11 @@ public sealed class ExploreService(HttpClient http, AppPaths paths, IClock clock
     ExploreFeed? _feed;
     DateTimeOffset _triedAt = DateTimeOffset.MinValue;
 
-    /// <summary>This hour's photos; the last ones kept when the new ones can't be had; empty when there never were any.</summary>
-    public async Task<ExploreFeed> GetAsync(CancellationToken ct = default)
+    /// <summary>
+    /// This hour's photos; the last ones kept when the new ones can't be had; empty when there never were any.
+    /// <paramref name="force"/> (a refresh) asks again even if the last try failed moments ago.
+    /// </summary>
+    public async Task<ExploreFeed> GetAsync(CancellationToken ct = default, bool force = false)
     {
         await _gate.WaitAsync(ct);
         try
@@ -40,7 +43,7 @@ public sealed class ExploreService(HttpClient http, AppPaths paths, IClock clock
                 catch (IOException) { }
             }
             var now = clock.Now;
-            if (IsCurrent(_feed, now) || now - _triedAt < RetryAfter) return _feed ?? ExploreFeed.Empty;
+            if (IsCurrent(_feed, now) || (!force && now - _triedAt < RetryAfter)) return _feed ?? ExploreFeed.Empty;
             _triedAt = now;
             try
             {
