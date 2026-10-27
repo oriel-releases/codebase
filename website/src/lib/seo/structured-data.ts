@@ -91,6 +91,30 @@ export function faqSchema(items: FaqItem[]): JsonLd {
   };
 }
 
+/**
+ * /explore: a gallery of free wallpapers that changes every hour. The photos are picked in the browser, so the page
+ * describes the collection (what, how often, from where, how to use it) rather than listing them.
+ */
+export function exploreSchema(description: string): JsonLd {
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "Explore wallpapers",
+    url: absoluteUrl(routes.explore),
+    description,
+    inLanguage: "en",
+    isPartOf: { "@type": "WebSite", name: site.name, url: absoluteUrl(routes.home) },
+    publisher: { "@id": organizationId },
+    mainEntity: {
+      "@type": "ImageGallery",
+      name: `${site.name} Explore`,
+      description: "A few hundred Unsplash photos for computers (landscape) and phones (portrait), picked once an hour for everyone.",
+      isAccessibleForFree: true,
+      provider: { "@type": "Organization", name: "Unsplash", url: "https://unsplash.com" },
+    },
+  };
+}
+
 export function breadcrumbSchema(trail: { name: string; path: string }[]): JsonLd {
   return {
     "@context": "https://schema.org",

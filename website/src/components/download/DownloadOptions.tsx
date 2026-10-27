@@ -120,7 +120,7 @@ export function DownloadOptions({ releases }: { releases: Releases }) {
 
       {/* The second switch follows the first (systems for the app, browsers for the extension); it doesn't slide in,
           its pill just widens or narrows to the new set. */}
-      <GlidingBox swapKey={kind} className="mt-3 rounded-full bg-surface">
+      <GlidingBox swapKey={kind} className="mt-3 rounded-[1.5rem] bg-surface sm:rounded-full">
         {kind === "apps" ? (
           <SegmentedSwitch
             bare

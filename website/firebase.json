@@ -25,6 +25,15 @@
         ]
       },
       {
+        "source": "/explore/opengraph-image",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "image/png"
+          }
+        ]
+      },
+      {
         "source": "/today/opengraph-image",
         "headers": [
           {

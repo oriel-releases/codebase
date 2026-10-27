@@ -4,17 +4,21 @@ const productionUrl = "https://oriel.akbarjon.uz";
 /** Site-wide facts. */
 export const site = {
   name: "Oriel",
-  tagline: "A new wallpaper, every day.",
+  tagline: "One photo, every device",
   /** Release stage shown next to the name; set to null once Oriel leaves beta. */
   stage: "Beta" as string | null,
   description:
-    "Oriel is a free daily wallpaper changer for Windows, Linux and Android, with a matching new tab extension for Chrome, Edge, Brave and Firefox. Fresh Unsplash photos, lightweight, lives in your tray.",
+    "Oriel is a free daily wallpaper changer for Windows, Mac, Linux and Android that shows the same Unsplash photo on every device, plus a new tab extension for Chrome, Edge, Brave and Firefox.",
   url: process.env.SITE_URL ?? (process.env.NODE_ENV === "production" ? productionUrl : "http://localhost:3000"),
   locale: "en_US",
   keywords: [
     "daily wallpaper",
     "Windows wallpaper app",
+    "Mac wallpaper app",
     "Linux wallpaper app",
+    "Android wallpaper app",
+    "same wallpaper on all devices",
+    "sync wallpaper across devices",
     "Unsplash wallpaper",
     "wallpaper changer",
     "Windows 11 wallpaper",
@@ -37,6 +41,7 @@ export const routes = {
   share: "/share",
   follow: "/follow",
   today: "/today",
+  explore: "/explore",
   privacy: "/privacy",
   login: "/login",
   me: "/me",

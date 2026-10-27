@@ -1,17 +1,24 @@
 /** Copy for the home page. UI components only render what's here. */
 
-export type Feature = { title: string; body: string };
+/** What a home feature card draws above its words (components/home/FeatureVisuals). */
+export type FeatureVisual = "devices" | "schedule" | "morning" | "topics" | "history" | "screens" | "quiet" | "browser" | "favorites";
+export type Feature = { title: string; body: string; visual?: FeatureVisual };
 export type Step = { title: string; body: string };
 export type FaqItem = { question: string; answer: string };
 
 export const hero = {
   eyebrow: "Free for Windows, Mac, Linux and Android",
-  title: "A new wallpaper, every day.",
+  title: "One photo, every device",
   body: "Oriel quietly sets a beautiful Unsplash photo as your wallpaper each morning, the same one on your computer, your Mac and your phone. Pick the topics you like, and forget about it.",
 } as const;
 
+/** The devices under the hero, and "Try yours": a visitor's own photo on them, kept in their browser. */
 export const sync = {
-  title: "One photo, every device",
+  label: "The same photo on an iMac, a MacBook and an iPhone",
+  cta: "Try yours",
+  another: "Try another",
+  reset: "Back to our photos",
+  failed: "That file couldn't be opened. Try a JPEG or PNG.",
 } as const;
 
 /** The photos the home page's devices cycle through (ids from data/today.json). */
@@ -34,41 +41,55 @@ export const showcase = {
   ],
 } as const;
 
+/** The third screen: three rows of this hour's Explore wallpapers drifting by, each a way in. */
+export const exploreRows = {
+  title: "Explore",
+} as const;
+
 export const features: Feature[] = [
   {
     title: "The same on every device",
+    visual: "devices",
     body: "Your computer, your Mac and your phone show the same photo. Change it on one, and the others follow within seconds.",
   },
   {
     title: "One schedule",
+    visual: "schedule",
     body: "Set the time once and every device keeps it. Whichever wakes first picks the photo, so they never disagree.",
   },
   {
     title: "Fresh every morning",
+    visual: "morning",
     body: "A new high-resolution photo at the time you choose, or as soon as you sign in.",
   },
   {
     title: "Your topics",
+    visual: "topics",
     body: "Nature, space, cities, or your own searches. Skip anything you'd rather not see.",
   },
   {
     title: "Never repeats",
+    visual: "history",
     body: "Every photo is remembered, so you won't see the same one twice.",
   },
   {
     title: "Every screen",
+    visual: "screens",
     body: "All your monitors change together, and on your phone the home and lock screens too.",
   },
   {
     title: "Light and quiet",
+    visual: "quiet",
     body: "Lives in the tray or the menu bar and sleeps between changes. Gentle on your phone's battery.",
   },
   {
     title: "In your browser too",
+    visual: "browser",
     body: "A free new tab extension for Chrome, Edge, Brave and Firefox shows the same photo as your desktop, or its own picks.",
   },
   {
     title: "Favorites everywhere",
+    visual: "favorites",
     body: "Star a photo on one device and it's a favorite on all of them. Each one links to its photographer on Unsplash.",
   },
 ];
@@ -76,11 +97,11 @@ export const features: Feature[] = [
 export const steps: Step[] = [
   {
     title: "Download",
-    body: "Get Oriel for Windows or Linux. Sign in with Google or your email, no key needed.",
+    body: "Get Oriel for Windows, Mac, Linux or Android. Sign in with Google or your email, no key needed.",
   },
   {
     title: "Install",
-    body: "Run Oriel-Setup.exe on Windows, or open Oriel.AppImage on Linux. It settles into your tray in seconds.",
+    body: "Run Oriel-Setup.exe on Windows, open Oriel.dmg on a Mac, Oriel.AppImage on Linux or Oriel.apk on Android. It settles in within seconds.",
   },
   {
     title: "Enjoy",
@@ -146,6 +167,11 @@ export const faq: FaqItem[] = [
     question: "Where are the photos saved?",
     answer:
       "In your Pictures folder, under Oriel, by default. You can pick another folder in Settings, and Oriel moves your photos there.",
+  },
+  {
+    question: "What is Explore?",
+    answer:
+      "A few hundred Unsplash wallpapers for computers and phones, picked once an hour and the same for everyone. Browse them in the apps or on the website's Explore page, and set any of them as your wallpaper in one click.",
   },
   {
     question: "Where do the photos come from?",
