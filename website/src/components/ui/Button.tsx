@@ -30,6 +30,13 @@ export function ButtonLink({ variant, size, className, ...props }: ButtonLinkPro
   return <Link className={buttonClass({ variant, size }, className)} {...props} />;
 }
 
+type ButtonProps = ComponentProps<"button"> & StyleProps;
+
+/** A fully rounded button, for actions on the page. */
+export function Button({ variant, size, className, type = "button", ...props }: ButtonProps) {
+  return <button type={type} className={buttonClass({ variant, size }, `cursor-pointer ${className ?? ""}`)} {...props} />;
+}
+
 type AnchorButtonProps = ComponentProps<"a"> & StyleProps;
 
 /**

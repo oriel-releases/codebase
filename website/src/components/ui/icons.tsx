@@ -1,5 +1,5 @@
 import type { SVGProps } from "react";
-import { ArrowDown, Download, Globe, Monitor, Plus, Puzzle } from "lucide-react";
+import { ArrowDown, Compass, Download, Globe, Monitor, Plus, Puzzle, Smartphone } from "lucide-react";
 
 type IconProps = SVGProps<SVGSVGElement>;
 
@@ -26,6 +26,14 @@ export function TelegramIcon(props: IconProps) {
 
 export function MonitorIcon(props: IconProps) {
   return <Monitor {...lucide} {...props} />;
+}
+
+export function PhoneIcon(props: IconProps) {
+  return <Smartphone {...lucide} {...props} />;
+}
+
+export function CompassIcon(props: IconProps) {
+  return <Compass {...lucide} {...props} />;
 }
 
 export function GlobeIcon(props: IconProps) {
