@@ -171,6 +171,10 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   landscape; Android `core/Explore.kt`, portrait), keep it on disk and fetch again once the hour turns (at most every
   5 min until the new hour is up). Setting one is like a search result: download ping, `sync/current`, History topic =
   the photo's `topic`.
+- Website: `/explore` (grid, Computers/Phones; `src/lib/explore.ts` keeps the feed in `localStorage` with the same
+  rules, Refresh = a new hour or the same photos shuffled, like Android's pull) and `/explore?wallpaper=ID` (the photo
+  on the drawn devices, `components/devices/DeviceStage.tsx`; "Set as wallpaper" = `oriel://wallpaper?id=`). The home
+  page's third section drifts 30 of them.
 
 ## Other Firestore features
 
