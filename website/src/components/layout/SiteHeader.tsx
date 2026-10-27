@@ -12,6 +12,7 @@ import { navigation } from "@/lib/transitions";
 export function SiteHeader() {
   return (
     <header
+      data-chrome="up"
       style={{ viewTransitionName: "site-header" }}
       className="fixed inset-x-0 top-0 z-50 border-b border-line/60 bg-paper/70 backdrop-blur-xl"
     >

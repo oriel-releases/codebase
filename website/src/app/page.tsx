@@ -4,9 +4,11 @@ import { faq, features, steps } from "@/content/home";
 import { pageMetadata } from "@/lib/seo/metadata";
 import { faqSchema, organizationSchema, softwareApplicationSchema, websiteSchema } from "@/lib/seo/structured-data";
 import { Faq } from "@/components/home/Faq";
+import { ExploreRows } from "@/components/home/ExploreRows";
 import { Features } from "@/components/home/Features";
 import { GetStarted } from "@/components/home/GetStarted";
 import { Hero } from "@/components/home/Hero";
+import { OwnPhotoProvider } from "@/components/home/OwnPhoto";
 import { Sync } from "@/components/home/Sync";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -25,8 +27,11 @@ export default function HomePage() {
       <JsonLd data={[organizationSchema(), websiteSchema(), softwareApplicationSchema(releases, features), faqSchema(faq)]} />
       <PageTransition>
         <div>
-          <Hero />
-          <Sync />
+          <OwnPhotoProvider>
+            <Hero />
+            <Sync />
+          </OwnPhotoProvider>
+          <ExploreRows />
           <Features items={features} />
           <GetStarted steps={steps} />
           <Faq items={faq} />

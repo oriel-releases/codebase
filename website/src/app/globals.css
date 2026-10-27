@@ -40,6 +40,53 @@
 
 html {
   scroll-behavior: smooth;
+  /* The page's scrollbar in the site's colours, not the browser's: thin, a quiet ink thumb, no track. */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ink) 22%, transparent) transparent;
+}
+
+/* The home page's rows of Explore wallpapers: each row holds its set twice, so moving it by half loops seamlessly. */
+@keyframes drift {
+  to {
+    translate: -50% 0;
+  }
+}
+
+/* An Explore wallpaper's view mode (the eye in its footer, ViewOnlyToggle): the header slides up, the footer and the
+   page's buttons slide down, all fading, the page stops scrolling and the devices move to the screen's middle (the
+   eye measures how far: --view-shift) and grow a little into the room. */
+[data-chrome] {
+  transition:
+    translate 600ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 450ms ease;
+}
+[data-view-grow] {
+  transition:
+    scale 800ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    translate 800ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+html[data-view-only] {
+  overflow: hidden;
+}
+html[data-view-only] [data-chrome] {
+  opacity: 0;
+  pointer-events: none;
+}
+html[data-view-only] [data-chrome="up"] {
+  translate: 0 -100%;
+}
+html[data-view-only] [data-chrome="down"] {
+  translate: 0 1.5rem;
+}
+html[data-view-only] [data-view-grow] {
+  translate: 0 var(--view-shift, 0);
+  scale: 1.08;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-chrome],
+  [data-view-grow] {
+    transition: none;
+  }
 }
 
 /* Tailwind 4 resets buttons to the default arrow; anything clickable should show a hand. */
