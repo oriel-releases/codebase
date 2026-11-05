@@ -58,8 +58,8 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
 
 - Native **Kotlin + Jetpack Compose**, Android 8.0+ (see `android/README.md`). **No Firebase SDK**: Auth, Firestore and
   the Realtime Database are REST calls (`data/Firebase.kt`), like the desktop `FirebaseClient.cs`.
-- Five tabs: **Home** (the wallpaper in a phone-shaped frame on its blurred self, Share, Lock, Crop, Favorite, Change
-  now), **Explore** (search on top, then this hour's feed; Interests live inside it, added only via "Add to Interests"), **AI** (AI Studio, see Create below),
+- Four tabs: **Home** (the wallpaper in a phone-shaped frame on its blurred self, Share, Lock, Crop, Favorite, Change
+  now), **Explore** (search on top, then this hour's feed; Interests live inside it, added only via "Add to Interests"),
   **History** (All / Favorites), **Settings** (Friends lives inside it, a row that opens it). Floating blurred navigation bar (Haze), a rail on the right in landscape.
   Black and white design, Lucide-style icons, every dialog a bottom sheet rounded on top only.
 - Gestures: the photo page scrolls up and down through the grid it came from (Explore, History) like a feed, and
@@ -70,9 +70,10 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   (`AppState.onboardingDone`); it ends, or is skipped, with the first wallpaper. Every app sets one on the first sign-in.
 - Scheduling: one inexact alarm at the next tick (no exact-alarm permission), then a JobScheduler job does the change.
   A periodic job (~15 min, network + battery not low) checks the account's photo, settings and favorites.
-- **Photo position** (this phone only, not synced): Smart (`crop=faces,entropy`, the default), Center, or a custom focal
-  point per photo from the editor (`crop=focalpoint&fp-x&fp-y`). Stored in SharedPreferences `positions`.
-- Updates itself from `oriel-releases/android` on launch and after each wallpaper change (`core/Updater.kt`);
+- **Photo position**: Smart (`crop=faces,entropy`, the default), Center, or a custom focal point per photo from the
+  editor (`crop=focalpoint&fp-x&fp-y`). Stored in SharedPreferences `positions`; the photo's pick syncs (see Photo position below).
+- Downloads updates from `oriel-releases/android` on launch and after each wallpaper change (`core/Updater.kt`), then the
+  navigation bar's Install item (or Updates' button) opens Android's own installer with the APK (like Telegram; Oriel never installs itself);
   Settings > About > Updates (`ui/UpdatesScreen.kt`) shows the version (green bubbles while it is the latest) and one button at the bottom for the next step.
 - **Builds:** `release` = `uz.akbarjon.oriel`, minified, signed with the **release key**; `debug` and `staging` =
   `uz.akbarjon.oriel.dev` with the debug key (`staging` is non-debuggable, so it runs as fast as release: use it to try
@@ -123,7 +124,14 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
 - **Current photo:** every change anywhere (scheduled, Change now, Search, History, a share) is published to
   `users/{uid}/sync/current` (the source of truth) = {photoId, imageUrl (raw Unsplash URL; each device crops its own),
   pageUrl, photographer, photographerUrl, description, topic, color (#RRGGBB accent), source
-  (windows|linux|android|extension), updatedAt}. Sync the **Unsplash photo ID**, never the image file.
+  (windows|linux|android|extension), updatedAt, crop?, focusX?, focusY?}. Sync the **Unsplash photo ID**, never the image file.
+- **Photo position** (a position editor on Android, Windows and Linux: Home's Position/Crop): `crop` = smart|center|focus
+  and, for focus, `focusX`/`focusY` (0..1 across and down the photo). A point fits every screen's shape, so each device
+  crops its own (desktop `PhotoPosition` + `JsonPositionStore` `positions.json` + `UnsplashProvider.BuildDownloadUrl`;
+  Android `Positions`; extension `photo.ts` `imageUrl`). Set writes those fields (masked PATCH) and rings the doorbell for
+  the same photo; receivers re-crop the photo on screen (desktop `FollowService.TakePositionAsync` →
+  `WallpaperService.RepositionAsync`, Android `Following.takePosition`), and a new photo is published with its pick.
+  The extension reads `sync/current` again when a ring for its photo is newer than its copy's `updatedAt`.
 - **Doorbell:** after publishing, the device rings `pulse/{uid}` in the **Realtime Database** (`oriel-gcp-default-rtdb`)
   with {photoId, source, device (session id), at}. Rings are PATCHes, so photo, settings and favorites fields never
   clobber each other. Desktops (`PulseListener`), Android while on screen (`Pulse`) and the extension keep one SSE
@@ -137,7 +145,7 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   favoritesOnly, skipLowLikes, minLikes, matchTimeOfDay, interests[{query, enabled, isCustom}], updatedAt, device};
   last write wins; a change rings {settingsAt, settingsDevice}. First sign-in adopts the account's settings, or uploads
   its own if there are none. **Device-only, never synced:** lock screen / home+lock, fit, hotkey, startup, folder,
-  change-at-login, Android photo position, search history.
+  change-at-login, Android's default position (Smart/Center in Settings), search history.
 - **Accent color:** Home shows the photo's top 3 colors (`AccentPicker.PickTop`, one per part of the color wheel); the
   chosen one is kept in `OrielState.AccentPhotoId/AccentColor`, becomes the Windows accent (turning "Match accent
   color" on) and is written to `sync/current.color` (masked PATCH) with a doorbell ring. Receiving desktops take it in
@@ -201,19 +209,13 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   `windows/` and `linux/` share the same `Oriel.Core` design: change one, change the other.
 - Keep Firestore traffic to single small documents (no listing whole collections) to stay inside Spark quotas.
 - The Unsplash key is shared and rate-limited: first-device-wins means one pick per tick, and Change now is limited to
-  twice an hour on Android. Respect Unsplash terms (hotlink URLs, ping the download tracking endpoint, credit the photographer).
+  once an hour on every app. Respect Unsplash terms (hotlink URLs, ping the download tracking endpoint, credit the photographer).
 - Wallpapers are fetched at full quality (`q=100`, at most 2160px wide).
-- **AI (AI wallpapers):** the "AI" page on desktop (left menu) and Android (tab, "AI Studio"); "I'm feeling lucky" makes
-  one from a random idea and look. Android always makes 16:9 (2048 x 1152, so it fills the computers it syncs to) and
-  crops its own part on the phone (`Wallpapers.fetch`; the position editor works for it). The user's few words are written out to a 60-90 word scene by
-  `openai/gpt-5.4-nano`, then drawn by `zimage` at the screen's shape (at most 2048 wide; 2560 is refused), both on
-  Pollinations with the owner's key `POLLINATIONS_KEY` baked in like the Unsplash key (it ships in the app: keep a Pollen
-  budget on it). 20 pictures per device per day (`created.json`). Pollinations keeps each picture at a public link
-  `https://media.pollinations.ai/{id}` (30 days after last use), so it syncs like a photo: `photoId` = `ai-{id}`,
-  `imageUrl` = that link (rules `validImage`), favorites too. Other devices download the link (desktop `ApplyLinkedAsync`;
-  Android and the extension use it as the image URL as is). Not shareable by link or follow code yet.
+- **AI wallpapers: macOS only.** Windows, Linux and Android no longer make them (removed: Pollinations wanted
+  paying). They still show one the Mac sets: `photoId` = `ai-{id}`, `imageUrl` = `https://media.pollinations.ai/{id}`
+  (public, no key; rules `validImage`), downloaded as is (desktop `AiPhotoLinks` + `ApplyLinkedAsync`, Android
+  `Photo.isAi`, the extension uses the link). No `POLLINATIONS_KEY` outside `macos/`.
 - **History sync** across devices, including deletes (tombstones). Today only favorites and the current photo sync.
 - **Instant delivery to a closed Android app:** FCM data messages sent by a free Cloudflare Worker (it verifies the
   Firebase ID token, reads device FCM tokens, sends the push; key only as a Worker secret). Today a closed app catches
   up on its ~15 min job, before each scheduled change, or when opened.
-- Syncing the Android photo position (focal point) with the photo, for a future iPhone app.
