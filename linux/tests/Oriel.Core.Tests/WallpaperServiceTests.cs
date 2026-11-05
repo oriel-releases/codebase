@@ -123,6 +123,7 @@ public sealed class WallpaperServiceTests : IDisposable
         _provider.Responses.Enqueue(() => [FakeProvider.Photo("p1")]);
         _provider.Responses.Enqueue(() => [FakeProvider.Photo("p1"), FakeProvider.Photo("p2")]);
         await _svc.ApplyAsync(true);
+        _clock.Now += TimeSpan.FromHours(1); // Change now works again
         var r = await _svc.ApplyAsync(true);
         Assert.Equal("p2", r.Entries.Single().PhotoId);
     }
@@ -198,18 +199,17 @@ public sealed class WallpaperServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Change_now_is_limited_to_two_per_hour()
+    public async Task Change_now_is_limited_to_one_per_hour()
     {
-        for (var i = 1; i <= 3; i++)
+        for (var i = 1; i <= 2; i++)
         {
             var id = $"p{i}";
             _provider.Responses.Enqueue(() => [FakeProvider.Photo(id)]);
         }
 
         Assert.Equal(ApplyStatus.Applied, (await _svc.ApplyAsync(true)).Status);
-        Assert.Equal(ApplyStatus.Applied, (await _svc.ApplyAsync(true)).Status);
         Assert.Equal(ApplyStatus.RateLimited, (await _svc.ApplyAsync(true)).Status);
-        Assert.Equal(2, _setter.Calls.Count);
+        Assert.Single(_setter.Calls);
 
         var at = WallpaperService.ManualChangeAvailableAt(_store.LoadState(), _clock.Now);
         Assert.Equal(_clock.Now + TimeSpan.FromHours(1), at);
@@ -224,7 +224,6 @@ public sealed class WallpaperServiceTests : IDisposable
             _provider.Responses.Enqueue(() => [FakeProvider.Photo(id)]);
         }
         await _svc.ApplyAsync(true);
-        await _svc.ApplyAsync(true);
 
         var state = _store.LoadState();
         Assert.Null(state.LastAppliedDate);
@@ -234,7 +233,7 @@ public sealed class WallpaperServiceTests : IDisposable
         // Change now is blocked, but the app's own change still happens, and is not counted against the limit.
         Assert.Equal(ApplyStatus.Applied, (await _svc.ApplyAsync(false)).Status);
         Assert.Equal(_clock.Today, _store.LoadState().LastAppliedDate);
-        Assert.Equal(2, _store.LoadState().ManualChanges.Count);
+        Assert.Single(_store.LoadState().ManualChanges);
     }
 
     [Fact]

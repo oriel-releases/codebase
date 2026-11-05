@@ -32,6 +32,10 @@ public interface IImageProvider
     /// <summary>Downloads the photo sized for <paramref name="size"/> as JPEG bytes.</summary>
     Task<byte[]> DownloadAsync(PhotoCandidate photo, PixelSize size, CancellationToken ct);
 
+    /// <summary>The same, cropped around <paramref name="position"/> (the position editor's pick, not saved yet).</summary>
+    Task<byte[]> DownloadAsync(PhotoCandidate photo, PixelSize size, Models.PhotoPosition position, CancellationToken ct) =>
+        DownloadAsync(photo, size, ct);
+
     /// <summary>Tells the provider the photo was used (required by Unsplash guidelines).</summary>
     Task TrackUsageAsync(PhotoCandidate photo, CancellationToken ct);
 }

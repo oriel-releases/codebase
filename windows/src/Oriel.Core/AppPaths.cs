@@ -21,6 +21,8 @@ public sealed class AppPaths
     public string SettingsFile => Path.Combine(DataRoot, "settings.json");
     public string AccountFile => Path.Combine(DataRoot, "auth.bin");
     public string StateFile => Path.Combine(DataRoot, "state.json");
+    /// <summary>The position picked for each photo (the position editor, or another device).</summary>
+    public string PositionsFile => Path.Combine(DataRoot, "positions.json");
     /// <summary>The next wallpaper, downloaded ahead of time so the change is instant and works offline.</summary>
     public string PrefetchDir => Path.Combine(DataRoot, "next");
     public string DatabaseFile => Path.Combine(DataRoot, "oriel.db");

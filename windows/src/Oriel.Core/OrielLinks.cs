@@ -21,9 +21,6 @@ public static class OrielLinks
     /// <summary>Unsplash, where the photos come from (credited as their guidelines ask).</summary>
     public const string Unsplash = "https://unsplash.com/?utm_source=oriel&utm_medium=referral";
 
-    /// <summary>Pollinations, which makes the AI wallpapers.</summary>
-    public const string Pollinations = "https://pollinations.ai/";
-
     /// <summary>The Wallpaper of the day list the website publishes for the apps (see TodayService).</summary>
     public const string TodayList = "https://oriel.akbarjon.uz/today.json";
 

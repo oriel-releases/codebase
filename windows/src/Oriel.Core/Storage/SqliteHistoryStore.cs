@@ -9,6 +9,8 @@ public interface IHistoryStore
     bool WasUsed(string provider, string photoId);
     long Add(HistoryEntry entry);
     IReadOnlyList<HistoryEntry> List(bool includeDeleted = false);
+    /// <summary>The photo showing now (the newest not deleted), or null when there is none. One row, not the whole list.</summary>
+    HistoryEntry? Latest();
     HistoryEntry? Get(long id);
     void SetFavorite(long id, bool favorite);
     /// <summary>Raised after <see cref="SetFavorite"/> with the entry as it is now (FavoritesSync shares it).</summary>
@@ -116,6 +118,9 @@ public sealed class SqliteHistoryStore : IHistoryStore
         Query(includeDeleted
             ? "SELECT * FROM history ORDER BY applied_at DESC, id DESC"
             : "SELECT * FROM history WHERE is_deleted = 0 ORDER BY applied_at DESC, id DESC");
+
+    public HistoryEntry? Latest() =>
+        Query("SELECT * FROM history WHERE is_deleted = 0 ORDER BY applied_at DESC, id DESC LIMIT 1").FirstOrDefault();
 
     public HistoryEntry? Get(long id) =>
         Query("SELECT * FROM history WHERE id = $id", ("$id", id)).FirstOrDefault();

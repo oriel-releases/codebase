@@ -23,11 +23,12 @@ public sealed record Follower(string Uid, string Name, DateTimeOffset? Since);
 public sealed record SessionInfo(string Platform, string DeviceName, string AppVersion);
 
 /// <summary>What another device shows now, read from <c>sync/current</c>.</summary>
-public sealed record CurrentPhoto(string PhotoId, string? Color, string? ImageUrl, string? Description);
+public sealed record CurrentPhoto(string PhotoId, string? Color, string? ImageUrl, string? Description,
+    Models.PhotoPosition? Position = null);
 
 /// <summary>The wallpaper a desktop app applied last, shared through <c>users/{uid}/sync/current</c> so the browser extension can show the same photo.</summary>
 public sealed record CurrentWallpaper(string PhotoId, string ImageUrl, string PageUrl, string Photographer, string PhotographerUrl,
-    string? Description, string? Topic, string Source, string? Color = null);
+    string? Description, string? Topic, string Source, string? Color = null, Models.PhotoPosition? Position = null);
 
 /// <summary>
 /// Firebase Auth and Firestore over their REST APIs (there's no Firebase SDK for .NET desktop). The key is the
@@ -175,6 +176,8 @@ public sealed class FirebaseClient(HttpClient http)
         if (!string.IsNullOrWhiteSpace(wallpaper.Topic)) fields["topic"] = Str(wallpaper.Topic);
         // The photo's accent color ("#RRGGBB"): other devices (the Android app later) use it as their accent.
         if (!string.IsNullOrWhiteSpace(wallpaper.Color)) fields["color"] = Str(wallpaper.Color);
+        // Where it's cropped, when it was placed (the position editor): every device crops around the same point.
+        if (wallpaper.Position is { } position) AddPosition(fields, position);
         return WriteDocumentAsync(CurrentUrl(tokens.Uid), tokens, fields, ct);
     }
 
@@ -471,9 +474,11 @@ public sealed class FirebaseClient(HttpClient http)
     public async Task<CurrentPhoto?> GetCurrentPhotoAsync(FirebaseTokens tokens, string ownerUid, CancellationToken ct = default)
     {
         var fields = await GetDocumentAsync(CurrentUrl(ownerUid) +
-            "?mask.fieldPaths=photoId&mask.fieldPaths=color&mask.fieldPaths=imageUrl&mask.fieldPaths=description", tokens, ct);
+            "?mask.fieldPaths=photoId&mask.fieldPaths=color&mask.fieldPaths=imageUrl&mask.fieldPaths=description" +
+            "&mask.fieldPaths=crop&mask.fieldPaths=focusX&mask.fieldPaths=focusY", tokens, ct);
         return fields is { } f && StringField(f, "photoId") is { } id
-            ? new CurrentPhoto(id, StringField(f, "color"), StringField(f, "imageUrl"), StringField(f, "description"))
+            ? new CurrentPhoto(id, StringField(f, "color"), StringField(f, "imageUrl"), StringField(f, "description"),
+                Models.PhotoPosition.FromSync(StringField(f, "crop"), NumberField(f, "focusX"), NumberField(f, "focusY")))
             : null;
     }
 
@@ -481,6 +486,26 @@ public sealed class FirebaseClient(HttpClient http)
     public Task SetCurrentColorAsync(FirebaseTokens tokens, string color, CancellationToken ct = default) =>
         WriteDocumentAsync(CurrentUrl(tokens.Uid) + "?updateMask.fieldPaths=color&updateMask.fieldPaths=updatedAt", tokens,
             new Dictionary<string, object> { ["color"] = Str(color), ["updatedAt"] = Time(DateTimeOffset.UtcNow) }, ct);
+
+    /// <summary>
+    /// Changes only where <c>sync/current</c>'s photo is cropped (the position editor). A point that isn't a focus point
+    /// removes focusX and focusY (they're in the mask but not sent).
+    /// </summary>
+    public Task SetCurrentPositionAsync(FirebaseTokens tokens, Models.PhotoPosition position, CancellationToken ct = default)
+    {
+        var fields = new Dictionary<string, object> { ["updatedAt"] = Time(DateTimeOffset.UtcNow) };
+        AddPosition(fields, position);
+        return WriteDocumentAsync(CurrentUrl(tokens.Uid) + "?updateMask.fieldPaths=crop&updateMask.fieldPaths=focusX" +
+            "&updateMask.fieldPaths=focusY&updateMask.fieldPaths=updatedAt", tokens, fields, ct);
+    }
+
+    static void AddPosition(Dictionary<string, object> fields, Models.PhotoPosition position)
+    {
+        fields["crop"] = Str(position.CropWord);
+        if (position.Mode != Models.PositionMode.Focus) return;
+        fields["focusX"] = Num(position.X);
+        fields["focusY"] = Num(position.Y);
+    }
 
     /// <summary>A document's fields, or null when it doesn't exist.</summary>
     async Task<JsonElement?> GetDocumentAsync(string url, FirebaseTokens tokens, CancellationToken ct)
@@ -501,6 +526,14 @@ public sealed class FirebaseClient(HttpClient http)
         using var response = await SendAsync(() => http.SendAsync(request, ct));
         if (response.StatusCode != HttpStatusCode.NotFound) await EnsureOkAsync(response, ct);
     }
+
+    /// <summary>A number field, whether Firestore keeps it as a double or (a whole one) as an integer.</summary>
+    static double? NumberField(JsonElement fields, string name) =>
+        !fields.TryGetProperty(name, out var f) ? null
+        : f.TryGetProperty("doubleValue", out var d) && d.TryGetDouble(out var value) ? value
+        : f.TryGetProperty("integerValue", out var i) && double.TryParse(i.GetString(), System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var whole) ? whole
+        : null;
 
     static string? StringField(JsonElement fields, string name) =>
         fields.TryGetProperty(name, out var f) && f.TryGetProperty("stringValue", out var v) ? v.GetString() : null;
@@ -523,6 +556,7 @@ public sealed class FirebaseClient(HttpClient http)
     }
 
     static object Str(string value) => new { stringValue = value };
+    static object Num(double value) => new { doubleValue = value };
     static object Time(DateTimeOffset value) => new { timestampValue = value.UtcDateTime.ToString("o") };
 
     static FirebaseTokens Tokens(string idToken, string refreshToken, string expiresIn, string uid) =>

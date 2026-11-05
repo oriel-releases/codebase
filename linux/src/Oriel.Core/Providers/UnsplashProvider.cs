@@ -8,7 +8,8 @@ using Microsoft.Extensions.Logging;
 
 namespace Oriel.Core.Providers;
 
-public sealed class UnsplashProvider(HttpClient http, IApiKeyStore keys, ILogger<UnsplashProvider> log) : IImageProvider
+public sealed class UnsplashProvider(HttpClient http, IApiKeyStore keys, ILogger<UnsplashProvider> log,
+    Storage.IPositionStore? positions = null) : IImageProvider
 {
     public const string ApiBase = "https://api.unsplash.com/";
     const string Utm = "utm_source=oriel&utm_medium=referral";
@@ -75,9 +76,15 @@ public sealed class UnsplashProvider(HttpClient http, IApiKeyStore keys, ILogger
     /// <summary>How long one try at downloading a photo may take; a slow connection gets a second try.</summary>
     static readonly TimeSpan DownloadTimeout = TimeSpan.FromSeconds(25);
 
-    public async Task<byte[]> DownloadAsync(PhotoCandidate photo, PixelSize size, CancellationToken ct)
+    // Cropped where the photo's position says (picked here or on another device), else Unsplash's smart crop.
+    public Task<byte[]> DownloadAsync(PhotoCandidate photo, PixelSize size, CancellationToken ct) =>
+        DownloadUrlAsync(photo, BuildDownloadUrl(photo.RawUrl, size, positions?.Get(photo.Id)), ct);
+
+    public Task<byte[]> DownloadAsync(PhotoCandidate photo, PixelSize size, PhotoPosition position, CancellationToken ct) =>
+        DownloadUrlAsync(photo, BuildDownloadUrl(photo.RawUrl, size, position), ct);
+
+    async Task<byte[]> DownloadUrlAsync(PhotoCandidate photo, string url, CancellationToken ct)
     {
-        var url = BuildDownloadUrl(photo.RawUrl, size);
         for (var attempt = 1; ; attempt++)
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -116,10 +123,23 @@ public sealed class UnsplashProvider(HttpClient http, IApiKeyStore keys, ILogger
         }
     }
 
-    internal static string BuildDownloadUrl(string rawUrl, PixelSize size)
+    internal static string BuildDownloadUrl(string rawUrl, PixelSize size, PhotoPosition? position = null)
     {
         var sep = rawUrl.Contains('?') ? '&' : '?';
-        return $"{rawUrl}{sep}w={size.Width}&h={size.Height}&fit=crop&crop=entropy&q=90&fm=jpg";
+        var crop = (position ?? PhotoPosition.Smart).CropQuery;
+        return $"{rawUrl}{sep}w={size.Width}&h={size.Height}&fit=crop{(crop.Length > 0 ? "&" + crop : "")}&q=90&fm=jpg";
+    }
+
+    /// <summary>Unsplash's sizing and cropping parameters, which <see cref="RawOf"/> takes off a link.</summary>
+    static readonly HashSet<string> SizingParameters = ["w", "h", "q", "fm", "fit", "crop", "fp-x", "fp-y", "fp-z", "dpr", "auto", "cs"];
+
+    /// <summary>A photo's base link (Unsplash's "raw") from any sized link of it: its own parameters kept, sizing taken off.</summary>
+    public static string RawOf(string url)
+    {
+        var q = url.IndexOf('?');
+        if (q < 0) return url;
+        var kept = url[(q + 1)..].Split('&').Where(p => p.Length > 0 && !SizingParameters.Contains(p.Split('=')[0])).ToList();
+        return kept.Count > 0 ? url[..q] + "?" + string.Join('&', kept) : url[..q];
     }
 
     async Task<HttpResponseMessage> SendApiAsync(string url, CancellationToken ct)

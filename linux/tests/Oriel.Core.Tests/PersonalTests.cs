@@ -135,20 +135,18 @@ public sealed class PersonalTests : IDisposable
     }
 
     [Fact]
-    public async Task Two_photos_are_prepared_so_both_changes_of_the_hour_are_instant()
+    public async Task A_photo_is_prepared_so_the_change_of_the_hour_is_instant()
     {
         _svc.PrefetchEnabled = true;
         _store.Update(s => s.MatchTimeOfDay = false);
         _provider.Responses.Enqueue(() => [FakeProvider.Photo("first")]);
-        _provider.Responses.Enqueue(() => [FakeProvider.Photo("first"), FakeProvider.Photo("second")]);
         await _svc.PrefetchAsync();
-        Assert.Equal(2, _provider.Queries.Count);
+        Assert.Single(_provider.Queries);
 
-        // No search response queued: both come from the prepared ones, each a different photo.
-        var a = await _svc.ApplyAsync(force: true);
-        var b = await _svc.ApplyAsync(force: true);
-        Assert.Equal(["first", "second"], new[] { a, b }.Select(r => Assert.Single(r.Entries).PhotoId));
-        Assert.Equal(2, _provider.Queries.Count);
+        // No search response queued: it comes from the prepared one.
+        var r = await _svc.ApplyAsync(force: true);
+        Assert.Equal("first", Assert.Single(r.Entries).PhotoId);
+        Assert.Single(_provider.Queries);
     }
 
     [Fact]
@@ -163,19 +161,6 @@ public sealed class PersonalTests : IDisposable
         Assert.Equal("bright", Assert.Single(r.Entries).PhotoId);
     }
 
-    [Fact]
-    public async Task Of_two_prepared_photos_the_one_that_suits_the_moment_goes_first()
-    {
-        _svc.PrefetchEnabled = true;
-        _store.Update(s => s.MatchTimeOfDay = false);
-        _provider.Responses.Enqueue(() => [Colored("bright", "#F2F2F2")]);
-        _provider.Responses.Enqueue(() => [Colored("dark", "#141414")]);
-        await _svc.PrefetchAsync();
-        _store.Update(s => s.MatchTimeOfDay = true); // 9 pm: dark first
-
-        var r = await _svc.ApplyAsync(force: true);
-        Assert.Equal("dark", Assert.Single(r.Entries).PhotoId);
-    }
 
     [Fact]
     public void Saved_interests_follow_the_new_built_in_list()

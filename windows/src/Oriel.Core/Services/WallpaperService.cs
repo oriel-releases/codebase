@@ -98,12 +98,13 @@ public sealed class WallpaperService(
     ISystemTheme? theme = null,
     ISlotClaimer? slots = null,
     IAccentSampler? sampler = null,
-    PollinationsClient? ai = null)
+    AiPhotoLinks? ai = null,
+    IPositionStore? positions = null)
 {
     const int MaxQueriesPerTarget = 3;
 
     /// <summary>"Change now" (button, tray, shortcut) is limited to this many successful changes per hour.</summary>
-    const int MaxManualChangesPerHour = 2;
+    const int MaxManualChangesPerHour = 1;
     static readonly TimeSpan ManualChangeWindow = TimeSpan.FromHours(1);
 
     /// <summary>Whole minutes left until <paramref name="at"/>, rounded up, at least 1 (so never "0 min").</summary>
@@ -177,7 +178,7 @@ public sealed class WallpaperService(
             state.ManualChanges.RemoveAll(t => clock.Now - t >= ManualChangeWindow);
             if (ManualChangeAvailableAt(state, clock.Now) is { } next)
                 return new(ApplyStatus.RateLimited, [],
-                    $"You can use Change now twice an hour. Try again in {MinutesUntil(next, clock.Now)} min.");
+                    $"You can use Change now once an hour. Try again in {MinutesUntil(next, clock.Now)} min.");
         }
 
         // The schedule belongs to the app and "Change now" to the user, so they stay apart: only an automatic
@@ -273,18 +274,7 @@ public sealed class WallpaperService(
         finally { FinishPhase(); }
     }
 
-    /// <summary>
-    /// Sets a picture Oriel already has in hand: an AI wallpaper from the Create page (shared with the account's other
-    /// devices through its public link), or one another device made.
-    /// </summary>
-    public async Task<ApplyResult> ApplyCreatedAsync(PhotoCandidate photo, byte[] image, string topic = "created", bool publish = true,
-        CancellationToken ct = default)
-    {
-        try { return await ApplyPhotoNowAsync(photo, topic, publish, ct, image); }
-        finally { FinishPhase(); }
-    }
-
-    /// <summary>An AI wallpaper made on another device (or a favorite of one): downloaded from its public link, then set.</summary>
+    /// <summary>An AI wallpaper another device made (the Mac app), or a favorite of one: downloaded from its public link, then set.</summary>
     public async Task<ApplyResult> ApplyLinkedAsync(PhotoCandidate photo, string topic, bool publish, CancellationToken ct = default)
     {
         if (ai is null) return new(ApplyStatus.Failed, [], "This build of Oriel can't show AI wallpapers.");
@@ -299,7 +289,8 @@ public sealed class WallpaperService(
             FinishPhase();
             return new(ApplyStatus.Failed, [], ex.Message, ex.Kind);
         }
-        return await ApplyCreatedAsync(photo, image, topic, publish, ct);
+        try { return await ApplyPhotoNowAsync(photo, topic, publish, ct, image); }
+        finally { FinishPhase(); }
     }
 
     async Task<ApplyResult> ApplyPhotoNowAsync(PhotoCandidate photo, string? topic, bool publish, CancellationToken ct, byte[]? image = null)
@@ -319,10 +310,10 @@ public sealed class WallpaperService(
                 PhaseChanged?.Invoke(this, ApplyPhase.Downloading);
                 bytes = await provider.DownloadAsync(photo, size, ct);
             }
-            if (!(image is null ? LooksLikeJpeg(bytes) : PollinationsClient.IsImage(bytes)))
+            if (!(image is null ? LooksLikeJpeg(bytes) : AiPhotoLinks.IsImage(bytes)))
                 throw new WallpaperException("Downloaded file isn't a valid image; keeping your current wallpaper.");
             var file = await SaveAsync(photo, bytes, 0, paths.WallpaperFolder(settings), ct,
-                PollinationsClient.IsPng(bytes) ? ".png" : ".jpg");
+                AiPhotoLinks.IsPng(bytes) ? ".png" : ".jpg");
             PhaseChanged?.Invoke(this, ApplyPhase.Changing);
 
             try
@@ -529,14 +520,129 @@ public sealed class WallpaperService(
     }
 
     /// <summary>
+    /// The position editor's Set, or a position another device picked for the photo on screen: that photo again,
+    /// cropped around <paramref name="position"/> (downloaded anew at this computer's size), and remembered for it. Saved
+    /// under a new name (a desktop shown the same file again may keep its old picture), History pointed at it.
+    /// <paramref name="publish"/> shares the position with the account's other devices.
+    /// </summary>
+    public async Task<ApplyResult> RepositionAsync(HistoryEntry entry, PhotoPosition position, bool publish = true, CancellationToken ct = default,
+        byte[]? image = null)
+    {
+        positions?.Set(entry.PhotoId, position);
+        if (entry.Provider != "unsplash") return new(ApplyStatus.Failed, [], "Only Unsplash photos can be moved.");
+        var settings = settingsStore.Load();
+        using var gate = ApplyLock.TryAcquire(paths.LockFile);
+        if (gate is null) return new(ApplyStatus.Busy, [], "Another change is already in progress.");
+        try
+        {
+            var size = PlanTargets(setter.GetMonitors(), settings, perMonitor: false)[0].Size;
+            // Usually downloaded already: the editor asks for the crop as soon as its window settles (PrefetchCrop).
+            EarlyCrop? early;
+            lock (_earlyLock) (early, _early) = (_early, null);
+            // Cut on this computer already (the editor's Set, from the whole photo): nothing to download.
+            var bytes = image is not null && LooksLikeJpeg(image) ? image : null;
+            if (bytes is null && early is not null && early.Matches(entry.PhotoId, position, size))
+            {
+                if (!early.Bytes.IsCompleted) PhaseChanged?.Invoke(this, ApplyPhase.Downloading);
+                bytes = await early.Bytes;
+            }
+            if (bytes is null)
+            {
+                PhaseChanged?.Invoke(this, ApplyPhase.Downloading);
+                bytes = await provider.DownloadAsync(PhotoOf(entry), size, position, ct);
+            }
+            if (!LooksLikeJpeg(bytes)) throw new WallpaperException("Downloaded file isn't a valid image; keeping your current wallpaper.");
+
+            var folder = Path.GetDirectoryName(entry.FilePath) is { Length: > 0 } dir ? dir : paths.WallpaperFolder(settings);
+            Directory.CreateDirectory(folder);
+            var stem = System.Text.RegularExpressions.Regex.Replace(Path.GetFileNameWithoutExtension(entry.FilePath), "-p[0-9]+$", "");
+            var file = Path.Combine(folder, $"{stem}-p{clock.Now.ToUnixTimeMilliseconds() % 1_000_000}.jpg");
+            await File.WriteAllBytesAsync(file + ".part", bytes, ct);
+            File.Move(file + ".part", file, overwrite: true);
+
+            PhaseChanged?.Invoke(this, ApplyPhase.Changing);
+            setter.SetForAll(file, settings.Fit);
+            SetOtherDesktops(file);
+            history.UpdateFilePaths(new Dictionary<string, string> { [entry.FilePath] = file });
+            if (!string.Equals(entry.FilePath, file, StringComparison.OrdinalIgnoreCase)) TryDelete(entry.FilePath);
+            var moved = entry with { FilePath = file };
+            await AfterDesktopAsync(file, settings, entry.PhotoId);
+            if (publish && sync is not null) await AfterChange(() => sync.PublishPositionAsync(moved, position));
+            var done = new ApplyResult(ApplyStatus.Applied, [moved]);
+            Applied?.Invoke(this, done);
+            return done;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogWarning("Couldn't move {Photo}: {Reason}", entry.PhotoId, ex.Message);
+            return new(ApplyStatus.Failed, [], ex is ProviderException or WallpaperException ? ex.Message : "Couldn't move it. Try again.",
+                (ex as ProviderException)?.Kind);
+        }
+        finally
+        {
+            FinishPhase();
+        }
+    }
+
+    /// <summary>A crop downloaded ahead of Set (the editor's window at rest), kept in memory until Set takes it.</summary>
+    sealed record EarlyCrop(string PhotoId, PhotoPosition Position, PixelSize Size, Task<byte[]?> Bytes)
+    {
+        public bool Matches(string photoId, PhotoPosition position, PixelSize size) =>
+            PhotoId == photoId && Position == position && Size == size;
+    }
+
+    readonly Lock _earlyLock = new();
+    EarlyCrop? _early;
+
+    /// <summary>
+    /// The crop the position editor is on, downloaded before Set is pressed: Unsplash takes a second or several to make
+    /// a new crop, and waiting for it only after Set made Set slow. Only the newest is kept.
+    /// </summary>
+    public void PrefetchCrop(HistoryEntry entry, PhotoPosition position)
+    {
+        if (entry.Provider != "unsplash") return;
+        var size = PlanTargets(setter.GetMonitors(), settingsStore.Load(), perMonitor: false)[0].Size;
+        lock (_earlyLock)
+        {
+            if (_early is { } same && same.Matches(entry.PhotoId, position, size)) return;
+            _early = new EarlyCrop(entry.PhotoId, position, size, Task.Run(async () =>
+            {
+                try
+                {
+                    var bytes = await provider.DownloadAsync(PhotoOf(entry), size, position, CancellationToken.None);
+                    return LooksLikeJpeg(bytes) ? bytes : null;
+                }
+                catch (Exception ex) when (ex is ProviderException or HttpRequestException or IOException or TaskCanceledException)
+                {
+                    return (byte[]?)null;
+                }
+            }));
+        }
+    }
+
+    /// <summary>The editor closed without Set: what it downloaded ahead goes.</summary>
+    public void DiscardPrefetchedCrop()
+    {
+        lock (_earlyLock) _early = null;
+    }
+
+    /// <summary>A History photo as Unsplash's links (its raw link from the thumbnail), to download it again.</summary>
+    static PhotoCandidate PhotoOf(HistoryEntry entry) => new()
+    {
+        Provider = entry.Provider, Id = entry.PhotoId, Width = 0, Height = 0,
+        RawUrl = UnsplashProvider.RawOf(entry.ThumbnailUrl), ThumbnailUrl = entry.ThumbnailUrl,
+        PhotoPageUrl = entry.PhotoPageUrl, PhotographerName = entry.PhotographerName, PhotographerUrl = entry.PhotographerUrl,
+    };
+
+    /// <summary>
     /// Re-applies an image from history. It becomes the newest entry, so Home shows it,
     /// and <see cref="Applied"/> is raised like for any other change.
     /// </summary>
     public async Task ReapplyAsync(HistoryEntry entry)
     {
         // A favorite from another device (or a file cleaned up since): fetched again, like a shared photo.
-        if (!File.Exists(entry.FilePath) && entry.Provider == PollinationsClient.Provider
-            && PollinationsClient.FromLink(entry.ThumbnailUrl, entry.Description) is { } made)
+        if (!File.Exists(entry.FilePath) && entry.Provider == AiPhotoLinks.Provider
+            && AiPhotoLinks.FromLink(entry.ThumbnailUrl, entry.Description) is { } made)
         {
             var result = await ApplyLinkedAsync(made, entry.Topic ?? "favorite", publish: true);
             if (result.Status != ApplyStatus.Applied) throw new WallpaperException(result.Error ?? "Couldn't set it. Try again.");
@@ -733,7 +839,7 @@ public sealed class WallpaperService(
     /// </summary>
     public bool PrefetchEnabled { get; set; }
 
-    /// <summary>How many photos wait ready: "Change now" works twice an hour, so both changes are instant.</summary>
+    /// <summary>How many photos wait ready: "Change now" works once an hour, so that change is instant.</summary>
     internal const int PrefetchDepth = MaxManualChangesPerHour;
 
     /// <summary>One filler at a time.</summary>

@@ -58,6 +58,22 @@ public sealed class StorageTests : IDisposable
     }
 
     [Fact]
+    public void Latest_is_the_newest_photo_not_deleted()
+    {
+        var db = new SqliteHistoryStore(_dir.Paths);
+        Assert.Null(db.Latest());
+
+        var now = DateTimeOffset.Now;
+        db.Add(Entry("old", now.AddHours(-2), "f1"));
+        var newest = db.Add(Entry("new", now, "f2"));
+        db.Add(Entry("middle", now.AddHours(-1), "f3"));
+        Assert.Equal("new", db.Latest()!.PhotoId);
+
+        db.MarkDeleted(newest);
+        Assert.Equal("middle", db.Latest()!.PhotoId);
+    }
+
+    [Fact]
     public void Retention_deletes_old_non_favorites_only()
     {
         var paths = _dir.Paths;
