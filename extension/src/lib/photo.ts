@@ -9,6 +9,26 @@ export interface Photo {
   topic?: string;
   /** Average colour, shown while the photo loads. */
   color?: string;
+  /** Where it's cropped, when it was placed in a position editor (an app): the same point on every device. */
+  position?: Position;
+}
+
+/**
+ * Unsplash's smart crop, the middle, or around a point picked in an app's position editor (x, y: 0..1 across and down
+ * the photo). A point fits any screen's shape, so this tab crops its own shape around it.
+ */
+export type Position = { crop: "smart" } | { crop: "center" } | { crop: "focus"; x: number; y: number };
+
+/** The same position (or none) on two photos: nothing to paint again. */
+export function samePosition(a?: Position, b?: Position): boolean {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
+/** Unsplash's crop parameters for a position (its smart crop when there's none). */
+function cropParams(position?: Position): Record<string, string> {
+  if (position?.crop === "center") return {};
+  if (position?.crop === "focus") return { crop: "focalpoint", "fp-x": position.x.toFixed(4), "fp-y": position.y.toFixed(4) };
+  return { crop: "entropy" };
 }
 
 /** The photo sized and cropped for this screen (Unsplash crops on its side, so only the pixels we show are sent). */
@@ -21,7 +41,7 @@ export function imageUrl(photo: Photo, width: number, height: number, quality = 
     w: String(Math.round(width)),
     h: String(Math.round(height)),
     fit: "crop",
-    crop: "entropy",
+    ...cropParams(photo.position),
     q: String(quality),
     fm: "jpg",
     auto: "format",

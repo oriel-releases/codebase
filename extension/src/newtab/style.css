@@ -36,7 +36,9 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent, #fff); outl
 
 /* The search bar follows the photo too: dark text and a lighter glass over bright photos. */
 #search { text-shadow: none; display: none; }
+/* The search field shows its focus on the whole pill (brighter): no ring of its own inside it. */
 #search input { color: inherit; }
+#search input:focus, #search input:focus-visible { outline: none; }
 #search input::placeholder { color: currentColor; opacity: 0.6; }
 #search[data-tone="dark"] { background: rgb(255 255 255 / 0.45); border-color: rgb(255 255 255 / 0.6); }
 #search[data-tone="dark"]:focus-within { background: rgb(255 255 255 / 0.6); --tw-ring-color: rgb(0 0 0 / 0.25); }

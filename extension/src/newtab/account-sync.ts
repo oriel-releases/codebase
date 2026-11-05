@@ -12,6 +12,10 @@ interface Handoff {
 }
 
 /** What the account logic needs from the page. It never touches the DOM itself. */
+
+/** How long after its write a ring may come and still be the same change (the device writes, then rings). */
+const RING_GRACE_MS = 5000;
+
 export interface AccountSyncHost {
   settings(): Settings;
   /** Merge, save and remember new settings. */
@@ -113,7 +117,8 @@ export function createAccountSync(host: AccountSyncHost) {
     const acct = await load();
     stopWatching = acct.watchAccount(profile.uid, {
       followsWallpaper: () => host.settings().mode === "desktop",
-      knownPhotoId: () => desktop?.photo.id,
+      // The same photo, and the ring no later than this copy was written (a few seconds' grace: the ring follows the write).
+      knows: (photoId, at) => desktop?.photo.id === photoId && (at === undefined || at <= desktop.updatedAt + RING_GRACE_MS),
       onCurrent(current) {
         desktop = current;
         remember("current", current);

@@ -1,5 +1,5 @@
 import "./style.css";
-import { imageUrl, placeholderUrl, slotKey, type Photo } from "../lib/photo";
+import { imageUrl, placeholderUrl, samePosition, slotKey, type Photo } from "../lib/photo";
 import { pick, refreshFeed } from "../lib/explore";
 import { refreshToday, todayPhoto } from "../lib/today";
 import { setUpKeyboard } from "./keyboard";
@@ -246,7 +246,8 @@ async function shuffleEverywhere(chosen?: Photo): Promise<void> {
 const revealDelayMs = 450;
 
 function showPhoto(photo: Photo): Promise<void> {
-  const same = shown?.id === photo.id && shown.url === photo.url;
+  // The same photo, cut the same way (moved in an app's position editor: painted again, cropped there).
+  const same = shown?.id === photo.id && shown.url === photo.url && samePosition(shown.position, photo.position);
   shown = photo;
   const reveal = () => {
     applyAccent(photo);
