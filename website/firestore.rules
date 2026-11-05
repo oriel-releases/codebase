@@ -47,7 +47,8 @@ service cloud.firestore {
       }
 
       // What each device shows or does, shared between the account's devices.
-      // sync/current: the wallpaper any of the account's devices (desktop, Android, the extension) set last; the others
+      // sync/current: the wallpaper any of the account's devices (desktop, Android, the extension) set last, and where it's
+      // cropped (crop, focusX, focusY: picked in a position editor, the same point on every device); the others
       // show it too (they hear about it through the Realtime Database's pulse/{uid}, see database.rules.json).
       // sync/settings: the settings every device shares (schedule, time zone, interests, filters); last write wins.
       // sync/slot: which device claimed the latest scheduled change ("first device wins"), so only one picks a photo.
@@ -119,12 +120,21 @@ service cloud.firestore {
     function validCurrent(d) {
       return d.keys().hasAll(['photoId', 'imageUrl', 'source', 'updatedAt'])
         && d.keys().hasOnly(['photoId', 'imageUrl', 'pageUrl', 'photographer', 'photographerUrl', 'description', 'topic',
-            'color', 'source', 'updatedAt'])
+            'color', 'source', 'updatedAt', 'crop', 'focusX', 'focusY'])
         && d.photoId is string
         && d.imageUrl is string
         && validImage(d.imageUrl)
         && d.source in ['windows', 'linux', 'android', 'extension', 'macos']
-        && d.updatedAt is timestamp;
+        && d.updatedAt is timestamp
+        && validCrop(d);
+    }
+
+    // Where the photo is cropped (a position editor): Unsplash's smart crop, the middle, or around a point (0..1 across
+    // and down the photo). Optional: every device crops its own screen's shape around it.
+    function validCrop(d) {
+      return (!('crop' in d) || d.crop in ['smart', 'center', 'focus'])
+        && (!('focusX' in d) || (d.focusX is number && d.focusX >= 0 && d.focusX <= 1))
+        && (!('focusY' in d) || (d.focusY is number && d.focusY >= 0 && d.focusY <= 1));
     }
 
     // The settings shared by every device of an account. Device-only ones (lock screen, fit, hotkey...) never come here.
