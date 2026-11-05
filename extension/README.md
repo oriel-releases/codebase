@@ -1,5 +1,11 @@
 # Oriel browser extension
 
+Developer dashboards, where each build is uploaded:
+
+- **Chrome:** [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
+- **Edge:** [Microsoft Partner Center, Edge Add-ons](https://partner.microsoft.com/dashboard/microsoftedge/overview)
+- **Firefox:** [Firefox Add-on Developer Hub](https://addons.mozilla.org/developers/addons)
+
 A new tab page with an Unsplash photo, a clock (or your age, running on: Settings > Clock > Age), a quote and an optional search bar. Works in Chrome, Edge, Brave, Opera (Chromium) and Firefox from one codebase. Plain TypeScript + Tailwind 4, built with Vite.
 
 Two ways to pick the photo, chosen in the extension's own settings (the gear on the new tab):
