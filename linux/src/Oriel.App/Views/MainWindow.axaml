@@ -13,11 +13,21 @@
         <Grid ColumnDefinitions="220,*" IsVisible="{Binding ShowApp}">
             <!--  Side menu  -->
             <DockPanel Margin="12,16,12,12">
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="12,4,0,20">
-                    <Image Width="24" Height="24" Source="{DynamicResource OrielLogo}" />
-                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" FontSize="16" Text="Oriel" />
-                    <TextBlock VerticalAlignment="Center" Classes="muted small" Text="Beta" />
-                </StackPanel>
+                <!--  The logo, and on its right, on every page while an update waits, Update (like Windows' title bar).  -->
+                <DockPanel DockPanel.Dock="Top" Margin="12,4,0,20">
+                    <Button DockPanel.Dock="Right" Classes="primary" Height="26" Padding="12,0" VerticalAlignment="Center"
+                            IsVisible="{Binding ShowUpdate}" Command="{Binding UpdateCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Data="{StaticResource IconDownload}" Width="11" Height="11" />
+                            <TextBlock FontSize="12" Text="{Binding UpdateText}" />
+                        </StackPanel>
+                    </Button>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Image Width="24" Height="24" Source="{DynamicResource OrielLogo}" />
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" FontSize="16" Text="Oriel" />
+                        <TextBlock VerticalAlignment="Center" Classes="muted small" Text="Beta" />
+                    </StackPanel>
+                </DockPanel>
                 <Button DockPanel.Dock="Bottom" Classes="nav" Classes.selected="{Binding IsSettings}"
                         Command="{Binding NavigateCommand}" CommandParameter="settings">
                     <StackPanel Orientation="Horizontal" Spacing="12">
@@ -36,12 +46,6 @@
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <PathIcon Data="{StaticResource IconCompass}" Width="16" Height="16" />
                             <TextBlock Text="Explore" />
-                        </StackPanel>
-                    </Button>
-                    <Button Classes="nav" Classes.selected="{Binding IsCreate}" Command="{Binding NavigateCommand}" CommandParameter="create">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <PathIcon Data="{StaticResource IconSparkles}" Width="16" Height="16" />
-                            <TextBlock Text="AI" />
                         </StackPanel>
                     </Button>
                     <Button Classes="nav" Classes.selected="{Binding IsHistory}" Command="{Binding NavigateCommand}" CommandParameter="history">
@@ -70,7 +74,6 @@
                 <ContentControl.DataTemplates>
                     <DataTemplate DataType="vm:HomeViewModel"><views:HomeView /></DataTemplate>
                     <DataTemplate DataType="vm:CollectionsViewModel"><views:SearchView /></DataTemplate>
-                    <DataTemplate DataType="vm:CreateViewModel"><views:CreateView /></DataTemplate>
                     <DataTemplate DataType="vm:HistoryViewModel"><views:HistoryView /></DataTemplate>
                     <DataTemplate DataType="vm:SettingsViewModel"><views:SettingsView /></DataTemplate>
                     <DataTemplate DataType="vm:FriendsViewModel"><views:FriendsView /></DataTemplate>
@@ -79,6 +82,8 @@
 
             <!--  A photo opened from Explore, History or Favorites, over its page (which keeps its place underneath).  -->
             <views:PhotoDetailView x:Name="PhotoDetail" Grid.Column="1" IsVisible="False" />
+            <!--  Where the wallpaper is cut (Home's Position button), over the page.  -->
+            <views:PositionEditorView x:Name="PositionEditor" Grid.Column="1" IsVisible="False" />
         </Grid>
 
         <!--  A photo a friend shared with a link: one button sets it as the wallpaper.  -->

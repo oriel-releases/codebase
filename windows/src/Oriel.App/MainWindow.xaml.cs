@@ -1,5 +1,7 @@
 using Oriel.Core.Auth;
+using Oriel.UI.Controls;
 using Oriel.UI.Pages;
+using Oriel.UI.Services;
 using Oriel.UI.ViewModels;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -38,6 +40,14 @@ public sealed partial class MainWindow : Window
         // The pane opens itself on first layout; start it shrunk to icons.
         Nav.Loaded += (_, _) => Nav.IsPaneOpen = false;
         ContentFrame.Navigate(typeof(HomePage));
+        PhotoDetailNav.View = PhotoDetail;
+        Controls.PositionEditorView.Current = PositionEditor;
+        // The page under an open photo is hidden, not left: it keeps its place (and its scroll) for the way back.
+        PhotoDetail.OpenChanged += (_, _) =>
+        {
+            ContentFrame.Opacity = PhotoDetail.IsOpen ? 0 : 1;
+            ContentFrame.IsHitTestVisible = !PhotoDetail.IsOpen;
+        };
 
         var auth = App.Get<AuthService>();
         void OnAuthChanged(object? s, EventArgs e) => App.Dispatcher.TryEnqueue(UpdateSignInGate);
@@ -50,14 +60,33 @@ public sealed partial class MainWindow : Window
         auth.SigningOutChanged += OnSigningOut;
         Onboarding.ViewModel.Finished += OnOnboardingFinished;
         Shared.ViewModel.Changed += OnSharedChanged;
+        var updates = App.Get<UpdateService>();
+        void OnUpdateChanged(object? s, EventArgs e) => App.Dispatcher.TryEnqueue(ShowUpdateButton);
+        updates.StateChanged += OnUpdateChanged;
+        ShowUpdateButton();
         Closed += (_, _) =>
         {
+            updates.StateChanged -= OnUpdateChanged;
             auth.Changed -= OnAuthChanged;
             auth.SigningOutChanged -= OnSigningOut;
             Onboarding.ViewModel.Finished -= OnOnboardingFinished;
             Shared.ViewModel.Changed -= OnSharedChanged;
         };
         UpdateSignInGate();
+    }
+
+    void ShowUpdateButton()
+    {
+        var updates = App.Get<UpdateService>();
+        UpdateButton.Visibility = updates.ShowsUpdateButton ? Visibility.Visible : Visibility.Collapsed;
+        UpdateButtonText.Text = updates.AvailableVersion is { } version ? $"Install {version}" : "Install";
+    }
+
+    /// <summary>Installs the waiting update right here (no detour through Settings) and reopens Oriel.</summary>
+    void UpdateButton_Click(object sender, RoutedEventArgs e)
+    {
+        var updates = App.Get<UpdateService>();
+        if (updates.State == UpdateState.ReadyToRestart) updates.RestartToUpdate();
     }
 
     void OnSharedChanged(object? sender, EventArgs e) => App.Dispatcher.TryEnqueue(UpdateSignInGate);
@@ -77,15 +106,25 @@ public sealed partial class MainWindow : Window
         if (signedIn && !touring) _ = App.Get<HomeViewModel>().RefreshAsync();
     }
 
-    void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs e) =>
+    /// <summary>The item shown as picked, so a new pick (not the first, while the window starts) plays its icon.</summary>
+    NavigationViewItem? _picked;
+
+    void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs e)
+    {
+        // A new pick plays its icon. (Not in ItemInvoked: WinUI has already selected the clicked item by then, so it
+        // couldn't tell a new pick from the current one, and no icon ever played.)
+        if (e.SelectedItemContainer is NavigationViewItem item && !ReferenceEquals(item, _picked))
+        {
+            if (_picked is not null) PlayIcon(item);
+            _picked = item;
+        }
         // Fires while InitializeComponent applies IsSelected, before the frame exists.
         Show(e.IsSettingsSelected, e.SelectedItemContainer?.Tag as string);
+    }
 
     /// <summary>Clicking the current item again leaves a sub page (e.g. Interests) and returns to its main page.</summary>
     void Nav_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs e)
     {
-        // Only a new pick plays its icon: clicking the page you're on (to leave a sub page) doesn't.
-        if (e.InvokedItemContainer is NavigationViewItem item && !ReferenceEquals(item, Nav.SelectedItem)) PlayIcon(item);
         Show(e.IsSettingsInvoked, e.InvokedItemContainer?.Tag as string);
     }
 
@@ -150,12 +189,12 @@ public sealed partial class MainWindow : Window
     void Show(bool settings, string? tag)
     {
         if (ContentFrame is null) return;
+        PhotoDetail.CloseNow();
         var page = settings
             ? typeof(SettingsPage)
             : tag switch
             {
                 "explore" => typeof(CollectionsPage),
-                "create" => typeof(CreatePage),
                 "history" or "favorites" => typeof(HistoryPage),
                 "friends" => typeof(FriendsPage),
                 _ => typeof(HomePage),

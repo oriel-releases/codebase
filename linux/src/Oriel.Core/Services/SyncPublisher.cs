@@ -13,6 +13,9 @@ public interface ISyncPublisher
 
     /// <summary>Shares the accent color chosen for the wallpaper on screen, when it is the account's shared one.</summary>
     Task PublishColorAsync(HistoryEntry entry, string color, CancellationToken ct = default);
+
+    /// <summary>Shares where the wallpaper on screen is cropped (the position editor), when it is the account's shared one.</summary>
+    Task PublishPositionAsync(HistoryEntry entry, PhotoPosition position, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -21,7 +24,7 @@ public interface ISyncPublisher
 /// or signed out never affects changing the wallpaper.
 /// </summary>
 public sealed class SyncPublisher(AuthService auth, FirebaseClient firebase, IHistoryStore history, ILogger<SyncPublisher> log,
-    IAccentSampler? accent = null, Settings.ISettingsStore? settings = null) : ISyncPublisher
+    IAccentSampler? accent = null, Settings.ISettingsStore? settings = null, IPositionStore? positions = null) : ISyncPublisher
 {
     const string Source = "linux";
     static readonly TimeSpan Timeout = TimeSpan.FromSeconds(8);
@@ -33,7 +36,7 @@ public sealed class SyncPublisher(AuthService auth, FirebaseClient firebase, IHi
     /// has something to show. An existing one is left alone: it may come from another device and be newer.
     /// </summary>
     public Task PublishLatestIfMissingAsync(CancellationToken ct = default) =>
-        history.List().FirstOrDefault() is { } latest ? RunAsync(latest, onlyIfMissing: true, ct) : Task.CompletedTask;
+        history.Latest() is { } latest ? RunAsync(latest, onlyIfMissing: true, ct) : Task.CompletedTask;
 
     async Task RunAsync(HistoryEntry entry, bool onlyIfMissing, CancellationToken ct)
     {
@@ -54,7 +57,8 @@ public sealed class SyncPublisher(AuthService auth, FirebaseClient firebase, IHi
             var tokens = await auth.GetTokensAsync(timeout.Token);
             if (tokens is null) return;
             if (onlyIfMissing && await firebase.HasCurrentWallpaperAsync(tokens, timeout.Token)) return;
-            await firebase.SetCurrentWallpaperAsync(tokens, document with { Color = await SampleColorAsync(entry) }, timeout.Token);
+            await firebase.SetCurrentWallpaperAsync(tokens,
+                document with { Color = await SampleColorAsync(entry), Position = positions?.Get(entry.PhotoId) }, timeout.Token);
             // The doorbell: devices listening hear about it now instead of at their next poll.
             if (!onlyIfMissing)
             {
@@ -76,6 +80,27 @@ public sealed class SyncPublisher(AuthService auth, FirebaseClient firebase, IHi
         {
             // Offline, rejected by the rules, or anything unexpected: the wallpaper has already changed, so only note it.
             log.LogWarning("Couldn't share the wallpaper {Photo}: {Reason}", entry.PhotoId, ex.Message);
+        }
+    }
+
+    public async Task PublishPositionAsync(HistoryEntry entry, PhotoPosition position, CancellationToken ct = default)
+    {
+        if (!auth.IsSignedIn || ToDocument(entry) is null) return;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(Timeout);
+        try
+        {
+            if (await auth.GetTokensAsync(timeout.Token) is not { } tokens) return;
+            // Only while it is still the account's photo: another device may have set a newer one meanwhile.
+            if (await firebase.GetCurrentPhotoAsync(tokens, tokens.Uid, timeout.Token) is not { } current || current.PhotoId != entry.PhotoId)
+                return;
+            await firebase.SetCurrentPositionAsync(tokens, position, timeout.Token);
+            await firebase.RingAsync(tokens, entry.PhotoId, Source, auth.Current?.SessionId ?? "", timeout.Token);
+            log.LogInformation("Shared the position of {Photo} with your other devices", entry.PhotoId);
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning("Couldn't share the position of {Photo}: {Reason}", entry.PhotoId, ex.Message);
         }
     }
 
@@ -121,7 +146,7 @@ public sealed class SyncPublisher(AuthService auth, FirebaseClient firebase, IHi
     /// or download them. Anything else is skipped.
     /// </summary>
     static CurrentWallpaper? ToDocument(HistoryEntry e) =>
-        Uri.TryCreate(e.ThumbnailUrl, UriKind.Absolute, out var uri) && (uri.Host == "images.unsplash.com" || Providers.PollinationsClient.IsMediaLink(e.ThumbnailUrl))
+        Uri.TryCreate(e.ThumbnailUrl, UriKind.Absolute, out var uri) && (uri.Host == "images.unsplash.com" || Providers.AiPhotoLinks.IsMediaLink(e.ThumbnailUrl))
             ? new CurrentWallpaper(e.PhotoId, e.ThumbnailUrl, e.PhotoPageUrl, e.PhotographerName, e.PhotographerUrl, e.Description, e.Topic, Source)
             : null;
 }

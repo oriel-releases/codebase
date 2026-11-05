@@ -8,6 +8,7 @@ import uz.akbarjon.oriel.ui.Motion.fadeThrough
 import uz.akbarjon.oriel.ui.Motion.slideThrough
 import androidx.compose.foundation.layout.BoxWithConstraints
 import uz.akbarjon.oriel.ui.LocalNavOnSide
+import uz.akbarjon.oriel.ui.aboveFlyingPhoto
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -92,9 +93,6 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
-        Updater.foreground = false
-        // Not on a rotation: only when Oriel really leaves the screen does a waiting update install.
-        if (!isChangingConfigurations) Updater.onBackground(this)
         Pulse.stop()
         super.onStop()
     }
@@ -106,14 +104,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        // Every launch looks for an update (like Windows and Linux); one waiting for a tap is shown right away.
-        Updater.foreground = true
+        // Every launch looks for an update (like Windows and Linux); one downloaded waits for a tap on Install.
         // While Oriel is on screen, a wallpaper set on another device shows here within a second.
         Pulse.start()
         // The settings every device shares: sent on every change, and the account's brought here now.
         SettingsSync.start()
         if (Oriel.auth.isSignedIn) Oriel.scope.launch { SettingsSync.pull(); uz.akbarjon.oriel.core.FavoritesSync.pull() }
-        if (!Updater.confirm(this)) Updater.checkSoon(this)
+        Updater.checkSoon(this)
         if (!Oriel.auth.isSignedIn) return
         Scheduler.reschedule(this)
         Oriel.scope.launch {
@@ -172,6 +169,7 @@ class MainActivity : ComponentActivity() {
         val account by Oriel.auth.account.collectAsState()
         val snackbar = remember { SnackbarHostState() }
         var tab by rememberSaveable { mutableStateOf(Tab.Home) }
+        var onUpdates by remember { mutableStateOf(false) }
 
         // One shared-transition layout around everything: a tapped photo flies from its tile into its page (PhotoPageHost).
         androidx.compose.animation.SharedTransitionLayout {
@@ -220,9 +218,9 @@ class MainActivity : ComponentActivity() {
                             Box(Modifier.fillMaxSize().statusBarsPadding().padding(end = sideSpace)) { when (t) {
                             Tab.Home -> HomeScreen()
                             Tab.Explore -> ExploreScreen()
-                            Tab.Create -> uz.akbarjon.oriel.ui.CreateScreen()
                             Tab.History -> HistoryScreen()
-                            Tab.Settings -> SettingsScreen(onSignedOut = { tab = Tab.Home })
+                            Tab.Settings -> SettingsScreen(onSignedOut = { tab = Tab.Home },
+                                onUpdatesShown = { onUpdates = it })
                         } } }
                         }
                     }
@@ -231,20 +229,17 @@ class MainActivity : ComponentActivity() {
                     uz.akbarjon.oriel.ui.NavBarGuard(Modifier.align(if (side) Alignment.CenterEnd else Alignment.BottomCenter), vertical = side)
                     // A photo flying home into its tile is drawn above everything: while it does, the bar is drawn above it,
                     // so the photo glides under the bar, as the tiles do.
-                    val overFlight = uz.akbarjon.oriel.ui.LocalSharedScope.current?.let { scope ->
-                        with(scope) {
-                            Modifier.renderInSharedTransitionScopeOverlay(
-                                // All the way to the landing (and a moment past it), not just while the flight runs: let go a
-                                // frame early, the landing photo showed over the bar for that frame.
-                                zIndexInOverlay = 5f, renderInOverlay = { uz.akbarjon.oriel.ui.PhotoPages.leaving },
-                            )
-                        }
-                    } ?: Modifier
+                    val overFlight = Modifier.aboveFlyingPhoto()
                     NavBar(tab, { tab = it }, haze, overFlight.align(if (side) Alignment.CenterEnd else Alignment.BottomCenter),
-                        onPhoto = onHome, vertical = side)
+                        onPhoto = onHome, vertical = side,
+                        // Right there: Android's installer opens with the downloaded update (no detour through Settings).
+                        onUpdate = if (uz.akbarjon.oriel.ui.updateWaiting()) ({ if (!Updater.install(this@MainActivity)) Updater.checkSoon(this@MainActivity, force = true) }) else null,
+                        onUpdates = onUpdates)
                 }
                 // A photo's own page, over the tabs and the navigation bar.
                 if (account != null) uz.akbarjon.oriel.ui.PhotoPageHost()
+                // Where the wallpaper is cut, over everything (Home's Position).
+                if (account != null) uz.akbarjon.oriel.ui.PositionEditorHost()
                 SnackbarHost(
                     snackbar,
                     Modifier.align(Alignment.BottomCenter).navigationBarsPadding()

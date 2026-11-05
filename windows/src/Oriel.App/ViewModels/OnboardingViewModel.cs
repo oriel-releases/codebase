@@ -124,7 +124,7 @@ public sealed partial class OnboardingViewModel : ObservableObject
         // Dev: ORIEL_ONBOARDING=1 replays the tour on an install that already has wallpapers.
         if (Environment.GetEnvironmentVariable("ORIEL_ONBOARDING") == "1") return true;
         if (_settings.Load().OnboardingDone) return false;
-        if (_history.List().Count == 0) return true;
+        if (_history.Latest() is null) return true;
         _settings.Update(s => s.OnboardingDone = true);
         return false;
     }
@@ -260,7 +260,7 @@ public sealed partial class OnboardingViewModel : ObservableObject
         _dismissed = true;
         Finished?.Invoke(this, EventArgs.Empty);
         // Skipped, but still a first wallpaper (unless a shared one is waiting to be set).
-        if (_history.List().Count == 0 && !_shared.IsOpen) _ = _home.ChangeAsync();
+        if (_history.Latest() is null && !_shared.IsOpen) _ = _home.ChangeAsync();
     }
 
     /// <summary>Saves the answers. <paramref name="changeNow"/> also sets the first wallpaper.</summary>

@@ -31,6 +31,9 @@ public sealed class UpdateService(ILogger<UpdateService> log) : IDisposable
     public string? AvailableVersion => _pending?.TargetFullRelease.Version.ToString();
     public bool IsInstalled => _manager.IsInstalled;
 
+    /// <summary>The Install button on every page: shown once an update is downloaded.</summary>
+    public bool ShowsUpdateButton => State == UpdateState.ReadyToRestart;
+
     public void Start()
     {
         if (!IsInstalled) return;

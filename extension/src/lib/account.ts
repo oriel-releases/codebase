@@ -16,7 +16,7 @@ import {
 import { deleteDoc, doc, getDoc, getFirestore, serverTimestamp, setDoc, setLogLevel, updateDoc } from "firebase/firestore/lite";
 import { isBirthday } from "./age";
 import { firebaseConfig, unsplashRef } from "./config";
-import type { Photo } from "./photo";
+import type { Photo, Position } from "./photo";
 import { remember, type Settings } from "./settings";
 import { cleanShortcuts, isFolder, type Shortcut } from "./shortcuts";
 
@@ -258,8 +258,11 @@ export async function publishWallpaper(photo: Photo): Promise<void> {
 export interface AccountWatch {
   /** Following the account's wallpaper right now ("Same as my devices")? Otherwise sync/current isn't read at all. */
   followsWallpaper(): boolean;
-  /** The wallpaper this browser already has (kept locally): a ring for that same photo needs no read. */
-  knownPhotoId(): string | undefined;
+  /**
+   * Whether this browser already has what a ring for `photoId` at `at` (the doorbell's time) announces: the same photo,
+   * and nothing changed on it since (a position moved in an app rings for the same photo, later).
+   */
+  knows(photoId: string, at: number | undefined): boolean;
   onCurrent(current: DesktopCurrent | null): void;
   onError(): void;
   /**
@@ -284,10 +287,10 @@ export function watchAccount(uid: string, watch: AccountWatch): () => void {
   let retry = 2000;
   let gotFirst = false;
 
-  /** `photoId`: the photo the doorbell names. Already the one here: nothing to read (most new tabs). */
-  async function read(photoId?: unknown): Promise<void> {
+  /** `photoId`: the photo the doorbell names, rung at `at`. Already the one here, as it is: nothing to read (most new tabs). */
+  async function read(photoId?: unknown, at?: unknown): Promise<void> {
     if (!watch.followsWallpaper()) return;
-    if (typeof photoId === "string" && photoId && photoId === watch.knownPhotoId()) return;
+    if (typeof photoId === "string" && photoId && watch.knows(photoId, typeof at === "number" ? at : undefined)) return;
     try {
       const snap = await getDoc(doc(db, "users", uid, "sync", "current"));
       if (!closed) watch.onCurrent(toCurrent(snap.data()));
@@ -311,7 +314,7 @@ export function watchAccount(uid: string, watch: AccountWatch): () => void {
       } catch {
         // unreadable: read everything once, as if never rung
       }
-      void read(data?.photoId);
+      void read(data?.photoId, data?.at);
       watch.onExtension(typeof data?.extensionAt === "number" ? data.extensionAt : undefined, false);
       watch.onBirthday(typeof data?.birthdayAt === "number" ? data.birthdayAt : undefined);
     });
@@ -320,7 +323,7 @@ export function watchAccount(uid: string, watch: AccountWatch): () => void {
       try {
         const data = (JSON.parse((e as MessageEvent).data) as { data?: Record<string, unknown> }).data;
         if (!data) return;
-        if ("photoId" in data) void read(data.photoId);
+        if ("photoId" in data) void read(data.photoId, data.at);
         if (typeof data.extensionAt === "number") watch.onExtension(data.extensionAt, data.extensionDevice === browserId());
         if (typeof data.birthdayAt === "number") watch.onBirthday(data.birthdayAt);
       } catch {
@@ -361,10 +364,20 @@ function toCurrent(d: Record<string, unknown> | undefined): DesktopCurrent | nul
       description: String(d.description ?? ""),
       topic: d.topic ? String(d.topic) : undefined,
       color: d.color ? String(d.color) : undefined,
+      position: toPosition(d),
     },
     source: String(d.source ?? ""),
     updatedAt: updated?.toMillis?.() ?? 0,
   };
+}
+
+/** sync/current's crop, focusX and focusY (0..1), when an app placed the photo. */
+function toPosition(d: Record<string, unknown>): Position | undefined {
+  if (d.crop === "smart" || d.crop === "center") return { crop: d.crop };
+  const x = Number(d.focusX);
+  const y = Number(d.focusY);
+  if (d.crop !== "focus" || !Number.isFinite(x) || !Number.isFinite(y)) return undefined;
+  return { crop: "focus", x: Math.min(1, Math.max(0, x)), y: Math.min(1, Math.max(0, y)) };
 }
 
 function withRef(link: string): string {

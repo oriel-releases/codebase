@@ -127,7 +127,7 @@ public sealed partial class HomeViewModel : ObservableObject
     public partial bool HasCurrent { get; set; }
     public bool HasNoCurrent => !HasCurrent;
     [ObservableProperty] public partial string PhotographerName { get; set; } = "";
-    /// <summary>An Unsplash photo ("Photo by … on Unsplash"), not one made with AI on the Create page.</summary>
+    /// <summary>An Unsplash photo ("Photo by … on Unsplash"), not an AI picture another device (the Mac app) set.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CreditLead))]
     public partial bool IsPhoto { get; set; } = true;
@@ -175,7 +175,7 @@ public sealed partial class HomeViewModel : ObservableObject
     [ObservableProperty] public partial string NextChangeText { get; set; } = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsIdle), nameof(CanChange), nameof(ShowChangeIcon), nameof(ShowLimitIcon), nameof(ChangeLabel))]
+    [NotifyPropertyChangedFor(nameof(IsIdle), nameof(CanChange), nameof(ShowChangeIcon), nameof(ShowRefreshIcon), nameof(ShowLimitIcon), nameof(ChangeLabel))]
     public partial bool IsBusy { get; set; }
 
     /// <summary>What the change under way is doing: "Finding a photo…", "Downloading…", "Changing…", "Syncing…", "Receiving…".</summary>
@@ -199,12 +199,14 @@ public sealed partial class HomeViewModel : ObservableObject
 
     // "Change now" is limited per hour: until it works again the button counts down, e.g. "Try after 20 min".
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanChange), nameof(ShowChangeIcon), nameof(ShowLimitIcon), nameof(ChangeLabel))]
+    [NotifyPropertyChangedFor(nameof(CanChange), nameof(ShowChangeIcon), nameof(ShowRefreshIcon), nameof(ShowLimitIcon), nameof(ChangeLabel))]
     public partial int LimitMinutes { get; set; }
     bool IsLimited => LimitMinutes > 0;
     public bool CanChange => IsIdle && !IsLimited;
     public bool ShowChangeIcon => IsIdle && !IsLimited;
     public bool ShowLimitIcon => IsIdle && IsLimited;
+    /// <summary>The refresh arrows: idle and allowed, or turning while a change runs (the page spins them).</summary>
+    public bool ShowRefreshIcon => IsBusy || ShowChangeIcon;
     public string ChangeLabel => IsBusy && StageText is { } stage ? stage : IsLimited ? $"Try after {LimitMinutes} min" : "Change now";
     Microsoft.UI.Dispatching.DispatcherQueueTimer? _limitTimer;
 
@@ -245,12 +247,12 @@ public sealed partial class HomeViewModel : ObservableObject
             NextChangeText = DescribeNextChange(s, state);
             if (_todayPhoto is not null) UpdateTodayCurrent();
 
-            var latest = _history.List().FirstOrDefault();
+            var latest = _history.Latest();
             HasCurrent = latest is not null;
             if (latest is not null)
             {
                 IsFavorite = latest.IsFavorite;
-                IsPhoto = latest.Provider != PollinationsClient.Provider;
+                IsPhoto = latest.Provider != AiPhotoLinks.Provider;
                 PhotographerName = latest.PhotographerName;
                 PhotographerUri = new Uri(latest.PhotographerUrl);
                 PhotoPageUri = new Uri(latest.PhotoPageUrl);
@@ -338,7 +340,7 @@ public sealed partial class HomeViewModel : ObservableObject
     }
 
     void UpdateTodayCurrent() =>
-        IsTodayCurrent = _todayPhoto is { } p && _history.List().FirstOrDefault()?.PhotoId == p.Id;
+        IsTodayCurrent = _todayPhoto is { } p && _history.Latest()?.PhotoId == p.Id;
 
     [RelayCommand(CanExecute = nameof(CanSetToday))]
     async Task SetToday()

@@ -1,5 +1,8 @@
 package uz.akbarjon.oriel.ui
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -73,79 +76,101 @@ fun UpdatesScreen(onBack: () -> Unit) {
     Box(Modifier.fillMaxSize().onGloballyPositioned { page = it }) {
         Glows(
             when (update) {
-                is UpdateState.Checking, is UpdateState.Downloading, is UpdateState.Installing -> GlowMood.Working
-                is UpdateState.ReadyToRestart -> GlowMood.Ready
+                is UpdateState.Checking, is UpdateState.Downloading -> GlowMood.Working
+                is UpdateState.ReadyToInstall -> GlowMood.Ready
                 else -> GlowMood.Calm
             },
             focus, Modifier.matchParentSize(),
         )
-        Column(Modifier.fillMaxSize().readableWidth()) {
-            Row(Modifier.fillMaxWidth().height(72.dp).padding(start = 8.dp, end = 24.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.IconButton(onBack) {
-                    Icon(OrielIcons.ChevronRight, "Back", Modifier.size(24.dp).graphicsLayer { rotationZ = 180f })
+        // Upright: the title, the version in the middle, the button at the foot. On its side (like Position's editor):
+        // the version fills the left, and the title and button stand beside it in one column, centered top to bottom.
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val wide = maxWidth > maxHeight
+            @Composable
+            fun TitleBar() {
+                Row(Modifier.fillMaxWidth().height(72.dp).padding(start = 8.dp, end = 24.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.IconButton(onBack) {
+                        Icon(OrielIcons.ChevronRight, "Back", Modifier.size(24.dp).graphicsLayer { rotationZ = 180f })
+                    }
+                    Text("Updates", style = MaterialTheme.typography.headlineMedium)
                 }
-                Text("Updates", style = MaterialTheme.typography.headlineMedium)
             }
-
-            Box(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { area -> page?.takeIf { it.isAttached }?.let { focus = it.localBoundingBoxOf(area) } }, contentAlignment = Alignment.Center) {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp).animateContentSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Logo(64.dp)
-                    Spacer(Modifier.height(16.dp))
-                    Text("Oriel ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge)
-                    // Up to date says it with the bubbles; every other step in words.
-                    val status = when (val u = update) {
-                        is UpdateState.Checking -> "Checking for updates…"
-                        is UpdateState.Downloading -> u.progress?.let { "Downloading ${u.version} · ${(it * 100).toInt()}%" } ?: "Downloading ${u.version}…"
-                        is UpdateState.Installing -> "Installing ${u.version}. Oriel opens again in a moment."
-                        is UpdateState.ReadyToRestart -> "Version ${u.version} is ready"
-                        is UpdateState.NeedsConfirm -> "Version ${u.version} is ready to install"
-                        is UpdateState.Available -> "Version ${u.version} is out (this test build doesn't install it)"
-                        is UpdateState.Failed -> u.message
-                        UpdateState.UpToDate, UpdateState.Idle -> null
-                    }
-                    if (status != null) {
-                        Spacer(Modifier.height(4.dp))
-                        SlidingText(status, MaterialTheme.typography.bodyMedium, c.muted)
-                    }
-                    (update as? UpdateState.Downloading)?.let { d ->
+            @Composable
+            fun Version(modifier: Modifier) {
+                Box(modifier.onGloballyPositioned { area -> page?.takeIf { it.isAttached }?.let { focus = it.localBoundingBoxOf(area) } }, contentAlignment = Alignment.Center) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp).animateContentSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Logo(64.dp)
                         Spacer(Modifier.height(16.dp))
-                        val shown by animateFloatAsState(d.progress ?: 0f, label = "progress")
-                        if (d.progress == null) LinearProgressIndicator(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape), color = c.ink, trackColor = c.line)
-                        else LinearProgressIndicator({ shown }, Modifier.fillMaxWidth().height(6.dp).clip(CircleShape), color = c.ink, trackColor = c.line,
-                            gapSize = 0.dp, drawStopIndicator = {})
+                        Text("Oriel ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleLarge)
+                        // Up to date says it with the bubbles; every other step in words.
+                        val status = when (val u = update) {
+                            is UpdateState.Checking -> "Checking for updates…"
+                            is UpdateState.Downloading -> u.progress?.let { "Downloading ${u.version} · ${(it * 100).toInt()}%" } ?: "Downloading ${u.version}…"
+                            is UpdateState.ReadyToInstall -> "Version ${u.version} is ready to install"
+                            is UpdateState.Available -> "Version ${u.version} is out"
+                            is UpdateState.Failed -> u.message
+                            UpdateState.UpToDate, UpdateState.Idle -> null
+                        }
+                        if (status != null) {
+                            Spacer(Modifier.height(4.dp))
+                            // The download's percent just changes in place (its digits all one width, so the line holds still);
+                            // other steps slide from one to the next.
+                            if ((update as? UpdateState.Downloading)?.progress != null) {
+                                Text(status, style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"), color = c.muted,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            } else SlidingText(status, MaterialTheme.typography.bodyMedium, c.muted)
+                        }
+                        (update as? UpdateState.Downloading)?.let { d ->
+                            Spacer(Modifier.height(16.dp))
+                            // It glides from one percent to the next instead of stepping (they come in 1% at a time).
+                            val shown by animateFloatAsState(d.progress ?: 0f,
+                                androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = androidx.compose.animation.core.Spring.StiffnessLow),
+                                label = "progress")
+                            if (d.progress == null) LinearProgressIndicator(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape), color = c.ink, trackColor = c.line)
+                            else LinearProgressIndicator({ shown }, Modifier.fillMaxWidth().height(6.dp).clip(CircleShape), color = c.ink, trackColor = c.line,
+                                gapSize = 0.dp, drawStopIndicator = {})
+                        }
                     }
                 }
             }
-
-            val u = update
-            val working = u is UpdateState.Checking || u is UpdateState.Downloading || u is UpdateState.Installing
-            PrimaryButton(
-                when (u) {
-                    is UpdateState.NeedsConfirm -> "Install ${u.version}"
-                    is UpdateState.ReadyToRestart -> "Restart to update"
-                    is UpdateState.Checking -> "Checking…"
-                    is UpdateState.Downloading -> "Downloading…"
-                    is UpdateState.Installing -> "Installing…"
-                    is UpdateState.Failed -> "Try again"
-                    else -> "Check for updates"
-                },
-                // Restart into a downloaded update; Android's confirmation if one waits; else check (which downloads a newer one).
-                {
-                    when {
-                        u is UpdateState.ReadyToRestart -> Updater.restartToUpdate(context)
-                        !Updater.confirm(context) -> Updater.checkSoon(context, force = true, manual = true)
-                    }
-                },
-                Modifier.fillMaxWidth().padding(horizontal = 24.dp), busy = working,
-                icon = { Icon(if (u is UpdateState.NeedsConfirm) OrielIcons.Download else OrielIcons.Refresh, null, Modifier.size(18.dp)) },
-            )
-            // Test builds can't install a release: this plays one through, for trying the page.
-            if (!Updater.enabled) {
-                TextAction("Demo an update (test build)", { Updater.demo(context) }, Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
-                    color = c.muted, enabled = !working)
+            @Composable
+            fun Action(modifier: Modifier) {
+                val u = update
+                val working = u is UpdateState.Checking || u is UpdateState.Downloading
+                PrimaryButton(
+                    when (u) {
+                        is UpdateState.ReadyToInstall -> "Install ${u.version}"
+                        is UpdateState.Checking -> "Checking…"
+                        is UpdateState.Downloading -> "Downloading…"
+                        is UpdateState.Failed -> "Try again"
+                        else -> "Check for updates"
+                    },
+                    // Restart into a downloaded update; Android's confirmation if one waits; else check (which downloads a newer one).
+                    {
+                        when {
+                            u is UpdateState.ReadyToInstall && Updater.install(context) -> Unit
+                            else -> Updater.checkSoon(context, force = true, manual = true)
+                        }
+                    },
+                    modifier, busy = working,
+                    icon = { Icon(if (u is UpdateState.ReadyToInstall) OrielIcons.Download else OrielIcons.Refresh, null, Modifier.size(18.dp)) },
+                )
             }
-            Spacer(Modifier.height(16.dp))
-            BottomBarSpacer()
+            if (wide) Row(Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Version(Modifier.weight(1f).fillMaxHeight())
+                Spacer(Modifier.width(24.dp))
+                Column(Modifier.width(340.dp)) {
+                    TitleBar()
+                    Spacer(Modifier.height(24.dp))
+                    Action(Modifier.fillMaxWidth().padding(horizontal = 8.dp))
+                }
+            } else Column(Modifier.fillMaxSize().readableWidth()) {
+                TitleBar()
+                Version(Modifier.weight(1f).fillMaxWidth())
+                Action(Modifier.fillMaxWidth().padding(horizontal = 24.dp))
+                Spacer(Modifier.height(16.dp))
+                BottomBarSpacer()
+            }
         }
     }
 }

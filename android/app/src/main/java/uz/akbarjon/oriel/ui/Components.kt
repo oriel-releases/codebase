@@ -1,5 +1,7 @@
 package uz.akbarjon.oriel.ui
 
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.wrapContentWidth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -174,6 +176,9 @@ val NavBarMargin = 12.dp
 /** True while the phone is on its side: the navigation bar stands on the right edge instead of the bottom. */
 val LocalNavOnSide = staticCompositionLocalOf { false }
 
+/** Photo grids (Explore, History) on a phone on its side: four tiles a row on both. */
+const val SideColumns = 4
+
 /** Space at the end of a screen so its last item clears the navigation bar. */
 @Composable
 fun bottomBarSpace(): Dp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
@@ -186,7 +191,7 @@ fun BottomBarSpacer() = Spacer(Modifier.height(bottomBarSpace()))
 @Composable
 fun currentPhoto(): Photo? {
     val version by Oriel.history.version.collectAsState()
-    val latest by produceState<HistoryEntry?>(null, version) { value = Oriel.history.latest() }
+    val latest by produceState(Oriel.history.lastLatest, version) { value = Oriel.history.latest() }
     return latest?.photo
 }
 
@@ -230,9 +235,16 @@ fun Modifier.pressScale(interaction: InteractionSource, pressed: Float = 0.97f):
  * always fills the whole item even while the content shrinks. For a pill or circle with its own background, use
  * [pressable]: then the background shrinks with it too.
  */
-fun Modifier.springClick(enabled: Boolean = true, pressed: Float = 0.97f, ripple: Boolean = true, onClick: () -> Unit): Modifier = composed {
+fun Modifier.springClick(
+    enabled: Boolean = true, pressed: Float = 0.97f, ripple: Boolean = true,
+    /** Press and hold: a buzz, then this (a tile's quick actions). */
+    onLongClick: (() -> Unit)? = null, onClick: () -> Unit,
+): Modifier = composed {
     val interaction = remember { MutableInteractionSource() }
-    clickable(interaction, if (ripple) ripple() else null, enabled = enabled, onClick = onClick).pressScale(interaction, pressed)
+    val haptics = LocalHapticFeedback.current
+    val hold = onLongClick?.let { { haptics.performHapticFeedback(HapticFeedbackType.LongPress); it() } }
+    combinedClickable(interaction, if (ripple) ripple() else null, enabled = enabled, onLongClick = hold, onClick = onClick)
+        .pressScale(interaction, pressed)
 }
 
 /**
@@ -427,6 +439,10 @@ fun PullRefresh(
     var refreshing by remember { mutableStateOf(false) }
     val state = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
     val c = Palette.colors
+    // A tick the moment it's pulled far enough: letting go now refreshes.
+    LaunchedEffect(state) {
+        snapshotFlow { state.distanceFraction >= 1f }.collect { far -> if (far && !refreshing) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
+    }
     Box(
         modifier.pullToRefresh(refreshing, state, enabled) {
             refreshing = true
@@ -469,11 +485,16 @@ fun TextAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
 fun RoundIconButton(
     icon: ImageVector, description: String?, onClick: () -> Unit, modifier: Modifier = Modifier,
     tint: Color = Palette.colors.ink, background: Color = Palette.colors.surface, size: Dp = 56.dp, enabled: Boolean = true,
+    /** Working (a share link being made): a spinner instead of the icon, and no taps until it's done. */
+    busy: Boolean = false,
 ) {
     Box(
-        modifier.size(size).pressable(CircleShape, background, enabled, pressed = 0.9f, border = Palette.colors.line, onClick = onClick),
+        modifier.size(size).pressable(CircleShape, background, enabled && !busy, pressed = 0.9f, border = Palette.colors.line, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, description, tint = if (enabled) tint else tint.copy(alpha = 0.4f), modifier = Modifier.size(22.dp)) }
+    ) {
+        if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = tint, strokeWidth = 2.dp)
+        else Icon(icon, description, tint = if (enabled) tint else tint.copy(alpha = 0.4f), modifier = Modifier.size(22.dp))
+    }
 }
 
 // ---- Inputs ----
@@ -549,24 +570,26 @@ fun ToggleChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: 
 fun <T> Segmented(
     options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit, modifier: Modifier = Modifier,
     track: Color = Palette.colors.surface, position: (() -> Float)? = null,
+    // Over a photo or a dark screen (the position editor) it takes that screen's colors instead of the page's.
+    pill: Color = Palette.colors.ink, picked: Color = Palette.colors.paper, others: Color = Palette.colors.muted,
+    border: Color = Palette.colors.line,
 ) {
-    val c = Palette.colors
     val haptics = LocalHapticFeedback.current
     // A white track on the grey page, and an ink pill for the picked option (inverted in dark mode): clearly apart.
-    BoxWithConstraints(modifier.height(44.dp).clip(CircleShape).background(track).border(1.dp, c.line, CircleShape).padding(4.dp)) {
+    BoxWithConstraints(modifier.height(44.dp).clip(CircleShape).background(track).border(1.dp, border, CircleShape).padding(4.dp)) {
         val w = maxWidth / options.size
         val index = options.indexOfFirst { it.first == selected }.coerceAtLeast(0)
         val x by animateDpAsState(w * index, spring(dampingRatio = 0.8f, stiffness = 600f), label = "segment")
         val wPx = with(LocalDensity.current) { w.toPx() }
         Box(
             Modifier.offset { IntOffset(if (position != null) (wPx * position()).roundToInt() else x.roundToPx(), 0) }
-                .width(w).fillMaxHeight().clip(CircleShape).background(c.ink),
+                .width(w).fillMaxHeight().clip(CircleShape).background(pill),
         )
         Row(Modifier.fillMaxSize()) {
             options.forEachIndexed { i, (value, label) ->
                 val on = i == index
-                val animated by animateColorAsState(if (on) c.paper else c.muted, label = "segmentText")
-                val fg = if (position != null) androidx.compose.ui.graphics.lerp(c.muted, c.paper, (1f - kotlin.math.abs(position() - i)).coerceIn(0f, 1f))
+                val animated by animateColorAsState(if (on) picked else others, label = "segmentText")
+                val fg = if (position != null) androidx.compose.ui.graphics.lerp(others, picked, (1f - kotlin.math.abs(position() - i)).coerceIn(0f, 1f))
                 else animated
                 Box(
                     Modifier.weight(1f).fillMaxHeight().clip(CircleShape)

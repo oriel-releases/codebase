@@ -54,12 +54,4 @@ public sealed class AccentPickerTests
         Assert.Equal(3, top.Distinct().Count());
         Assert.Equal(3, AccentPicker.PickTop(Solid(100, 100, 100, 500)).Distinct().Count());
     }
-
-    [Fact]
-    public void Ai_pictures_keep_the_screen_shape_at_most_2048_wide()
-    {
-        Assert.Equal(new Models.PixelSize(2048, 1152), Providers.PollinationsClient.SizeFor(new Models.PixelSize(3840, 2160)));
-        Assert.Equal(new Models.PixelSize(1920, 1088), Providers.PollinationsClient.SizeFor(new Models.PixelSize(1920, 1080)));
-        Assert.Equal(new Models.PixelSize(2048, 864), Providers.PollinationsClient.SizeFor(new Models.PixelSize(3440, 1440)));
-    }
 }

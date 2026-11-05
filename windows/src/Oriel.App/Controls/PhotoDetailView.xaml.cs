@@ -5,24 +5,33 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
-using Microsoft.UI.Xaml.Navigation;
 
-namespace Oriel.UI.Pages;
+namespace Oriel.UI.Controls;
 
-/// <summary>A photo from Explore, History or Favorites on its own page: bigger, what's known about it, and its actions.</summary>
-public sealed partial class PhotoDetailPage : Page
+/// <summary>
+/// A photo from Explore, History, Favorites or Home's Wallpaper of the day on its own page: bigger, what's known about
+/// it, and its actions. It opens over the page it came from, which stays untouched underneath (scrolled where it was).
+/// </summary>
+public sealed partial class PhotoDetailView : UserControl
 {
     public IPhotoDetail? Photo { get; private set; }
     int _version;
     int _loadedWidth;
+    /// <summary>The card it was opened from: the photo flies back into it.</summary>
+    UIElement? _from;
 
-    public PhotoDetailPage() => InitializeComponent();
+    /// <summary>Raised when it opens and closes, so the window can hide the page underneath.</summary>
+    public event EventHandler? OpenChanged;
 
-    protected override void OnNavigatedTo(NavigationEventArgs e)
+    public bool IsOpen => Visibility == Visibility.Visible;
+
+    public PhotoDetailView() => InitializeComponent();
+
+    public void Open(IPhotoDetail photo, UIElement from)
     {
-        base.OnNavigatedTo(e);
         if (Photo is not null) Photo.PropertyChanged -= Photo_PropertyChanged;
-        Photo = e.Parameter as IPhotoDetail;
+        Photo = photo;
+        _from = from;
         if (Photo is not null)
         {
             Photo.PropertyChanged += Photo_PropertyChanged;
@@ -49,20 +58,67 @@ public sealed partial class PhotoDetailPage : Page
             LargeImage.Opacity = 0;
             LargeImage.Source = null;
         }
+        HideInfo();
+        Visibility = Visibility.Visible;
+        OpenChanged?.Invoke(this, EventArgs.Empty);
         // The card flies into place and grows into the photo; the credit and buttons then rise in under it.
         PhotoDetailNav.Arrive(PhotoFrame);
         _ = ShowInfoAsync(version);
         _ = LoadLargeAsync(version);
+        BackButton.Focus(FocusState.Programmatic);
+    }
+
+    /// <summary>Back: the photo flies into the card it came from (gone, or scrolled away: it just fades).</summary>
+    public void Close()
+    {
+        if (!IsOpen) return;
+        var card = _from; // Hide forgets it
+        PhotoDetailNav.Leave(PhotoFrame);
+        Hide();
+        PhotoDetailNav.Return(card);
+    }
+
+    /// <summary>Another page picked in the menu: gone at once, no flight.</summary>
+    public void CloseNow()
+    {
+        if (IsOpen) Hide();
+    }
+
+    /// <summary>
+    /// The credit, buttons and Back back to hidden and lowered, at once: with their transitions on, they'd first fade
+    /// out from the last photo (or drop from their resting place) before rising in, a flicker under the landing photo.
+    /// </summary>
+    void HideInfo()
+    {
+        var fade = Info.OpacityTransition;
+        var slide = Info.TranslationTransition;
+        var backFade = BackButton.OpacityTransition;
+        Info.OpacityTransition = null;
+        Info.TranslationTransition = null;
+        BackButton.OpacityTransition = null;
+        Info.Opacity = 0;
+        BackButton.Opacity = 0;
+        Info.Translation = new System.Numerics.Vector3(0, 16, 0);
+        Info.OpacityTransition = fade;
+        Info.TranslationTransition = slide;
+        BackButton.OpacityTransition = backFade;
+    }
+
+    void Hide()
+    {
+        _version++;
+        Visibility = Visibility.Collapsed;
+        _from = null;
+        OpenChanged?.Invoke(this, EventArgs.Empty);
     }
 
     async Task ShowInfoAsync(int version)
     {
-        Info.Opacity = 0;
-        Info.Translation = new System.Numerics.Vector3(0, 16, 0);
         // As the photo settles: the text rises in under it.
         await Task.Delay(260);
         if (version != _version) return;
         Info.Opacity = 1;
+        BackButton.Opacity = 1;
         Info.Translation = System.Numerics.Vector3.Zero;
     }
 
@@ -87,7 +143,7 @@ public sealed partial class PhotoDetailPage : Page
 
     void PhotoFrame_SizeChanged(object sender, SizeChangedEventArgs e) => _ = LoadLargeAsync(_version);
 
-    void Back_Click(object sender, RoutedEventArgs e) => GoBack();
+    void Back_Click(object sender, RoutedEventArgs e) => Close();
 
     void Photo_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -107,7 +163,7 @@ public sealed partial class PhotoDetailPage : Page
     void ShowCurrent()
     {
         var current = Photo is { IsIdle: true } photo
-            && App.Get<Oriel.Core.Storage.IHistoryStore>().List().FirstOrDefault()?.PhotoId == photo.ShareEntry.PhotoId;
+            && App.Get<Oriel.Core.Storage.IHistoryStore>().Latest()?.PhotoId == photo.ShareEntry.PhotoId;
         SetButton.Visibility = current ? Visibility.Collapsed : Visibility.Visible;
         CurrentPill.Visibility = current ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -178,7 +234,8 @@ public sealed partial class PhotoDetailPage : Page
     async void Delete_Click(object sender, RoutedEventArgs e)
     {
         if (Photo is null || !await Photo.RemoveAsync(ConfirmDeleteAsync)) return;
-        if (Frame.CanGoBack) Frame.GoBack(new SuppressNavigationTransitionInfo());
+        _from = null; // its card is gone: nothing to fly back into
+        Close();
     }
 
     async Task<bool> ConfirmDeleteAsync(string text)
@@ -204,19 +261,12 @@ public sealed partial class PhotoDetailPage : Page
     void Escape_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         args.Handled = true;
-        GoBack();
-    }
-
-    void GoBack()
-    {
-        if (!Frame.CanGoBack) return;
-        PhotoDetailNav.Leave(PhotoFrame);
-        Frame.GoBack(new SuppressNavigationTransitionInfo());
+        Close();
     }
 }
 
 /// <summary>
-/// Opening a photo's own page from a card, and coming back to it: the card flies into place on the new page (a connected
+/// Opening a photo's own page from a card, and coming back to it: the card flies into place on the page (a connected
 /// animation, WinUI's view transition) and flies back into its card on the way out.
 /// </summary>
 public static class PhotoDetailNav
@@ -244,6 +294,9 @@ public static class PhotoDetailNav
         }
     }
     static bool _tuned;
+
+    /// <summary>The window's photo page, over the content area. Set once by the main window.</summary>
+    internal static PhotoDetailView? View { get; set; }
 
     /// <summary>The photo whose sharp copy is loading or loaded, ahead of its page opening.</summary>
     static (IPhotoDetail Photo, int Width, Task<ImageSource?> Image)? _early;
@@ -279,15 +332,16 @@ public static class PhotoDetailNav
         if (OnButton(e.OriginalSource as DependencyObject, card) || card is not FrameworkElement { Tag: IPhotoDetail photo })
             return false;
         Prefetch(frame, card);
-        _ = OpenAsync(frame, photo, picture ?? card);
+        _ = OpenAsync(photo, picture ?? card);
         return true;
     }
 
-    static async Task OpenAsync(Frame frame, IPhotoDetail photo, UIElement picture)
+    static async Task OpenAsync(IPhotoDetail photo, UIElement picture)
     {
         if (_early is { } early) await Task.WhenAny(early.Image, Task.Delay(700));
+        if (View is null) return;
         Service.PrepareToAnimate(Forward, picture);
-        frame.Navigate(typeof(PhotoDetailPage), photo, new SuppressNavigationTransitionInfo());
+        View.Open(photo, picture);
     }
 
     internal static void Arrive(UIElement photo)
@@ -304,10 +358,9 @@ public static class PhotoDetailNav
     }
 
     /// <summary>Back on the page with the cards: the photo flies into the card it came from (gone: it just fades).</summary>
-    public static void Return(UIElement? card)
+    internal static void Return(UIElement? card)
     {
         if (Service.GetAnimation(Backward) is not { } animation) return;
-        // A page just made (not kept from before) isn't in the window yet: TryStart waits for it to be laid out.
         if (card is null || !animation.TryStart(card)) animation.Cancel();
     }
 

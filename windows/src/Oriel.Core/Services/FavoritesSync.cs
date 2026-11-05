@@ -111,9 +111,9 @@ public sealed class FavoritesSync(AuthService auth, FirebaseClient firebase, IHi
         var id = history.Add(new HistoryEntry
         {
             // An AI wallpaper made on another device has no smaller copy: its own link is the thumbnail.
-            Provider = Providers.PollinationsClient.IsAiPhoto(change.PhotoId) ? Providers.PollinationsClient.Provider : "unsplash",
+            Provider = Providers.AiPhotoLinks.IsAiPhoto(change.PhotoId) ? Providers.AiPhotoLinks.Provider : "unsplash",
             PhotoId = change.PhotoId, FilePath = "",
-            ThumbnailUrl = Providers.PollinationsClient.IsMediaLink(change.ImageUrl) ? change.ImageUrl
+            ThumbnailUrl = Providers.AiPhotoLinks.IsMediaLink(change.ImageUrl) ? change.ImageUrl
                 : change.ImageUrl + (change.ImageUrl.Contains('?') ? "&" : "?") + "w=640&q=80&fm=jpg&fit=max",
             PhotoPageUrl = change.PageUrl, PhotographerName = change.Photographer, PhotographerUrl = change.PhotographerUrl,
             Description = change.Description, Topic = "favorite", AppliedAt = at, IsFavorite = true,
@@ -126,7 +126,7 @@ public sealed class FavoritesSync(AuthService auth, FirebaseClient firebase, IHi
         Uri.TryCreate(e.ThumbnailUrl, UriKind.Absolute, out var image) && image.Host == "images.unsplash.com"
             ? new SyncedFavorite(e.PhotoId, $"https://images.unsplash.com{image.AbsolutePath}", e.PhotoPageUrl, e.PhotographerName,
                 e.PhotographerUrl, e.Description, e.IsFavorite, at)
-            : Providers.PollinationsClient.IsMediaLink(e.ThumbnailUrl)
+            : Providers.AiPhotoLinks.IsMediaLink(e.ThumbnailUrl)
                 ? new SyncedFavorite(e.PhotoId, e.ThumbnailUrl, e.PhotoPageUrl, e.PhotographerName, e.PhotographerUrl, e.Description, e.IsFavorite, at)
                 : null;
 }

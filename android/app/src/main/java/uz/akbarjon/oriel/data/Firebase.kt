@@ -28,6 +28,8 @@ class CurrentWallpaper(
     val topic: String?,
     val color: String?,
     val source: String,
+    /** Where it's cropped, when it was placed in a position editor (any device): the same point everywhere. */
+    val position: Position? = null,
 ) {
     /** The photo, rebuilt without asking Unsplash: the thumbnail URL minus its sizing is the raw URL. */
     fun toPhoto() = Photo(
@@ -297,7 +299,37 @@ object Firebase {
         w.description?.takeIf { it.isNotBlank() }?.let { fields.put("description", str(it)) }
         w.topic?.takeIf { it.isNotBlank() }?.let { fields.put("topic", str(it)) }
         w.color?.takeIf { it.isNotBlank() }?.let { fields.put("color", str(it)) }
+        w.position?.let { putPosition(fields, it) }
         commit(t, update("users/${t.uid}/sync/current", fields))
+    }
+
+    /**
+     * Changes only where `sync/current`'s photo is cropped (the position editor). Smart or Center removes focusX and
+     * focusY (they're in the mask but not sent).
+     */
+    suspend fun setCurrentPosition(t: FirebaseTokens, position: Position) {
+        val fields = JSONObject().put("updatedAt", time(Instant.now()))
+        putPosition(fields, position)
+        commit(t, update("users/${t.uid}/sync/current", fields, mask = listOf("crop", "focusX", "focusY", "updatedAt"), mustExist = true))
+    }
+
+    private fun putPosition(fields: JSONObject, position: Position) {
+        when (position) {
+            Position.Smart -> fields.put("crop", str("smart"))
+            Position.Center -> fields.put("crop", str("center"))
+            is Position.Focus -> fields.put("crop", str("focus")).put("focusX", num(position.x.toDouble())).put("focusY", num(position.y.toDouble()))
+        }
+    }
+
+    private fun JSONObject.position(): Position? = when (string("crop")) {
+        "smart" -> Position.Smart
+        "center" -> Position.Center
+        "focus" -> {
+            val x = number("focusX")
+            val y = number("focusY")
+            if (x != null && y != null) Position.Focus(x.toFloat().coerceIn(0f, 1f), y.toFloat().coerceIn(0f, 1f)) else null
+        }
+        else -> null
     }
 
     /**
@@ -310,6 +342,7 @@ object Firebase {
         return CurrentWallpaper(
             photoId, f.string("imageUrl") ?: return null, f.string("pageUrl") ?: "", f.string("photographer") ?: "",
             f.string("photographerUrl") ?: "", f.string("description"), f.string("topic"), f.string("color"), f.string("source") ?: "",
+            f.position(),
         )
     }
 
@@ -394,6 +427,11 @@ object Firebase {
     private fun sessionPath(uid: String, sessionId: String) = "users/$uid/sessions/$sessionId"
     private fun auth(t: FirebaseTokens) = mapOf("Authorization" to "Bearer ${t.idToken}")
     private fun str(value: String) = JSONObject().put("stringValue", value)
+    private fun num(value: Double) = JSONObject().put("doubleValue", value)
+    /** A number field, whether Firestore keeps it as a double or (a whole one) as an integer. */
+    private fun JSONObject.number(name: String): Double? = optJSONObject(name)?.let { f ->
+        if (f.has("doubleValue")) f.optDouble("doubleValue") else f.optString("integerValue").toDoubleOrNull()
+    }?.takeIf { it.isFinite() }
     private fun time(value: Instant) = JSONObject().put("timestampValue", value.toString())
     private fun JSONObject.string(name: String): String? = optJSONObject(name)?.optString("stringValue")?.takeIf { it.isNotEmpty() }
 

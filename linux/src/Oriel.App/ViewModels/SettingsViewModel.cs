@@ -173,7 +173,6 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     [RelayCommand] void OpenSupport() => Launcher.OpenUrl(new Uri(OrielLinks.Support));
     [RelayCommand] void OpenPrivacy() => Launcher.OpenUrl(new Uri(OrielLinks.Privacy));
     [RelayCommand] void OpenUnsplash() => Launcher.OpenUrl(new Uri(OrielLinks.Unsplash));
-    [RelayCommand] void OpenPollinations() => Launcher.OpenUrl(new Uri(OrielLinks.Pollinations));
 
     /// <summary>The shared schedule's time zone, by IANA name like the phone's picker; it syncs to every device.</summary>
     public IReadOnlyList<ZoneChoice> Zones { get; private set; } = [];
@@ -235,7 +234,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         IsDownloading = state == UpdateState.Downloading;
         UpdateProgress = _updates.Progress;
         IsUpdateBusy = state is UpdateState.Checking or UpdateState.Downloading;
-        UpdateButtonText = state == UpdateState.ReadyToRestart ? "Restart to update" : "Check for updates";
+        UpdateButtonText = state == UpdateState.ReadyToRestart ? "Install update" : "Check for updates";
         var status = state switch
         {
             UpdateState.Checking => "Checking for updates…",

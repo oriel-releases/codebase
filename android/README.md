@@ -23,7 +23,7 @@ Native Kotlin + Jetpack Compose. Android 8.0 (API 26) and newer.
 
 ## Features
 
-- **Home**: current wallpaper (cropped to this phone's shape), credit, next change, **Change now** (twice an hour,
+- **Home**: current wallpaper (cropped to this phone's shape), credit, next change, **Change now** (once an hour,
   because the Unsplash key is shared by every install).
 - **Search**: Unsplash search with suggestions, portrait photos big enough for the screen; set one right away.
 - **Interests** (inside Search, like the desktop apps): the built-in topic chips, and your own words, which come from a

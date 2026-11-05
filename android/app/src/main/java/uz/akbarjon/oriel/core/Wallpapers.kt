@@ -10,7 +10,9 @@ import android.util.Log
 import android.view.Display
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -89,7 +91,7 @@ class Wallpapers(private val context: Context) {
     suspend fun changeNow(): ChangeResult {
         manualAvailableAt()?.let { at ->
             val minutes = ((at - System.currentTimeMillis()) / 60_000 + 1).coerceAtLeast(1)
-            return ChangeResult.Failed("You can use Change now twice an hour. Try again in $minutes min.", transient = false)
+            return ChangeResult.Failed("You can use Change now once an hour. Try again in $minutes min.", transient = false)
         }
         val result = run(manual = true) { pickAndApply(store.settings.value) }
         if (result is ChangeResult.Applied) {
@@ -117,21 +119,53 @@ class Wallpapers(private val context: Context) {
      * The position editor's "Set": the same photo again, cropped around [position], and remembered for it. Nothing else
      * changes (History, the other devices: the photo is the same one).
      */
-    suspend fun reposition(photo: Photo, position: Position): ChangeResult = run(manual = true) {
+    suspend fun reposition(photo: Photo, position: Position, publish: Boolean = true): ChangeResult = run(manual = true) {
         Positions.set(photo.id, position)
         val (w, h) = screenSize()
-        val file = File(context.cacheDir, "wallpaper.jpg")
+        // Usually there already: the editor starts downloading the crop as soon as the window settles ([prefetchCrop]).
+        val early = crops.take(photo, position, w, h)
+        val file = early ?: File(context.cacheDir, "wallpaper.jpg")
         try {
-            _phase.value = Phase.Downloading
-            fetch(photo, w, h, Positions.of(photo.id), file)
+            if (early == null) {
+                _phase.value = Phase.Downloading
+                fetch(photo, w, h, position, file)
+            }
             if (!looksLikeJpeg(file)) throw OrielException("The photo didn't download properly. Your wallpaper wasn't changed.", transient = true)
             _phase.value = Phase.Changing
             setWallpaper(file, store.settings.value.screen)
         } finally {
             file.delete()
         }
+        // The account's other devices crop it around the same point (a computer, the browser).
+        if (publish) publishPosition(photo, position)
         photo
     }
+
+    /** Shares where the photo on screen is cropped, while it's still the account's photo. Best effort. */
+    private suspend fun publishPosition(photo: Photo, position: Position) {
+        try {
+            val tokens = Oriel.auth.tokens() ?: return
+            if (Firebase.getCurrentPhotoId(tokens, tokens.uid) != photo.id) return
+            Firebase.setCurrentPosition(tokens, position)
+            Firebase.ring(tokens, photo.id, Oriel.auth.account.value?.sessionId.orEmpty())
+        } catch (e: Exception) {
+            Log.i(TAG, "Couldn't share the position: ${e.message}")
+        }
+    }
+
+    /**
+     * The crop the position editor is on, downloaded before Set is tapped: the CDN takes a second or several to make a
+     * new crop, so waiting for it only after the tap made Set slow. A newer position replaces it.
+     */
+    fun prefetchCrop(photo: Photo, position: Position) {
+        val (w, h) = screenSize()
+        crops.start(photo, position, w, h)
+    }
+
+    /** The editor closed without setting: what it downloaded early goes. */
+    fun discardPrefetchedCrop() = crops.discard()
+
+    private val crops = EarlyCrops { photo, position, w, h, file -> fetch(photo, w, h, position, file); looksLikeJpeg(file) }
 
     /**
      * The photo as this screen shows it, [w] x [h], around [position], into [file]. Unsplash's CDN crops its photos; an AI
@@ -311,6 +345,7 @@ class Wallpapers(private val context: Context) {
                 photoId = photo.id, imageUrl = photo.sized(400, quality = 80), pageUrl = photo.pageUrl,
                 photographer = photo.photographer, photographerUrl = photo.photographerUrl, description = photo.description,
                 topic = topic, color = accent ?: photo.color?.uppercase(), source = "android",
+                position = Positions.picked(photo.id),
             ))
             // Your follow page shows it too.
             Sharing.showOnFollowPage(photo)
@@ -348,9 +383,47 @@ class Wallpapers(private val context: Context) {
     companion object {
         private const val TAG = "Oriel"
         private const val MAX_QUERIES = 3
-        private const val MAX_MANUAL_PER_HOUR = 2
+        private const val MAX_MANUAL_PER_HOUR = 1
         private const val HOUR = 3_600_000L
         private const val MAX_WIDTH = 2160
         const val FALLBACK_TOPIC = "landscape"
     }
 }
+
+/**
+ * One wallpaper crop downloaded ahead of time (the editor's current position), handed over when it is the one asked
+ * for. Only the newest is kept; the one it replaces, or one never used, is deleted once its download ends.
+ */
+private class EarlyCrops(private val download: suspend (Photo, Position, Int, Int, File) -> Boolean) {
+    private class Crop(val key: String, val file: File, val done: Deferred<Boolean>)
+
+    private var crop: Crop? = null
+
+    @Synchronized fun start(photo: Photo, position: Position, w: Int, h: Int) {
+        val key = key(photo, position, w, h)
+        if (crop?.key == key) return
+        discard()
+        val file = File(Oriel.app.cacheDir, "crop-${System.nanoTime()}.jpg")
+        val done = Oriel.scope.async(Dispatchers.IO) { runCatching { download(photo, position, w, h, file) }.getOrDefault(false) }
+        crop = Crop(key, file, done)
+    }
+
+    /** The file for this crop once downloaded (waiting for one under way), or null when there's none or it failed. */
+    suspend fun take(photo: Photo, position: Position, w: Int, h: Int): File? {
+        val mine = synchronized(this) { crop?.takeIf { it.key == key(photo, position, w, h) }?.also { crop = null } } ?: return null
+        if (mine.done.await()) return mine.file
+        mine.file.delete()
+        return null
+    }
+
+    @Synchronized fun discard() {
+        val old = crop ?: return
+        crop = null
+        old.done.cancel()
+        // A download can't stop mid-read: its file is deleted when it ends.
+        old.done.invokeOnCompletion { old.file.delete(); File(old.file.path + ".part").delete() }
+    }
+
+    private fun key(photo: Photo, position: Position, w: Int, h: Int) = "${photo.id}|$position|${w}x$h"
+}
+

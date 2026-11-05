@@ -1,5 +1,6 @@
 package uz.akbarjon.oriel.core
 
+import uz.akbarjon.oriel.data.CurrentWallpaper
 import uz.akbarjon.oriel.Oriel
 import uz.akbarjon.oriel.data.FirebaseException
 import uz.akbarjon.oriel.data.FirebaseFailure
@@ -73,12 +74,15 @@ class Following {
             return e.failure != FirebaseFailure.Network
         }
         if (current == null) return true
-        // Already handled, or it's the photo on this phone right now (this phone published it).
-        if (current.photoId == store.state.value.followedPhotoId) return true
+        // Already handled, or it's the photo on this phone right now (this phone published it). Its position may have
+        // moved on another device meanwhile: then it's cropped the same way here.
+        if (current.photoId == store.state.value.followedPhotoId) return takePosition(current)
         if (current.photoId == Oriel.history.latest()?.photo?.id) {
             store.updateState { it.copy(followedPhotoId = current.photoId) }
-            return true
+            return takePosition(current)
         }
+        // Cropped where the other device placed it, from the first download on.
+        current.position?.let { Positions.set(current.photoId, it) }
 
         // A friend's photo is shared on to this account's other devices; the account's own isn't sent back.
         Oriel.wallpapers.showPhase(Phase.Receiving)
@@ -91,6 +95,24 @@ class Following {
             }
             is ChangeResult.Failed -> !result.transient
             ChangeResult.Skipped -> true
+        }
+    }
+
+    /**
+     * Another device moved the photo (its position editor): the photo on screen here is cropped around the same point
+     * too. The same position as here (this phone's own, coming back) changes nothing.
+     */
+    private suspend fun takePosition(current: CurrentWallpaper): Boolean {
+        val position = current.position ?: return true
+        if (Positions.of(current.photoId) == position) return true
+        val shown = Oriel.history.latest()?.photo
+        if (shown?.id != current.photoId) {
+            Positions.set(current.photoId, position)
+            return true
+        }
+        return when (val result = Oriel.wallpapers.reposition(shown, position, publish = false)) {
+            is ChangeResult.Failed -> !result.transient
+            else -> true
         }
     }
 

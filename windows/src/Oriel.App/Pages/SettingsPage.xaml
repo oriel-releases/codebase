@@ -334,6 +334,7 @@
                     </StackPanel>
                 </controls:SettingRow>
                 <controls:SettingRow
+                    x:Name="UpdatesRow"
                     Description="{x:Bind ViewModel.UpdateStatus, Mode=OneWay}"
                     Glyph="&#xE895;"
                     Header="Updates">
@@ -382,15 +383,6 @@
                     Header="Photos by Unsplash">
                     <Button
                         Command="{x:Bind ViewModel.OpenUnsplashCommand}"
-                        Content="Open"
-                        Style="{StaticResource RowButtonStyle}" />
-                </controls:SettingRow>
-                <controls:SettingRow
-                    Description="The AI wallpapers are made by Pollinations."
-                    Glyph="&#xE945;"
-                    Header="Pictures made with Pollinations">
-                    <Button
-                        Command="{x:Bind ViewModel.OpenPollinationsCommand}"
                         Content="Open"
                         Style="{StaticResource RowButtonStyle}" />
                 </controls:SettingRow>

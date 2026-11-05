@@ -15,9 +15,11 @@ public static class ImageLoader
             if (file is not null && File.Exists(file))
             {
                 var bmp = new BitmapImage { DecodePixelWidth = decodeWidth, DecodePixelType = type };
-                byte[] bytes = await File.ReadAllBytesAsync(file);
-                using var ms = new MemoryStream(bytes);
-                await bmp.SetSourceAsync(ms.AsRandomAccessStream());
+                // Streamed, not read into one big array first (a wallpaper is megabytes; its thumbnail needs a fraction).
+                // Shared for writing and deleting, and closed once decoded, so the file is never locked.
+                await using var stream = new FileStream(file, FileMode.Open, FileAccess.Read,
+                    FileShare.ReadWrite | FileShare.Delete, 64 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+                await bmp.SetSourceAsync(stream.AsRandomAccessStream());
                 return bmp;
             }
             if (!string.IsNullOrEmpty(fallbackUrl))

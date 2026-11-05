@@ -8,9 +8,9 @@
     <!--  A row: its thumbnail, the photographer and one line; a click opens the photo on its own page.  -->
     <Border Padding="8" Background="{DynamicResource OrielSurfaceBrush}" CornerRadius="12">
         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
-            <Border x:Name="Thumb" Width="112" Height="64" Background="{DynamicResource OrielLineBrush}" CornerRadius="8" ClipToBounds="True">
+            <controls:ScreenFrame x:Name="Thumb" Width="112" Background="{DynamicResource OrielLineBrush}" CornerRadius="8" ClipToBounds="True">
                 <Image controls:ImageReveal.Enabled="True" Source="{Binding Preview}" Stretch="UniformToFill" />
-            </Border>
+            </controls:ScreenFrame>
             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                 <TextBlock FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Text="{Binding PhotographerName}" />
                 <TextBlock Classes="muted" FontSize="12" TextTrimming="CharacterEllipsis" Text="{Binding Subtitle}" />

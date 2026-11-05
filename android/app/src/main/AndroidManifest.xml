@@ -54,7 +54,7 @@
             </intent-filter>
         </receiver>
 
-        <!-- Lends the shared picture (cache/shared) to the app it's shared to. -->
+        <!-- Lends the shared picture (cache/shared) to the app it's shared to, and an update (cache/updates) to the installer. -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.shared"
@@ -64,10 +64,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/share_paths" />
         </provider>
-
-        <receiver
-            android:name=".core.UpdateReceiver"
-            android:exported="false" />
 
         <service
             android:name=".work.ChangeJob"

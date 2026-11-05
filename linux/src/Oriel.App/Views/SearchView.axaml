@@ -74,7 +74,7 @@
                                Text="Fresh picks couldn't load right now. Check your connection, or search for something above." />
                     <ItemsRepeater ItemsSource="{Binding Explore}">
                         <ItemsRepeater.Layout>
-                            <UniformGridLayout ItemsStretch="Fill" MinColumnSpacing="14" MinItemWidth="280" MinRowSpacing="14" />
+                            <UniformGridLayout controls:ScreenShape.ItemWidth="280" ItemsStretch="Uniform" MinColumnSpacing="14" MinRowSpacing="14" />
                         </ItemsRepeater.Layout>
                         <ItemsRepeater.ItemTemplate>
                             <DataTemplate x:DataType="vm:PhotoResultViewModel">
@@ -110,7 +110,7 @@
 
                     <ItemsRepeater ItemsSource="{Binding Results}">
                         <ItemsRepeater.Layout>
-                            <UniformGridLayout ItemsStretch="Fill" MinColumnSpacing="14" MinItemWidth="280" MinRowSpacing="14" />
+                            <UniformGridLayout controls:ScreenShape.ItemWidth="280" ItemsStretch="Uniform" MinColumnSpacing="14" MinRowSpacing="14" />
                         </ItemsRepeater.Layout>
                         <ItemsRepeater.ItemTemplate>
                             <DataTemplate x:DataType="vm:PhotoResultViewModel">

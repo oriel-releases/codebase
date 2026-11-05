@@ -1,5 +1,13 @@
 package uz.akbarjon.oriel.ui
 
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.pointerInput
@@ -66,12 +74,11 @@ import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
 
 /** How a tab's icon plays when the tab is picked. */
-internal enum class Play { Hop, Compass, Beat, Flip, Spin }
+internal enum class Play { Hop, Compass, Flip, Spin }
 
 enum class Tab(val label: String, val icon: ImageVector, val selectedIcon: ImageVector, internal val animation: Play) {
     Home("Home", OrielIcons.Home, OrielIcons.HomeFilled, Play.Hop),
     Explore("Explore", OrielIcons.Compass, OrielIcons.CompassFilled, Play.Compass),
-    Create("AI", OrielIcons.Sparkles, OrielIcons.SparklesFilled, Play.Beat),
     History("History", OrielIcons.History, OrielIcons.History, Play.Flip),
     Settings("Settings", OrielIcons.Settings, OrielIcons.Settings, Play.Spin),
 }
@@ -112,6 +119,10 @@ fun NavBarGuard(modifier: Modifier = Modifier, vertical: Boolean = false) {
 fun NavBar(
     selected: Tab, onSelect: (Tab) -> Unit, haze: HazeState, modifier: Modifier = Modifier, onPhoto: Boolean = false,
     vertical: Boolean = false,
+    /** While an update waits: one more item after Settings, Update, that opens Settings > Updates. */
+    onUpdate: (() -> Unit)? = null,
+    /** Settings > Updates is open: the pill stretches over Settings and Update, both being where you are. */
+    onUpdates: Boolean = false,
 ) {
     val c = Palette.colors
     val haptics = LocalHapticFeedback.current
@@ -126,7 +137,20 @@ fun NavBar(
     } else {
         modifier.navigationBarsPadding().padding(horizontal = 24.dp, vertical = NavBarMargin).fillMaxWidth().height(NavBarHeight)
     }
-    Box(frame) {
+    // Held (press and hold a tab): where the finger is along the bar (pixels), and how long the tabs' row is. While
+    // held, the bar swells a little, and leans gently the other way from the pill (it slides right, the bar drifts left).
+    var heldAt by remember { mutableStateOf<Float?>(null) }
+    var rowPx by remember { mutableFloatStateOf(0f) }
+    val swell by animateFloatAsState(if (heldAt != null) 1.04f else 1f, spring(dampingRatio = 0.5f, stiffness = 400f), label = "barSwell")
+    val leanTarget = heldAt?.takeIf { rowPx > 0f }?.let { -((it / rowPx) - 0.5f) * 2f } ?: 0f
+    val lean by animateFloatAsState(leanTarget, spring(dampingRatio = 0.8f, stiffness = 300f), label = "barLean")
+    Box(frame.graphicsLayer {
+        scaleX = swell
+        scaleY = swell
+        // At most this far either way: a lean, not a slide.
+        val shift = lean * 6.dp.toPx()
+        if (vertical) translationY = shift else translationX = shift
+    }) {
     // Only the bar's background is clipped to the capsule; the icons draw on top, free to hop and flip past its edge.
     Box(
         Modifier.matchParentSize()
@@ -136,34 +160,109 @@ fun NavBar(
             .border(1.dp, edge, shape),
     )
     BoxWithConstraints(Modifier.fillMaxSize().padding(6.dp)) {
-        val itemSize = (if (vertical) maxHeight else maxWidth) / Tab.entries.size
+        val itemSize = (if (vertical) maxHeight else maxWidth) / (Tab.entries.size + if (onUpdate != null) 1 else 0)
         val index = selected.ordinal
         var from by remember { mutableIntStateOf(index) }
         val forward = index >= from
         val fast = spring<Dp>(dampingRatio = 0.75f, stiffness = 900f)
         val slow = spring<Dp>(dampingRatio = 0.7f, stiffness = 260f)
-        val start by animateDpAsState(itemSize * index, if (forward) slow else fast, label = "pillStart")
-        val end by animateDpAsState(itemSize * (index + 1), if (forward) fast else slow, label = "pillEnd")
+        // Held: the pill is picked up and follows the finger (where along the bar, in pixels), until it's let go.
+        val density = LocalDensity.current
+        val itemPx = with(density) { itemSize.toPx() }
+        SideEffect { rowPx = itemPx * Tab.entries.size }
+        val held = heldAt?.let { with(density) { (it.toDp() - itemSize / 2).coerceIn(0.dp, itemSize * (Tab.entries.size - 1)) } }
+        val follow = spring<Dp>(dampingRatio = 0.85f, stiffness = 1400f)
+        val start by animateDpAsState(held ?: (itemSize * index), if (held != null) follow else if (forward) slow else fast, label = "pillStart")
+        val span = if (onUpdates && onUpdate != null && selected == Tab.Settings) 2 else 1
+        val end by animateDpAsState(held?.plus(itemSize) ?: (itemSize * (index + span)), if (held != null) follow else if (forward) fast else slow, label = "pillEnd")
+        // Picked up, it swells a little, like something lifted off the bar.
+        val lifted by animateFloatAsState(if (held != null) 1.08f else 1f, spring(dampingRatio = 0.55f, stiffness = 500f), label = "pillLift")
         LaunchedEffect(index) { from = index }
         Box(
-            if (vertical) Modifier.offset(y = start).height(end - start).fillMaxWidth().clip(shape).background(pillColor)
-            else Modifier.offset(x = start).width(end - start).fillMaxHeight().clip(shape).background(pillColor),
+            (if (vertical) Modifier.offset(y = start).height(end - start).fillMaxWidth() else Modifier.offset(x = start).width(end - start).fillMaxHeight())
+                .graphicsLayer { scaleX = lifted; scaleY = lifted }.clip(shape).background(pillColor),
         )
 
         val pick = { tab: Tab ->
             if (tab != selected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
             onSelect(tab)
         }
+        val currentPick by rememberUpdatedState(pick)
+        /**
+         * Press and hold any tab: a buzz like a favorite's, the bar swells, the pill jumps there and follows the finger
+         * (a tick at each tab it crosses), and letting go goes to the tab under it. A short press stays an ordinary tap.
+         */
+        val holdToSlide = Modifier.pointerInput(index, itemPx, vertical) {
+            fun along(o: Offset) = if (vertical) o.y else o.x
+            fun tabAt(px: Float) = (px / itemPx).toInt().coerceIn(0, Tab.entries.size - 1)
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                // Any tab (not the Update item): held, the pill jumps under the finger and follows it.
+                if (along(down.position) >= itemPx * Tab.entries.size) return@awaitEachGesture
+                // Let go or moved before the hold time: not a hold (the tap, or the page's own swipe, goes on as usual).
+                val early = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                    while (true) {
+                        val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: return@withTimeoutOrNull true
+                        if (!change.pressed || (change.position - down.position).getDistance() > viewConfiguration.touchSlop) return@withTimeoutOrNull true
+                    }
+                    @Suppress("UNREACHABLE_CODE") true
+                }
+                if (early != null) return@awaitEachGesture
+                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                heldAt = along(down.position)
+                var over = tabAt(along(down.position))
+                try {
+                    while (true) {
+                        val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
+                        // Taken here, so the tab under the finger doesn't also see a tap.
+                        change.consume()
+                        if (!change.pressed) {
+                            currentPick(Tab.entries[over])
+                            break
+                        }
+                        heldAt = along(change.position)
+                        val now = tabAt(along(change.position))
+                        if (now != over) { over = now; haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
+                    }
+                } finally {
+                    heldAt = null
+                }
+            }
+        }
         if (vertical) {
-            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.fillMaxSize().then(holdToSlide), horizontalAlignment = Alignment.CenterHorizontally) {
                 Tab.entries.forEach { tab -> NavItem(tab, tab == selected, onPhoto, Modifier.weight(1f).fillMaxWidth()) { pick(tab) } }
+                if (onUpdate != null) UpdateNavItem(onPhoto, Modifier.weight(1f).fillMaxWidth(), onUpdate)
             }
         } else {
-            Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxSize().then(holdToSlide), verticalAlignment = Alignment.CenterVertically) {
                 Tab.entries.forEach { tab -> NavItem(tab, tab == selected, onPhoto, Modifier.weight(1f)) { pick(tab) } }
+                if (onUpdate != null) UpdateNavItem(onPhoto, Modifier.weight(1f), onUpdate)
             }
         }
     }
+    }
+}
+
+/** Update, after Settings: its arrow in a filled circle, so it reads as something waiting. */
+@Composable
+private fun UpdateNavItem(onPhoto: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val c = Palette.colors
+    val ink = if (onPhoto) Color.White else c.ink
+    val paper = if (onPhoto) Color.Black else c.paper
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        modifier.fillMaxHeight().pressScale(interaction, 0.9f).clickable(interaction, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(24.dp).clip(CircleShape).background(ink), contentAlignment = Alignment.Center) {
+                Icon(OrielIcons.Download, "Install the update", tint = paper, modifier = Modifier.size(14.dp))
+            }
+            Spacer(Modifier.height(1.dp))
+            Text("Install", style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.sp), color = ink,
+                fontWeight = FontWeight.SemiBold, maxLines = 1)
+        }
     }
 }
 
@@ -195,7 +294,6 @@ private fun NavItem(tab: Tab, selected: Boolean, onPhoto: Boolean, modifier: Mod
                 rotation.animateTo(360f, keyframes { durationMillis = 920; -25f at 120; 385f at 520; 350f at 680; 362f at 820 })
                 rotation.snapTo(0f)
             }
-            Play.Beat -> scale.animateTo(1f, keyframes { durationMillis = 620; 1.28f at 120; 0.95f at 240; 1.15f at 360; 1f at 480 })
             // The clock winds back: one full turn anticlockwise, like rewinding time.
             Play.Flip -> {
                 rotation.snapTo(0f)

@@ -1,3 +1,4 @@
+using Oriel.UI.Controls;
 using Oriel.UI.ViewModels;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -13,16 +14,33 @@ public sealed partial class HomePage : Page
     {
         InitializeComponent();
         ChangeText.Text = ViewModel.ChangeLabel;
-        Loaded += (_, _) => ViewModel.PropertyChanged += OnViewModelChanged;
+        Loaded += (_, _) =>
+        {
+            ViewModel.PropertyChanged += OnViewModelChanged;
+            _ = App.Get<PositionEditorViewModel>().PrepareAsync();
+        };
         Unloaded += (_, _) =>
         {
             ViewModel.PropertyChanged -= OnViewModelChanged;
             StopPicking();
         };
-        KeyDown += (_, e) =>
+        // While picking: Esc puts it away, the arrows move the spot one pixel of the photo (with Shift ten), Enter picks.
+        // Before anything else gets the keys (the focused button would move the focus with the arrows).
+        PreviewKeyDown += (_, e) =>
         {
-            if (_picking is null || e.Key != Windows.System.VirtualKey.Escape) return;
-            StopPicking();
+            if (_picking is null) return;
+            var fast = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift)
+                .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+            switch (e.Key)
+            {
+                case Windows.System.VirtualKey.Escape: StopPicking(); break;
+                case Windows.System.VirtualKey.Enter: PickHere(); break;
+                case Windows.System.VirtualKey.Left: Nudge(-1, 0, fast); break;
+                case Windows.System.VirtualKey.Right: Nudge(1, 0, fast); break;
+                case Windows.System.VirtualKey.Up: Nudge(0, -1, fast); break;
+                case Windows.System.VirtualKey.Down: Nudge(0, 1, fast); break;
+                default: return;
+            }
             e.Handled = true;
         };
         // While picking, a click anywhere but the photo (or the eyedropper, which stops it itself) puts it away.
@@ -58,8 +76,8 @@ public sealed partial class HomePage : Page
     /// <summary>The photo's pixels while picking, else null.</summary>
     Oriel.UI.Services.PhotoPixels? _picking;
 
-    /// <summary>The magnifier's pixels: 11 x 11, each drawn 9 px wide.</summary>
-    const int Cells = 11, CellSize = 9;
+    /// <summary>The magnifier's pixels: 11 x 11, each drawn 10 px wide (110 across: whole pixels, crisp edges).</summary>
+    const int Cells = 11, CellSize = 10;
     readonly Microsoft.UI.Xaml.Shapes.Rectangle[] _cells = new Microsoft.UI.Xaml.Shapes.Rectangle[Cells * Cells];
 
     void BuildLoupe()
@@ -106,10 +124,39 @@ public sealed partial class HomePage : Page
         return ((at.X - (w - p.Width * scale) / 2) / (p.Width * scale), (at.Y - (h - p.Height * scale) / 2) / (p.Height * scale));
     }
 
-    /// <summary>Centers the magnifier on the spot, fills it with the pixels around it, and shows their color on the custom button.</summary>
+    /// <summary>The gap between the spot and the magnifier floating over it.</summary>
+    const double LoupeGap = 22;
+
+    /// <summary>The spot being picked, in the photo box's coordinates.</summary>
+    Windows.Foundation.Point _at;
+
+    /// <summary>Moves the spot by one pixel of the photo (ten with Shift), kept on the photo.</summary>
+    void Nudge(int dx, int dy, bool fast)
+    {
+        if (_picking is not { } p) return;
+        double w = PreviewBox.ActualWidth, h = PreviewBox.ActualHeight;
+        var step = Math.Max(w / p.Width, h / p.Height) * (fast ? 10 : 1);
+        PlaceLoupe(new Windows.Foundation.Point(Math.Clamp(_at.X + dx * step, 0, w - 0.01), Math.Clamp(_at.Y + dy * step, 0, h - 0.01)));
+    }
+
+    /// <summary>The color at the spot becomes the accent (a click on the photo, or Enter).</summary>
+    void PickHere()
+    {
+        if (_picking is not { } p) return;
+        var (fx, fy) = OnPhoto(_at, p);
+        var hex = p.HexAt(fx, fy);
+        StopPicking();
+        _ = ViewModel.PickAccentAsync(hex);
+    }
+
+    /// <summary>
+    /// Moves the ring (the pointer) to the spot, floats the magnifier just above it (below when there's no room above), fills it with the pixels
+    /// around the spot, and shows its color on the custom button.
+    /// </summary>
     void PlaceLoupe(Windows.Foundation.Point at)
     {
         if (_picking is not { } p) return;
+        _at = at;
         var (fx, fy) = OnPhoto(at, p);
         var (cx, cy) = p.PixelAt(fx, fy);
         for (var i = 0; i < _cells.Length; i++)
@@ -117,23 +164,30 @@ public sealed partial class HomePage : Page
         var hex = p.HexAt(fx, fy);
         PickRingColor.Stroke = AccentSwatchViewModel.BrushOf(hex);
         ViewModel.PreviewCustomAccent(hex);
-        Microsoft.UI.Xaml.Controls.Canvas.SetLeft(PickRing, at.X - PickRing.Width / 2);
-        Microsoft.UI.Xaml.Controls.Canvas.SetTop(PickRing, at.Y - PickRing.Height / 2);
+        Microsoft.UI.Xaml.Controls.Canvas.SetLeft(PickSpot, Math.Round(at.X - PickSpot.Width / 2));
+        Microsoft.UI.Xaml.Controls.Canvas.SetTop(PickSpot, Math.Round(at.Y - PickSpot.Height / 2));
+        // Above the spot; near the photo's top edge, below it (with room for the color code under the magnifier).
+        var top = at.Y - LoupeGap - PickRing.Height;
+        // Whole pixels: placed at fractions, its rings and box drew soft and uneven.
+        Microsoft.UI.Xaml.Controls.Canvas.SetLeft(PickRing, Math.Round(at.X - PickRing.Width / 2));
+        Microsoft.UI.Xaml.Controls.Canvas.SetTop(PickRing, Math.Round(top >= 0 ? top : at.Y + LoupeGap));
     }
 
     /// <summary>
-    /// The crosshair over the photo while picking: made once and set only when it changes, since setting a cursor makes
-    /// Windows redraw it (set on every move, it flickered).
+    /// While picking over the photo the ring is the pointer: the system cursor hides (a crosshair set on the page kept
+    /// falling back to the arrow whenever the pointer stopped). Hidden once, shown once: Windows counts the calls.
     /// </summary>
-    readonly Microsoft.UI.Input.InputCursor _cross = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Cross);
-    bool _crossShown;
+    bool _cursorHidden;
 
     void ShowCross(bool on)
     {
-        if (_crossShown == on) return;
-        _crossShown = on;
-        ProtectedCursor = on ? _cross : null;
+        if (_cursorHidden == on) return;
+        _cursorHidden = on;
+        ShowCursor(!on);
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern int ShowCursor(bool show);
 
     void Preview_PointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
@@ -145,10 +199,58 @@ public sealed partial class HomePage : Page
     /// <summary>The magnifier stays where the pointer left the photo, until a click, Esc or the eyedropper again.</summary>
     void Preview_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e) => ShowCross(false);
 
+    void Position_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) => Controls.PositionEditorView.Current?.Open();
+
     void OnViewModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(HomeViewModel.ChangeLabel)) SwapText(ViewModel.ChangeLabel);
-        if (e.PropertyName == nameof(HomeViewModel.Preview)) StopPicking(); // its pixels are another photo's now
+        if (e.PropertyName == nameof(HomeViewModel.IsBusy)) SpinChangeIcon(ViewModel.IsBusy);
+        if (e.PropertyName == nameof(HomeViewModel.Preview))
+        {
+            StopPicking(); // its pixels are another photo's now
+            // Position opens at once: what it shows is loaded as each photo shows.
+            _ = App.Get<PositionEditorViewModel>().PrepareAsync();
+        }
+    }
+
+    const double TurnMs = 800;
+    DateTime? _turningSince;
+
+    /// <summary>
+    /// Change now's arrows turn steadily while the wallpaper changes; when it's done they don't stop dead, they ease out
+    /// to rest on the next full turn.
+    /// </summary>
+    void SpinChangeIcon(bool busy)
+    {
+        var visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(ChangeIcon);
+        var compositor = visual.Compositor;
+        visual.CenterPoint = new System.Numerics.Vector3((float)ChangeIcon.ActualWidth / 2, (float)ChangeIcon.ActualHeight / 2, 0);
+        if (busy)
+        {
+            if (_turningSince is not null) return;
+            _turningSince = DateTime.UtcNow;
+            var turn = compositor.CreateScalarKeyFrameAnimation();
+            turn.InsertKeyFrame(0, 0);
+            turn.InsertKeyFrame(1, 360, compositor.CreateLinearEasingFunction());
+            turn.Duration = TimeSpan.FromMilliseconds(TurnMs);
+            turn.IterationBehavior = Microsoft.UI.Composition.AnimationIterationBehavior.Forever;
+            visual.StartAnimation("RotationAngleInDegrees", turn);
+            return;
+        }
+        if (_turningSince is not { } since) return;
+        _turningSince = null;
+        // Where the arrows are now (the turn runs on the compositor, so it's worked out from the time), then on to 360.
+        var angle = (float)((DateTime.UtcNow - since).TotalMilliseconds % TurnMs / TurnMs * 360);
+        visual.StopAnimation("RotationAngleInDegrees");
+        // At least half a turn more, starting at the speed it was turning (the curve's first slope is 1.5) and slowing
+        // to rest: no jolt where the steady turn hands over.
+        var to = 360 - angle >= 180 ? 360f : 720f;
+        const double startSlope = 1.5;
+        var settle = compositor.CreateScalarKeyFrameAnimation();
+        settle.InsertKeyFrame(0, angle);
+        settle.InsertKeyFrame(1, to, compositor.CreateCubicBezierEasingFunction(new(0.4f, 0.6f), new(0.4f, 1f)));
+        settle.Duration = TimeSpan.FromMilliseconds(startSlope * (to - angle) * TurnMs / 360);
+        visual.StartAnimation("RotationAngleInDegrees", settle);
     }
 
     const double TextMs = 130;
@@ -211,9 +313,6 @@ public sealed partial class HomePage : Page
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
-        // Back from the Wallpaper of the day's page: its photo flies back into the card (else it would hang in the
-        // air until the animation gave up).
-        PhotoDetailNav.Return(e.NavigationMode == NavigationMode.Back ? TodayThumb : null);
         await ViewModel.ActivateAsync();
     }
 
@@ -225,12 +324,10 @@ public sealed partial class HomePage : Page
     /// </summary>
     void Preview_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
-        if (_picking is { } p)
+        if (_picking is not null)
         {
-            var (fx, fy) = OnPhoto(e.GetCurrentPoint(PreviewBox).Position, p);
-            var hex = p.HexAt(fx, fy);
-            StopPicking();
-            _ = ViewModel.PickAccentAsync(hex);
+            PlaceLoupe(e.GetCurrentPoint(PreviewBox).Position);
+            PickHere();
             e.Handled = true;
             return;
         }

@@ -15,7 +15,7 @@ public sealed class FollowException(string message) : Exception(message);
 /// While you follow, your own schedule is off. They can stop sharing at any time, which ends it for everyone.
 /// </summary>
 public sealed class FollowService(AuthService auth, FirebaseClient firebase, ISettingsStore store, WallpaperService wallpapers,
-    ILogger<FollowService> log, Storage.IHistoryStore? history = null)
+    ILogger<FollowService> log, Storage.IHistoryStore? history = null, Storage.IPositionStore? positions = null)
 {
     /// <summary>No 0/O, 1/I: codes get read aloud and typed by hand.</summary>
     const string Alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -74,7 +74,7 @@ public sealed class FollowService(AuthService auth, FirebaseClient firebase, ISe
                 await firebase.CreateFollowCodeAsync(tokens, code, MyName, ShareLink.Picture(auth.Current?.PhotoUrl), ct);
                 Update(s => s.MyFollowCode = code);
                 // The follow page shows the wallpaper you have now; after this it follows every change (SyncPublisher).
-                if (history?.List().FirstOrDefault() is { } current) await ShowOnFollowPageAsync(tokens, code, current, ct);
+                if (history?.Latest() is { } current) await ShowOnFollowPageAsync(tokens, code, current, ct);
                 return code;
             }
             catch (FirebaseException ex) when (ex.Failure != FirebaseFailure.Network && attempt < 3)
@@ -290,20 +290,22 @@ public sealed class FollowService(AuthService auth, FirebaseClient firebase, ISe
             {
                 if (state.FollowProblem is not null) SetProblem(null);
                 await TakeAccentAsync(photoId, color);
+                await TakePositionAsync(photoId, current?.Position);
                 return;
             }
             // Already on this device (it published it, or showed it before): nothing to do.
-            if (history?.List().FirstOrDefault()?.PhotoId == photoId)
+            if (history?.Latest()?.PhotoId == photoId)
             {
                 state.FollowedPhotoId = photoId;
                 store.SaveState(state);
                 await TakeAccentAsync(photoId, color);
+                await TakePositionAsync(photoId, current?.Position);
                 return;
             }
             // An AI wallpaper made on another device: downloaded from its public link.
-            if (Providers.PollinationsClient.IsAiPhoto(photoId))
+            if (Providers.AiPhotoLinks.IsAiPhoto(photoId))
             {
-                if (Providers.PollinationsClient.FromLink(current!.ImageUrl ?? "", current.Description) is not { } made) return;
+                if (Providers.AiPhotoLinks.FromLink(current!.ImageUrl ?? "", current.Description) is not { } made) return;
                 // Its accent is this computer's own first pick (the other device's, read from its own copy, is a shade
                 // off and would show as a custom color); a color chosen there comes over afterwards (TakeAccentAsync).
                 wallpapers.ReportPhase(ApplyPhase.Receiving);
@@ -313,6 +315,8 @@ public sealed class FollowService(AuthService auth, FirebaseClient firebase, ISe
                 return;
             }
 
+            // Cropped where the other device placed it, from the first download on.
+            if (current?.Position is { } placed) positions?.Set(photoId, placed);
             wallpapers.ReportPhase(ApplyPhase.Receiving);
             PhotoCandidate photo;
             try
@@ -351,14 +355,32 @@ public sealed class FollowService(AuthService auth, FirebaseClient firebase, ISe
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// Another device moved the photo on screen here (its position editor): it's cropped around the same point here too.
+    /// The same position as here (this device's own, coming back) changes nothing.
+    /// </summary>
+    async Task TakePositionAsync(string? photoId, Models.PhotoPosition? position)
+    {
+        if (photoId is null || position is null || positions is null) return;
+        if ((positions.Get(photoId) ?? Models.PhotoPosition.Smart) == position) return;
+        if (history?.Latest() is not { } shown || shown.PhotoId != photoId)
+        {
+            positions.Set(photoId, position);
+            return;
+        }
+        var result = await wallpapers.RepositionAsync(shown, position, publish: false);
+        if (result.Status == ApplyStatus.Applied) log.LogInformation("Moved {Photo} where another device placed it", photoId);
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
     /// <summary>Another device chose another accent color for the photo on screen here: it is used here too.</summary>
     async Task TakeAccentAsync(string? photoId, string? color)
     {
-        if (photoId is null || color is null || history?.List().FirstOrDefault()?.PhotoId != photoId) return;
+        if (photoId is null || color is null || history?.Latest()?.PhotoId != photoId) return;
         if (wallpapers.RecentlyChoseAccent) return; // its own choice, not saved to the account yet
         // The other device read its colors from its own copy: the same choice is a shade off here. Matched to this
         // computer's nearest one; its first pick (what it uses unasked) means nothing to change.
-        if (history?.List().FirstOrDefault() is { } shown && await wallpapers.AccentOptionsAsync(shown) is { Count: > 0 } options)
+        if (history?.Latest() is { } shown && await wallpapers.AccentOptionsAsync(shown) is { Count: > 0 } options)
         {
             var nearest = options.MinBy(o => WallpaperService.ColorDistance(o, color));
             if (nearest is not null && WallpaperService.ColorDistance(nearest, color) < 90) color = nearest;

@@ -54,11 +54,23 @@ public sealed partial class HomeViewModel : ObservableObject
     public partial bool HasCurrent { get; set; }
     public bool HasNoCurrent => !HasCurrent;
     [ObservableProperty] public partial string PhotographerName { get; set; } = "";
-    // ---- The accent color: the photo's top three, one of them chosen ----
+    // ---- The accent color: the photo's top three or a custom one picked from it, one of them chosen (like Windows) ----
 
     public System.Collections.ObjectModel.ObservableCollection<AccentSwatchViewModel> Accents { get; } = [];
     [ObservableProperty] public partial bool HasAccents { get; set; }
     HistoryEntry? _accentEntry;
+
+    /// <summary>The custom color (picked with the eyedropper, here or on another device), or null for the plain eyedropper.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCustomAccent))]
+    public partial Avalonia.Media.IBrush? CustomAccent { get; set; }
+    public bool HasCustomAccent => CustomAccent is not null;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CustomRingOpacity), nameof(ShowsPipette))]
+    public partial bool IsCustomChosen { get; set; }
+    public double CustomRingOpacity => IsCustomChosen ? 1 : 0;
+    /// <summary>The pipette shows on the plain eyedropper, not on a custom color that's chosen.</summary>
+    public bool ShowsPipette => !IsCustomChosen;
 
     async Task LoadAccentsAsync(HistoryEntry entry)
     {
@@ -67,30 +79,52 @@ public sealed partial class HomeViewModel : ObservableObject
         if (_accentEntry != entry) return; // a newer photo came meanwhile
         Accents.Clear();
         foreach (var hex in options) Accents.Add(new AccentSwatchViewModel(this, hex));
-        // The chosen color may be one picked from another device's copy: shown first when it isn't among these.
-        if (_wallpapers.ChosenAccent(entry.PhotoId) is { } chosen && !Accents.Any(a => a.Is(chosen)))
-        {
-            Accents.Insert(0, new AccentSwatchViewModel(this, chosen));
-            if (Accents.Count > 3) Accents.RemoveAt(3);
-        }
         HasAccents = Accents.Count > 0;
         MarkChosenAccent();
     }
 
-    void MarkChosenAccent()
+    /// <summary>The photo's file, for the eyedropper (null before a photo is on Home).</summary>
+    public string? AccentPhotoFile => _accentEntry?.FilePath;
+
+    /// <summary>A color picked from the photo with the eyedropper: the accent here and on the other devices.</summary>
+    public async Task PickAccentAsync(string hex)
     {
-        var chosen = _accentEntry is { } e ? _wallpapers.ChosenAccent(e.PhotoId) : null;
+        if (_accentEntry is not { } entry) return;
+        ShowChosen(hex);
+        await Task.Run(() => _wallpapers.ChooseAccentAsync(entry, hex));
+    }
+
+    /// <summary>While the eyedropper is out, the custom button shows the color it would pick; null puts back the chosen one.</summary>
+    public void PreviewCustomAccent(string? hex)
+    {
+        if (hex is null) { MarkChosenAccent(); return; }
+        foreach (var a in Accents) a.IsChosen = false;
+        IsCustomChosen = true;
+        CustomAccent = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(hex));
+    }
+
+    void MarkChosenAccent() => ShowChosen(_accentEntry is { } e ? _wallpapers.ChosenAccent(e.PhotoId) : null);
+
+    /// <summary>
+    /// Rings the chosen color: one of the three, or the eyedropper filled with it when it isn't among them (Oriel's own
+    /// pick, the first, when none was chosen).
+    /// </summary>
+    void ShowChosen(string? chosen)
+    {
+        var custom = chosen is not null && !Accents.Any(a => a.Is(chosen));
         for (var i = 0; i < Accents.Count; i++)
             Accents[i].IsChosen = chosen is null ? i == 0 : Accents[i].Is(chosen);
+        IsCustomChosen = custom;
+        CustomAccent = custom ? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(chosen!)) : null;
     }
 
     internal async Task ChooseAccentAsync(AccentSwatchViewModel swatch)
     {
         if (_accentEntry is not { } entry || swatch.IsChosen) return;
-        foreach (var a in Accents) a.IsChosen = a == swatch;
+        ShowChosen(swatch.Hex);
         await Task.Run(() => _wallpapers.ChooseAccentAsync(entry, swatch.Hex));
     }
-    /// <summary>An Unsplash photo ("Photo by … on Unsplash"), not one made with AI on the Create page.</summary>
+    /// <summary>An Unsplash photo ("Photo by … on Unsplash"), not an AI picture another device (the Mac app) set.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CreditLead))]
     public partial bool IsPhoto { get; set; } = true;
@@ -138,7 +172,7 @@ public sealed partial class HomeViewModel : ObservableObject
     [ObservableProperty] public partial string NextChangeText { get; set; } = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsIdle), nameof(CanChange), nameof(ShowChangeIcon), nameof(ShowLimitIcon), nameof(ChangeLabel))]
+    [NotifyPropertyChangedFor(nameof(IsIdle), nameof(CanChange), nameof(ShowChangeIcon), nameof(ShowRefreshIcon), nameof(ShowLimitIcon), nameof(ChangeLabel))]
     [NotifyCanExecuteChangedFor(nameof(ChangeNowCommand))]
     public partial bool IsBusy { get; set; }
 
@@ -163,13 +197,15 @@ public sealed partial class HomeViewModel : ObservableObject
 
     // "Change now" is limited per hour: until it works again the button counts down, e.g. "Try after 20 min".
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanChange), nameof(ShowChangeIcon), nameof(ShowLimitIcon), nameof(ChangeLabel))]
+    [NotifyPropertyChangedFor(nameof(CanChange), nameof(ShowChangeIcon), nameof(ShowRefreshIcon), nameof(ShowLimitIcon), nameof(ChangeLabel))]
     [NotifyCanExecuteChangedFor(nameof(ChangeNowCommand))]
     public partial int LimitMinutes { get; set; }
     bool IsLimited => LimitMinutes > 0;
     public bool CanChange => IsIdle && !IsLimited;
     public bool ShowChangeIcon => IsIdle && !IsLimited;
     public bool ShowLimitIcon => IsIdle && IsLimited;
+    /// <summary>The refresh arrows: idle and allowed, or turning while a change runs (the view spins them).</summary>
+    public bool ShowRefreshIcon => IsBusy || ShowChangeIcon;
     public string ChangeLabel => IsBusy && StageText is { } stage ? stage : IsLimited ? $"Try after {LimitMinutes} min" : "Change now";
 
     /// <summary>Shows the minutes left and re-checks every 15 s while limited, so the button comes back by itself.</summary>
@@ -203,12 +239,12 @@ public sealed partial class HomeViewModel : ObservableObject
             NextChangeText = DescribeNextChange(s, state);
             if (_todayPhoto is not null) UpdateTodayCurrent();
 
-            var latest = await Task.Run(() => _history.List().FirstOrDefault());
+            var latest = await Task.Run(() => _history.Latest());
             HasCurrent = latest is not null;
             if (latest is not null)
             {
                 IsFavorite = latest.IsFavorite;
-                IsPhoto = latest.Provider != Oriel.Core.Providers.PollinationsClient.Provider;
+                IsPhoto = latest.Provider != Oriel.Core.Providers.AiPhotoLinks.Provider;
                 PhotographerName = latest.PhotographerName;
                 PhotographerUri = new Uri(latest.PhotographerUrl);
                 PhotoPageUri = new Uri(latest.PhotoPageUrl);
@@ -299,7 +335,7 @@ public sealed partial class HomeViewModel : ObservableObject
     }
 
     void UpdateTodayCurrent() =>
-        IsTodayCurrent = _todayPhoto is { } p && _history.List().FirstOrDefault()?.PhotoId == p.Id;
+        IsTodayCurrent = _todayPhoto is { } p && _history.Latest()?.PhotoId == p.Id;
 
     [RelayCommand(CanExecute = nameof(CanSetToday))]
     async Task SetToday()

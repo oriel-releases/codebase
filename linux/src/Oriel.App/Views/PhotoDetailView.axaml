@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Oriel.UI.Controls"
              xmlns:vm="using:Oriel.UI.ViewModels"
              x:Class="Oriel.UI.Views.PhotoDetailView"
              x:DataType="vm:IPhotoDetail"
@@ -7,15 +8,10 @@
     <!--  Laid out like Home: the photo the same size, its credit and actions under it. The same as on Windows.  -->
     <ScrollViewer>
         <StackPanel MaxWidth="960" Margin="40,8,40,40" Spacing="16">
-            <Grid Margin="0,16,0,0" ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <Button Classes="icon" VerticalAlignment="Center" Click="Back_Click" ToolTip.Tip="Back">
-                    <PathIcon Data="{StaticResource IconBack}" Width="14" Height="14" />
-                </Button>
-
-            </Grid>
-
             <!--  The card flies here and grows into the photo; a sharp copy, at the screen's real pixels, fades in over it.  -->
-            <Border x:Name="PhotoFrame" Height="440" Background="{DynamicResource OrielSurfaceBrush}" CornerRadius="{DynamicResource OrielLarge}" ClipToBounds="True">
+            <!--  Back sits on the photo's corner, so the photo itself lands where Home's is.  -->
+            <Panel>
+            <controls:ScreenFrame x:Name="PhotoFrame" Background="{DynamicResource OrielSurfaceBrush}" CornerRadius="{DynamicResource OrielLarge}" ClipToBounds="True">
                 <Panel>
                     <Image x:Name="PreviewImage" Stretch="UniformToFill" />
                     <Image x:Name="LargeImage" Stretch="UniformToFill" Opacity="0">
@@ -26,7 +22,23 @@
                         </Image.Transitions>
                     </Image>
                 </Panel>
-            </Border>
+            </controls:ScreenFrame>
+            <Button x:Name="BackButton" Classes="onPhoto" Margin="12" HorizontalAlignment="Left" VerticalAlignment="Top"
+                    Click="Back_Click" ToolTip.Tip="Back (Esc)" Opacity="{Binding #Info.Opacity}">
+                <!--  Frosted glass: the photo's own corner under it, blurred, under a dark veil.  -->
+                <Border CornerRadius="18" ClipToBounds="True" Width="36" Height="36">
+                    <Panel>
+                        <Rectangle Margin="-8" Effect="blur(14)">
+                            <Rectangle.Fill>
+                                <VisualBrush Visual="{Binding #PhotoFrame}" SourceRect="4,4,52,52" Stretch="Fill" />
+                            </Rectangle.Fill>
+                        </Rectangle>
+                        <Border Classes="veil" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="18" />
+                        <PathIcon Data="{StaticResource IconBack}" Width="14" Height="14" />
+                    </Panel>
+                </Border>
+            </Button>
+            </Panel>
 
             <!--  Credit (required by Unsplash guidelines) and actions, like Home's. They rise in once the photo lands.  -->
             <Grid x:Name="Info" ColumnDefinitions="*,Auto" ColumnSpacing="16" Opacity="0">
@@ -84,7 +96,7 @@
                     <Button Classes="icon" Click="Delete_Click" IsVisible="{Binding CanDelete}" ToolTip.Tip="Delete">
                         <PathIcon Data="{StaticResource IconDelete}" Width="15" Height="15" />
                     </Button>
-                    <ToggleButton Classes="icon" IsChecked="{Binding IsFavorite}" IsVisible="{Binding CanFavorite}" ToolTip.Tip="Favorite: keep this one forever">
+                    <ToggleButton Classes="icon" controls:CheckPop.Enabled="True" IsChecked="{Binding IsFavorite}" IsVisible="{Binding CanFavorite}" ToolTip.Tip="Favorite: keep this one forever">
                         <Panel>
                             <PathIcon Data="{StaticResource IconStar}" Width="15" Height="15" IsVisible="{Binding !IsFavorite}" />
                             <PathIcon Data="{StaticResource IconStarFilled}" Width="15" Height="15"

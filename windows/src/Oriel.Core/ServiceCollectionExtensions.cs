@@ -33,11 +33,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISettingsStore, JsonSettingsStore>();
         services.AddSingleton<IApiKeyStore, BuiltInApiKeyStore>();
         services.AddSingleton<IHistoryStore, SqliteHistoryStore>();
+        services.AddSingleton<IPositionStore, JsonPositionStore>();
         services.AddSingleton<IWallpaperSetter, WindowsWallpaperSetter>();
         services.AddSingleton<ITopicPicker>(_ => new RandomTopicPicker());
         services.AddSingleton<UnsplashProvider>();
         services.AddSingleton<IImageProvider>(sp => sp.GetRequiredService<UnsplashProvider>());
-        services.AddSingleton<PollinationsClient>();
+        services.AddSingleton<AiPhotoLinks>();
         services.AddSingleton<SyncPublisher>();
         services.AddSingleton<ShareService>();
         services.AddSingleton<ISyncPublisher>(sp => sp.GetRequiredService<SyncPublisher>());

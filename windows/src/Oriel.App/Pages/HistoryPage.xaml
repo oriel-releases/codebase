@@ -104,18 +104,21 @@
             </StackPanel>
 
             <!--  ItemsRepeater: a plain responsive grid, no list selection chrome  -->
-            <ItemsRepeater ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsGrid, Mode=OneWay}">
+            <ItemsRepeater
+                ElementClearing="Repeater_ElementClearing"
+                ElementPrepared="Repeater_ElementPrepared"
+                ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
+                Visibility="{x:Bind ViewModel.IsGrid, Mode=OneWay}">
                 <ItemsRepeater.Layout>
                     <UniformGridLayout
-                        ItemsStretch="Fill"
+                        local:ScreenShape.ItemWidth="300"
+                        ItemsStretch="Uniform"
                         MinColumnSpacing="12"
-                        MinItemWidth="300"
                         MinRowSpacing="12" />
                 </ItemsRepeater.Layout>
                 <ItemsRepeater.ItemTemplate>
                     <DataTemplate x:DataType="vm:HistoryItemViewModel">
-                        <Grid
-                            Height="210"
+                        <local:ScreenFrame
                             Background="{ThemeResource OrielLineBrush}"
                             CornerRadius="{StaticResource OrielCardRadius}"
                             PointerEntered="Card_PointerEntered"
@@ -151,13 +154,17 @@
                                     TextTrimming="CharacterEllipsis"
                                     TextWrapping="NoWrap" />
                             </StackPanel>
-                        </Grid>
+                        </local:ScreenFrame>
                     </DataTemplate>
                 </ItemsRepeater.ItemTemplate>
             </ItemsRepeater>
 
             <!--  List: one compact row per wallpaper  -->
-            <ItemsRepeater ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsList, Mode=OneWay}">
+            <ItemsRepeater
+                ElementClearing="Repeater_ElementClearing"
+                ElementPrepared="Repeater_ElementPrepared"
+                ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
+                Visibility="{x:Bind ViewModel.IsList, Mode=OneWay}">
                 <ItemsRepeater.Layout>
                     <StackLayout Spacing="8" />
                 </ItemsRepeater.Layout>
@@ -176,10 +183,9 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Grid
+                            <local:ScreenFrame
                                 x:Name="Thumb"
                                 Width="112"
-                                Height="64"
                                 Background="{ThemeResource OrielLineBrush}"
                                 CornerRadius="{StaticResource OrielThumbRadius}">
                                 <Image
@@ -187,7 +193,7 @@
                                     AutomationProperties.Name="{x:Bind Headline}"
                                     Source="{x:Bind Preview, Mode=OneWay}"
                                     Stretch="UniformToFill" />
-                            </Grid>
+                            </local:ScreenFrame>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock FontWeight="SemiBold" Text="{x:Bind PhotographerName}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock

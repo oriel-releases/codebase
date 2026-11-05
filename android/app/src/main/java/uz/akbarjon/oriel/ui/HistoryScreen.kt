@@ -15,6 +15,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -78,6 +80,8 @@ fun HistoryScreen() {
     var selectedId by remember { mutableStateOf<String?>(null) }
     // A delete asked for on the photo page, waiting for a yes.
     var deleting by remember { mutableStateOf<HistoryEntry?>(null) }
+    // A tile held down: its quick actions.
+    var holding by remember { mutableStateOf<HistoryEntry?>(null) }
     val haze = remember { HazeState() }
     val c = Palette.colors
 
@@ -103,10 +107,10 @@ fun HistoryScreen() {
                 // the same photo is on both pages, and two tiles with one photo would be taken for each other.
                 val fav = page == 1
                 HistoryGrid(if (fav) favorites else all, fav, if (fav) favoritesGrid else allGrid, headerDp,
-                    shared = page == pager.currentPage) { selectedId = it }
+                    shared = page == pager.currentPage, onHold = { holding = it }) { selectedId = it }
             }
             Column(
-                Modifier.fillMaxWidth().offset { IntOffset(0, -collapse.roundToInt()) }.onSizeChanged { headerPx = it.height },
+                Modifier.aboveFlyingPhoto().fillMaxWidth().offset { IntOffset(0, -collapse.roundToInt()) }.onSizeChanged { headerPx = it.height },
             ) {
                 ScreenTitle("History")
                 // Tapping slides the pages too; swiping them moves the switch.
@@ -127,7 +131,7 @@ fun HistoryScreen() {
 
     // The tiles' picture size (HistoryGrid's), so the photo page starts with the picture the tile already showed.
     val (screenW, screenH) = remember { Oriel.wallpapers.screenSize() }
-    val tileW = with(LocalDensity.current) { 130.dp.roundToPx() }
+    val tileW = with(LocalDensity.current) { historyTile().roundToPx() }
 
     // From All (favorites are in it too): un-starring in Favorites keeps the sheet open.
     val selected = all?.firstOrNull { it.photo.id == selectedId } ?: favorites?.firstOrNull { it.photo.id == selectedId }
@@ -148,33 +152,60 @@ fun HistoryScreen() {
         )
     }
 
+    holding?.let { entry ->
+        PhotoQuickSheet(entry.photo, entry.topic, favorite = entry.isFavorite,
+            onFavorite = { fav -> uz.akbarjon.oriel.core.FavoritesSync.set(entry.photo.id, fav) }) { holding = null }
+    }
+
     deleting?.let { entry ->
         val close = { deleting = null }
-        OrielSheet(close, "Delete this wallpaper?") {
-            Text(
-                if (entry.isFavorite) "It's a favorite. It leaves your History and your favorites on this phone."
-                else "It leaves your History on this phone.",
-                style = MaterialTheme.typography.bodyLarge, color = Palette.colors.muted, modifier = Modifier.padding(horizontal = 24.dp),
-            )
+        // The wallpaper itself, small and phone-shaped, a red trash badge on its corner; one button (swipe down to keep it).
+        OrielSheet(close) {
+            val c = Palette.colors
+            val error = MaterialTheme.colorScheme.error
+            val (sw, sh) = remember { Oriel.wallpapers.screenSize() }
+            val w = 92.dp
+            val h = w * sh.toFloat() / sw
+            val px = with(LocalDensity.current) { w.roundToPx() to h.roundToPx() }
+            Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box {
+                    RemoteImage(entry.photo.thumb(px.first, px.second, uz.akbarjon.oriel.core.Positions.of(entry.photo.id)),
+                        entry.photo.description, Modifier.size(w, h).clip(ScreenShape).border(1.dp, c.line, ScreenShape))
+                    Box(
+                        Modifier.align(Alignment.BottomEnd).offset(x = 12.dp, y = 12.dp).size(38.dp).clip(CircleShape)
+                            .background(error).border(4.dp, c.paper, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(OrielIcons.Trash, null, tint = Color.White, modifier = Modifier.size(16.dp)) }
+                    // A favorite: a gold star on the other corner, so it's plain it goes from Favorites too.
+                    if (entry.isFavorite) Box(
+                        Modifier.align(Alignment.TopStart).offset(x = (-12).dp, y = (-12).dp).size(38.dp).clip(CircleShape)
+                            .background(StarGold).border(4.dp, c.paper, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(OrielIcons.StarFilled, "Favorite", tint = Color.White, modifier = Modifier.size(16.dp)) }
+                }
+                Spacer(Modifier.height(24.dp))
+                Text("Delete this wallpaper?", style = MaterialTheme.typography.titleLarge, color = c.ink)
+            }
             SheetActions("Delete", {
                 deleting = null
                 selectedId = null
                 scope.launch { Oriel.history.delete(entry.photo.id) }
-            }, "Cancel", close, destructive = true)
+            }, destructive = true)
         }
     }
 }
 
 @Composable
 private fun HistoryGrid(
-    entries: List<HistoryEntry>?, favoritesOnly: Boolean, state: LazyGridState, top: Dp, shared: Boolean, onOpen: (String) -> Unit,
+    entries: List<HistoryEntry>?, favoritesOnly: Boolean, state: LazyGridState, top: Dp, shared: Boolean,
+    onHold: (HistoryEntry) -> Unit, onOpen: (String) -> Unit,
 ) {
     val (screenW, screenH) = remember { Oriel.wallpapers.screenSize() }
-    val cellPx = with(LocalDensity.current) { 130.dp.roundToPx() }
+    val cellPx = with(LocalDensity.current) { historyTile().roundToPx() }
     val c = Palette.colors
     LazyVerticalGrid(
-        // Three upright; on its side as many as fit.
-        columns = GridCells.Adaptive(104.dp), modifier = Modifier.fillMaxSize(), state = state,
+        // Three upright (or as many as fit, on a tablet); on its side four, like Explore.
+        columns = if (LocalNavOnSide.current) GridCells.Fixed(SideColumns) else GridCells.Adaptive(104.dp), modifier = Modifier.fillMaxSize(), state = state,
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = top + 4.dp, bottom = bottomBarSpace()),
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -192,14 +223,19 @@ private fun HistoryGrid(
         items(entries.orEmpty(), key = { it.photo.id }) { entry ->
             Box(
                 Modifier.animateItem().aspectRatio(screenW.toFloat() / screenH).let { if (shared) it.sharedPhoto(entry.photo) else it }
-                    .springClick(pressed = 0.94f, ripple = false) { onOpen(entry.photo.id) }.clip(RoundedCornerShape(16.dp)),
+                    .springClick(pressed = 0.94f, ripple = false, onLongClick = { onHold(entry) }) { onOpen(entry.photo.id) }.clip(ScreenShape),
             ) {
                 RemoteImage(
                     entry.photo.thumb(cellPx, cellPx * screenH / screenW, uz.akbarjon.oriel.core.Positions.of(entry.photo.id)), entry.photo.description, Modifier.fillMaxSize(),
                     placeholder = parseColor(entry.photo.color) ?: c.surface,
                 )
-                if (entry.isFavorite) {
-                    Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(24.dp).clip(CircleShape)
+                // Not in Favorites, where every photo is one. Hidden while the photo's page is open (the photo flies
+                // out of this tile and back), it fades in once the photo has landed.
+                if (entry.isFavorite && !favoritesOnly) {
+                    val open = PhotoPages.opened == entry.photo.id || PhotoPages.request?.photo?.id == entry.photo.id
+                    val star by androidx.compose.animation.core.animateFloatAsState(
+                        if (open) 0f else 1f, if (open) androidx.compose.animation.core.snap() else tween(260), label = "star")
+                    Box(Modifier.align(Alignment.TopEnd).padding(6.dp).graphicsLayer { alpha = star }.size(24.dp).clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
                         Icon(OrielIcons.StarFilled, "Favorite", tint = StarGold, modifier = Modifier.size(13.dp))
                     }
@@ -208,3 +244,7 @@ private fun HistoryGrid(
         }
     }
 }
+
+/** How wide History's tile pictures are asked for: bigger on its side, where four tiles share a wide screen. */
+@Composable
+private fun historyTile() = if (LocalNavOnSide.current) 260.dp else 130.dp

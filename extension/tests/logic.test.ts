@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { firstName, greetingText, timeText } from "../src/lib/clock.ts";
 import { parseSearch } from "../src/lib/search.ts";
+import { imageUrl, samePosition, type Photo } from "../src/lib/photo.ts";
 import { accentFor, inkOn } from "../src/lib/accent.ts";
 import { fromFeed, hourOf, pickFrom } from "../src/lib/explore.ts";
 import { nearest } from "../src/lib/spatial.ts";
@@ -197,4 +198,25 @@ test("folders: what isn't understood is left out, empty folders too", () => {
     link("a"),
     { title: "Folder", items: [link("b")] },
   ]);
+});
+
+const placed: Photo = {
+  id: "a", url: "https://images.unsplash.com/photo-1?ixid=x", photographer: "", photographerUrl: "", pageUrl: "", description: "",
+};
+
+test("a photo is cropped where an app placed it, else by Unsplash's smart crop", () => {
+  const params = (p: Photo) => new URL(imageUrl(p, 1920, 1080)).searchParams;
+  assert.equal(params(placed).get("crop"), "entropy");
+  assert.equal(params({ ...placed, position: { crop: "center" } }).get("crop"), null);
+  const focus = params({ ...placed, position: { crop: "focus", x: 0.25, y: 0.6 } });
+  assert.equal(focus.get("crop"), "focalpoint");
+  assert.equal(focus.get("fp-x"), "0.2500");
+  assert.equal(focus.get("fp-y"), "0.6000");
+});
+
+test("a photo moved to another place is painted again", () => {
+  assert.ok(samePosition(undefined, undefined));
+  assert.ok(samePosition({ crop: "focus", x: 0.2, y: 0.5 }, { crop: "focus", x: 0.2, y: 0.5 }));
+  assert.ok(!samePosition(undefined, { crop: "center" }));
+  assert.ok(!samePosition({ crop: "focus", x: 0.2, y: 0.5 }, { crop: "focus", x: 0.3, y: 0.5 }));
 });

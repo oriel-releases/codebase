@@ -237,6 +237,34 @@
     <Style Selector="Button.swatch:pressed">
         <Setter Property="RenderTransform" Value="scale(0.92)" />
     </Style>
+    <!--  A round button over a photo (the photo page's Back): dark glass, readable on any picture.  -->
+    <Style Selector="Button.onPhoto">
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="18" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.onPhoto:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.onPhoto:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.onPhoto Border.veil">
+        <Setter Property="Background" Value="#40000000" />
+    </Style>
+    <Style Selector="Button.onPhoto:pointerover Border.veil">
+        <Setter Property="Background" Value="#66000000" />
+    </Style>
+    <Style Selector="Button.onPhoto:pressed Border.veil">
+        <Setter Property="Background" Value="#88000000" />
+    </Style>
     <Style Selector="Button.nav">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />

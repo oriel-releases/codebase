@@ -20,14 +20,29 @@ object Positions {
     /** Bumped on every change, so previews crop again. */
     val version: StateFlow<Int> = _version.asStateFlow()
 
+    /**
+     * Every pick, read from storage once and kept: grids ask for each tile's crop as it scrolls in, and parsing the
+     * whole list for every tile on the main thread made them stutter.
+     */
+    @Volatile private var picks: Map<String, Position>? = null
+
     /** What was picked for this photo (a point, Smart or Center), or null when it follows the default. */
-    fun picked(photoId: String): Position? {
-        val o = runCatching { JSONObject(prefs.getString("all", "{}")!!) }.getOrNull() ?: return null
-        o.optJSONArray(photoId)?.let { v -> return Position.Focus(v.optDouble(0, 0.5).toFloat(), v.optDouble(1, 0.5).toFloat()) }
-        return when (o.optString(photoId)) {
-            "smart" -> Position.Smart
-            "center" -> Position.Center
-            else -> null
+    fun picked(photoId: String): Position? = (picks ?: load())[photoId]
+
+    @Synchronized private fun load(): Map<String, Position> = picks ?: parse(stored()).also { picks = it }
+
+    private fun stored(): JSONObject = runCatching { JSONObject(prefs.getString("all", "{}")!!) }.getOrNull() ?: JSONObject()
+
+    private fun parse(o: JSONObject): Map<String, Position> = buildMap {
+        for (id in o.keys()) {
+            val v = o.optJSONArray(id)
+            val position = when {
+                v != null -> Position.Focus(v.optDouble(0, 0.5).toFloat(), v.optDouble(1, 0.5).toFloat())
+                o.optString(id) == "smart" -> Position.Smart
+                o.optString(id) == "center" -> Position.Center
+                else -> null
+            }
+            if (position != null) put(id, position)
         }
     }
 
@@ -45,7 +60,7 @@ object Positions {
      * set to Smart stays Smart when the default is Center); the same as the default, the photo just follows it.
      */
     @Synchronized fun set(photoId: String, position: Position) {
-        val o = runCatching { JSONObject(prefs.getString("all", "{}")!!) }.getOrNull() ?: JSONObject()
+        val o = stored()
         o.remove(photoId)
         when {
             position is Position.Focus -> o.put(photoId, org.json.JSONArray().put(position.x.toDouble()).put(position.y.toDouble()))
@@ -55,6 +70,7 @@ object Positions {
         val keys = o.keys().asSequence().toList()
         keys.take((keys.size - KEEP).coerceAtLeast(0)).forEach { o.remove(it) }
         prefs.edit().putString("all", o.toString()).apply()
+        picks = parse(o)
         _version.value++
     }
 }

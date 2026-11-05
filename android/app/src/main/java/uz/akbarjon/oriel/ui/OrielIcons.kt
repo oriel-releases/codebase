@@ -51,12 +51,6 @@ object OrielIcons {
     val HeartFilled = icon("HeartFilled", HEART, fill = setOf(0))
     val History = icon("History", "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8", "M3 3v5h5", "M12 7v5l4 2")
     val Settings = icon("Settings", GEAR, c(12f, 12f, 3f))
-    val Sparkles = icon("Sparkles",
-        "M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z",
-        "M20 3v4", "M22 5h-4", "M4 17v2", "M5 18H3")
-    val SparklesFilled = icon("SparklesFilled",
-        "M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z",
-        "M20 3v4", "M22 5h-4", "M4 17v2", "M5 18H3", fill = setOf(0))
     val ArrowUp = icon("ArrowUp", "m5 12 7-7 7 7", "M12 19V5")
     val ArrowLeft = icon("ArrowLeft", "m12 19-7-7 7-7", "M19 12H5")
     val Dice = icon("Dice", r(3f, 3f, 18f, 18f, 2f), c(8f, 8f, 0.6f), c(16f, 8f, 0.6f), c(12f, 12f, 0.6f), c(8f, 16f, 0.6f), c(16f, 16f, 0.6f),
@@ -73,6 +67,7 @@ object OrielIcons {
     val Image = icon("Image", r(3f, 3f, 18f, 18f, 2f), c(9f, 9f, 2f), "m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21")
     val Lock = icon("Lock", r(3f, 11f, 18f, 11f, 2f), "M7 11V7a5 5 0 0 1 10 0v4")
     val Unlock = icon("Unlock", r(3f, 11f, 18f, 11f, 2f), "M7 11V7a5 5 0 0 1 9.9-1")
+    val More = icon("More", c(12f, 12f, 1f), c(19f, 12f, 1f), c(5f, 12f, 1f))
     val Share = icon("Share", c(18f, 5f, 3f), c(6f, 12f, 3f), c(18f, 19f, 3f), "m8.59 13.51 6.83 3.98", "m15.41 6.51-6.82 3.98")
     val LogOut = icon("LogOut", "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4", "m16 17 5-5-5-5", "M21 12H9")
     val Info = icon("Info", c(12f, 12f, 10f), "M12 16v-4", "M12 8h.01")
