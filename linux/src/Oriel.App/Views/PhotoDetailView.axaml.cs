@@ -150,7 +150,7 @@ public partial class PhotoDetailView : UserControl
     void ShowCurrent()
     {
         var current = _watched is { IsIdle: true } photo
-            && App.Get<Oriel.Core.Storage.IHistoryStore>().List().FirstOrDefault()?.PhotoId == photo.ShareEntry.PhotoId;
+            && App.Get<Oriel.Core.Storage.IHistoryStore>().Latest()?.PhotoId == photo.ShareEntry.PhotoId;
         SetButton.IsVisible = !current;
         CurrentPill.IsVisible = current;
     }

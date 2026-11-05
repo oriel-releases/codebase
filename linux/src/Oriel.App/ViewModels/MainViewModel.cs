@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Oriel.Core.Auth;
+using Oriel.UI.Services;
 
 namespace Oriel.UI.ViewModels;
 
@@ -11,11 +12,16 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 {
     readonly IServiceProvider _services;
     readonly AuthService _auth;
+    readonly UpdateService _updates;
 
-    public MainViewModel(IServiceProvider services, AuthService auth, SignInViewModel signIn, OnboardingViewModel onboarding, SharedPhotoViewModel shared)
+    public MainViewModel(IServiceProvider services, AuthService auth, UpdateService updates, SignInViewModel signIn,
+        OnboardingViewModel onboarding, SharedPhotoViewModel shared)
     {
         _services = services;
         _auth = auth;
+        _updates = updates;
+        _updates.StateChanged += OnUpdateChanged;
+        RefreshUpdate();
         SignIn = signIn;
         Onboarding = onboarding;
         Onboarding.Finished += OnOnboardingFinished;
@@ -53,15 +59,33 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] public partial bool ShowShared { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsHome), nameof(IsExplore), nameof(IsCreate), nameof(IsHistory), nameof(IsFavorites), nameof(IsFriends), nameof(IsSettings))]
+    [NotifyPropertyChangedFor(nameof(IsHome), nameof(IsExplore), nameof(IsHistory), nameof(IsFavorites), nameof(IsFriends), nameof(IsSettings))]
     public partial string Section { get; set; } = "home";
     public bool IsHome => Section == "home";
     public bool IsExplore => Section == "explore";
-    public bool IsCreate => Section == "create";
     public bool IsHistory => Section == "history";
     public bool IsFavorites => Section == "favorites";
     public bool IsFriends => Section == "friends";
     public bool IsSettings => Section == "settings";
+
+    /// <summary>The Update button above Settings, on every page while an update waits.</summary>
+    [ObservableProperty] public partial bool ShowUpdate { get; set; }
+    [ObservableProperty] public partial string UpdateText { get; set; } = "Install";
+
+    void OnUpdateChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(RefreshUpdate);
+
+    void RefreshUpdate()
+    {
+        ShowUpdate = _updates.ShowsUpdateButton;
+        UpdateText = _updates.AvailableVersion is { } version ? $"Install {version}" : "Install";
+    }
+
+    /// <summary>Installs the waiting update right here (no detour through Settings) and reopens Oriel.</summary>
+    [RelayCommand]
+    void Update()
+    {
+        if (_updates.State == UpdateState.ReadyToRestart) _updates.RestartToUpdate();
+    }
 
     void OnAuthChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(UpdateSignInGate);
 
@@ -99,7 +123,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         CurrentPage = section switch
         {
             "explore" => _services.GetRequiredService<CollectionsViewModel>(),
-            "create" => _services.GetRequiredService<CreateViewModel>(),
             "history" => LoadHistory(favorites: false),
             "favorites" => LoadHistory(favorites: true),
             "settings" => _services.GetRequiredService<SettingsViewModel>(), // new each time: it listens for updates
@@ -120,6 +143,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         _auth.Changed -= OnAuthChanged;
         _auth.SigningOutChanged -= OnSigningOut;
+        _updates.StateChanged -= OnUpdateChanged;
         Onboarding.Finished -= OnOnboardingFinished;
         Shared.Changed -= OnSharedChanged;
         if (CurrentPage is SettingsViewModel or FriendsViewModel) (CurrentPage as IDisposable)?.Dispose();

@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Oriel.UI.Controls"
              xmlns:vm="using:Oriel.UI.ViewModels"
              xmlns:views="using:Oriel.UI.Views"
              x:Class="Oriel.UI.Views.HistoryView"
@@ -52,7 +53,7 @@
             <!--  Virtualized: only the cards on screen exist, so a long history stays cheap  -->
             <ItemsRepeater ItemsSource="{Binding Items}" IsVisible="{Binding IsGrid}">
                 <ItemsRepeater.Layout>
-                    <UniformGridLayout ItemsStretch="Fill" MinColumnSpacing="12" MinItemWidth="300" MinRowSpacing="12" />
+                    <UniformGridLayout controls:ScreenShape.ItemWidth="300" ItemsStretch="Uniform" MinColumnSpacing="12" MinRowSpacing="12" />
                 </ItemsRepeater.Layout>
                 <ItemsRepeater.ItemTemplate>
                     <DataTemplate x:DataType="vm:HistoryItemViewModel">

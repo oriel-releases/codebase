@@ -10,16 +10,46 @@
             <views:InfoBanner DataContext="{Binding Info}" />
 
             <!--  Today's wallpaper. Click it twice (and keep clicking) to favorite it: stars burst up (HomeView.axaml.cs).  -->
-            <Border Height="440" Background="{DynamicResource OrielSurfaceBrush}" CornerRadius="20" ClipToBounds="True">
-                <Grid PointerPressed="Preview_PointerPressed" Background="Transparent">
+            <Panel>
+            <controls:ScreenFrame Background="{DynamicResource OrielSurfaceBrush}" CornerRadius="20" ClipToBounds="True">
+                <Grid x:Name="PreviewBox" PointerPressed="Preview_PointerPressed" PointerMoved="Preview_PointerMoved"
+                      Background="Transparent">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" IsVisible="{Binding HasNoCurrent}">
                         <Image Width="48" Height="48" Opacity="0.25" Source="{DynamicResource OrielLogo}" />
                         <TextBlock Classes="muted" HorizontalAlignment="Center" Text="No wallpaper yet. Press Change now." />
                     </StackPanel>
                     <Image controls:ImageReveal.Enabled="True" Source="{Binding Preview}" Stretch="UniformToFill" />
-                    <Canvas x:Name="StarLayer" IsHitTestVisible="False" />
                 </Grid>
-            </Border>
+            </controls:ScreenFrame>
+            <!--
+                The eyedropper (HomeView.axaml.cs), like Windows: a small ring is the pointer (the system cursor hides
+                over the photo), and a magnifier floats just above it (below near the top), never hiding it: 11 x 11 pixels drawn 10 wide, the picked one boxed in the
+                middle, its rim in their color. The arrow keys move it one pixel (Shift: ten), Enter picks. Every edge on a whole pixel, so it's crisp.
+                Outside the photo's rounded clip, so it's never cut at the edges.
+            -->
+            <Canvas IsHitTestVisible="False">
+                <Panel x:Name="PickSpot" Width="16" Height="16" Opacity="{Binding #PickRing.Opacity}">
+                    <Ellipse Stroke="#99000000" StrokeThickness="4" />
+                    <Ellipse Margin="1" Stroke="White" StrokeThickness="2" />
+                </Panel>
+                <Panel x:Name="PickRing" Width="120" Height="120" Opacity="0">
+                    <Panel.Transitions>
+                        <Transitions>
+                            <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+                        </Transitions>
+                    </Panel.Transitions>
+                    <Ellipse Fill="#33000000" />
+                    <Ellipse Margin="1" Fill="White" />
+                    <Border Width="110" Height="110" CornerRadius="55" ClipToBounds="True">
+                        <Canvas x:Name="PickCells" Width="110" Height="110" />
+                    </Border>
+                    <Ellipse x:Name="PickRingColor" Margin="5" StrokeThickness="4" />
+                    <Rectangle Width="14" Height="14" Stroke="#99000000" StrokeThickness="1" />
+                    <Rectangle Width="12" Height="12" Stroke="White" StrokeThickness="1" />
+                </Panel>
+            </Canvas>
+            <Canvas x:Name="StarLayer" IsHitTestVisible="False" />
+            </Panel>
 
             <!--  Credit (required by Unsplash guidelines) and actions  -->
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
@@ -36,6 +66,7 @@
                     <!--  The photo's top three colors, in one pill like the buttons beside it: the ringed one is the accent on the other devices.  -->
                     <Border Height="36" Margin="0,0,2,0" Padding="5,0" VerticalAlignment="Center" CornerRadius="18"
                             Background="{DynamicResource OrielSurfaceBrush}" IsVisible="{Binding HasAccents}">
+                        <StackPanel Orientation="Horizontal" Spacing="1">
                         <ItemsControl VerticalAlignment="Center" ItemsSource="{Binding Accents}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -60,7 +91,25 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <!--  Custom: pick any color from the photo itself. Once picked, it fills the button like the others.  -->
+                        <Button x:Name="EyedropperButton" Classes="swatch" Click="Eyedropper_Click" ToolTip.Tip="Pick the accent color from the photo">
+                            <Panel Width="24" Height="24">
+                                <Ellipse Stroke="{DynamicResource OrielInkBrush}" StrokeThickness="1.75" Opacity="{Binding CustomRingOpacity, FallbackValue=0}" />
+                                <Ellipse Width="16" Height="16" Fill="{Binding CustomAccent}" IsVisible="{Binding HasCustomAccent}" />
+                                <Viewbox Width="14" Height="14" IsVisible="{Binding ShowsPipette}">
+                                    <Path Width="24" Height="24" Stroke="{DynamicResource OrielInkBrush}" StrokeThickness="2"
+                                          StrokeLineCap="Round" StrokeJoin="Round"
+                                          Data="M2,22 L3,21 H6 L15,12 M3,21 V18 L12,9 M15,6 L18.4,2.6 A2.1,2.1 0 1 1 21.4,5.6 L18,9 L18.4,9.4 A2.1,2.1 0 1 1 15.4,12.4 L11.6,8.6 A2.1,2.1 0 1 1 14.6,5.6 Z" />
+                                </Viewbox>
+                            </Panel>
+                        </Button>
+                        </StackPanel>
                     </Border>
+                    <!--  Where the wallpaper is cut: the position editor, like the phone's.  -->
+                    <Button Classes="icon" IsEnabled="{Binding HasCurrent}" Click="Position_Click"
+                            ToolTip.Tip="Position: choose which part of the photo fills your screen">
+                        <PathIcon Data="{StaticResource IconCrop}" Width="16" Height="16" />
+                    </Button>
                     <!--  Linux has no system share sheet: a small menu with the usual places instead.  -->
                     <Button Classes="icon" IsEnabled="{Binding HasShareLink}"
                             ToolTip.Tip="Share this wallpaper. Whoever opens the link can set it in one click.">
@@ -87,7 +136,7 @@
                             <PathIcon Data="{StaticResource IconLock}" Width="15" Height="15" IsVisible="{Binding IsPaused}" />
                         </Panel>
                     </ToggleButton>
-                    <ToggleButton Classes="icon" IsChecked="{Binding IsFavorite}" IsEnabled="{Binding HasCurrent}"
+                    <ToggleButton Classes="icon" controls:CheckPop.Enabled="True" IsChecked="{Binding IsFavorite}" IsEnabled="{Binding HasCurrent}"
                                   ToolTip.Tip="Favorite: keep this one forever">
                         <Panel>
                             <PathIcon Data="{StaticResource IconStar}" Width="16" Height="16" IsVisible="{Binding !IsFavorite}" />
@@ -97,8 +146,13 @@
                     </ToggleButton>
                     <Button Classes="primary" Command="{Binding ChangeNowCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Arc Classes="spinner" Classes.busy="{Binding IsBusy}" Stroke="{DynamicResource OrielPaperBrush}" />
-                            <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" IsVisible="{Binding ShowChangeIcon}" />
+                            <!--  Turns while a change runs, then eases to a stop: HomeView.axaml.cs SpinChangeIcon  -->
+                            <PathIcon x:Name="ChangeIcon" Data="{StaticResource IconRefresh}" Width="14" Height="14" RenderTransformOrigin="50%,50%"
+                                      IsVisible="{Binding ShowRefreshIcon}">
+                                <PathIcon.RenderTransform>
+                                    <RotateTransform />
+                                </PathIcon.RenderTransform>
+                            </PathIcon>
                             <PathIcon Data="{StaticResource IconClock}" Width="14" Height="14" IsVisible="{Binding ShowLimitIcon}" />
                             <!--  The label slides when it changes ("Downloading…" → "Changing…"): HomeView.axaml.cs  -->
                             <TextBlock x:Name="ChangeText" VerticalAlignment="Center">
@@ -116,9 +170,9 @@
                 <Border x:Name="TodayCard" x:DataType="vm:TodayDetail" DataContext="{Binding Today}" MinHeight="56" Padding="10,8,14,8"
                         CornerRadius="{DynamicResource OrielLarge}" Background="{DynamicResource OrielSurfaceBrush}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
-                        <Border x:Name="TodayThumb" Width="64" Height="40" CornerRadius="{DynamicResource OrielTile}" ClipToBounds="True" Background="{DynamicResource OrielLineBrush}">
+                        <controls:ScreenFrame x:Name="TodayThumb" Width="64" CornerRadius="{DynamicResource OrielTile}" ClipToBounds="True" Background="{DynamicResource OrielLineBrush}">
                             <Image controls:ImageReveal.Enabled="True" Source="{Binding Preview}" Stretch="UniformToFill" />
-                        </Border>
+                        </controls:ScreenFrame>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock FontWeight="SemiBold" Text="Wallpaper of the day" />
                             <TextBlock Classes="muted small" TextTrimming="CharacterEllipsis" Text="{Binding Subtitle}" />

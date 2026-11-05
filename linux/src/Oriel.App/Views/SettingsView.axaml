@@ -170,7 +170,7 @@
                             </Button>
                         </StackPanel>
                     </controls:SettingRow>
-                    <controls:SettingRow Icon="{StaticResource IconDownload}" Header="Updates" Description="{Binding UpdateStatus}">
+                    <controls:SettingRow x:Name="UpdatesRow" Icon="{StaticResource IconDownload}" Header="Updates" Description="{Binding UpdateStatus}">
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <ProgressBar Width="120" VerticalAlignment="Center" Maximum="100" Value="{Binding UpdateProgress}" IsVisible="{Binding IsDownloading}" />
                             <Button Classes="row" Command="{Binding UpdateCommand}" IsVisible="{Binding CanUpdate}">
@@ -195,10 +195,6 @@
                     <controls:SettingRow Icon="{StaticResource IconImage}" Header="Photos by Unsplash"
                                          Description="Every wallpaper is a photo from Unsplash, by the photographer named under it.">
                         <Button Classes="row" Content="Open" Command="{Binding OpenUnsplashCommand}" />
-                    </controls:SettingRow>
-                    <controls:SettingRow Icon="{StaticResource IconSparkles}" Header="Pictures made with Pollinations"
-                                         Description="The AI wallpapers are made by Pollinations.">
-                        <Button Classes="row" Content="Open" Command="{Binding OpenPollinationsCommand}" />
                     </controls:SettingRow>
                     <controls:SettingRow Icon="{StaticResource IconShield}" Header="Privacy" Description="What Oriel keeps, and why.">
                         <Button Classes="row" Content="Read" Command="{Binding OpenPrivacyCommand}" />

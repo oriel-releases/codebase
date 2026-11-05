@@ -1,3 +1,4 @@
+using Oriel.UI.Controls;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
@@ -14,6 +15,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        ScreenShape.ReadFrom(this);
+        PositionEditorView.Current = PositionEditor;
         AddHandler(Button.ClickEvent, (_, e) =>
         {
             if (e.Source is not Button button || !button.Classes.Contains("nav")) return;
@@ -33,8 +36,10 @@ public partial class MainWindow : Window
         PageHost.PropertyChanged += (_, e) => { if (e.Property == ContentControl.ContentProperty) PageIn(); };
         KeyDown += (_, e) =>
         {
-            if (e.Key != Avalonia.Input.Key.Escape || !PhotoDetail.IsOpen) return;
-            PhotoDetail.Close();
+            if (e.Key != Avalonia.Input.Key.Escape) return;
+            if (PositionEditor.IsOpen) PositionEditor.Close();
+            else if (PhotoDetail.IsOpen) PhotoDetail.Close();
+            else return;
             e.Handled = true;
         };
     }
@@ -83,21 +88,19 @@ public partial class MainWindow : Window
             Duration = TimeSpan.FromMilliseconds(length),
             Easing = section == "history" ? new ExponentialEaseOut() : new CubicEaseInOut(),
         };
-        // Avalonia animates a transform's own numbers (lift, turn, scale), not RenderTransform as a whole (that has no
-        // animator, and threw on every click): the icon gets one transform of each kind, and each keyframe sets them.
-        if (icon.RenderTransform is not TransformGroup { Children.Count: 3 })
-            icon.RenderTransform = new TransformGroup { Children = { new ScaleTransform(), new RotateTransform(), new TranslateTransform() } };
+        // The icon's RenderTransform as one value, in the same three steps every frame so Avalonia blends them number by
+        // number. (Setting ScaleX, Angle and Y on the icon set properties it doesn't have: nothing moved.)
+        icon.RenderTransformOrigin = RelativePoint.Center;
         foreach (var (ms, turn, scale, lift) in frames)
         {
+            var at = System.Globalization.CultureInfo.InvariantCulture;
             animation.Children.Add(new KeyFrame
             {
                 Cue = new Cue((double)ms / length),
                 Setters =
                 {
-                    new Setter(ScaleTransform.ScaleXProperty, scale),
-                    new Setter(ScaleTransform.ScaleYProperty, scale),
-                    new Setter(RotateTransform.AngleProperty, turn),
-                    new Setter(TranslateTransform.YProperty, lift),
+                    new Setter(Visual.RenderTransformProperty, Avalonia.Media.Transformation.TransformOperations.Parse(
+                        string.Format(at, "translateY({0}px) rotate({1}deg) scale({2})", lift, turn, scale))),
                 },
             });
         }

@@ -5,7 +5,7 @@
              x:Class="Oriel.UI.Views.PhotoResultCard"
              x:DataType="vm:PhotoResultViewModel">
     <!--  The same card as History's; a click opens the photo on its own page, with its actions.  -->
-    <Border Height="210" Background="{DynamicResource OrielLineBrush}" CornerRadius="{DynamicResource OrielCard}" ClipToBounds="True">
+    <controls:ScreenFrame Background="{DynamicResource OrielLineBrush}" CornerRadius="{DynamicResource OrielCard}" ClipToBounds="True">
         <Grid>
             <Image controls:ImageReveal.Enabled="True" Source="{Binding Preview}" Stretch="UniformToFill" />
             <PathIcon Margin="12" HorizontalAlignment="Right" VerticalAlignment="Top" Width="16" Height="16"
@@ -19,5 +19,5 @@
                 </StackPanel>
             </StackPanel>
         </Grid>
-    </Border>
+    </controls:ScreenFrame>
 </UserControl>
