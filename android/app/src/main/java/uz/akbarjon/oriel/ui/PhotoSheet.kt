@@ -121,6 +121,18 @@ private val FlyHome = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)
 @OptIn(ExperimentalSharedTransitionApi::class)
 val LocalSharedScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
 
+/**
+ * For what floats over the photos (the navigation bar, Explore's search bar, History's switch, the Update chip): drawn
+ * above a photo while it flies home into its tile, so the photo glides under it as the tiles do, and lands there with
+ * no jump. All the way to the landing (and a moment past it): let go a frame early, the photo showed over it for that frame.
+ */
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+fun Modifier.aboveFlyingPhoto(): Modifier {
+    val scope = LocalSharedScope.current ?: return this
+    return with(scope) { this@aboveFlyingPhoto.renderInSharedTransitionScopeOverlay(zIndexInOverlay = 5f, renderInOverlay = { PhotoPages.leaving }) }
+}
+
 /** What the page shows, set where a photo was tapped ([PhotoSheet]) and shown over the whole app by [PhotoPageHost]. */
 internal class PhotoPageRequest(
     val photo: Photo, val topic: String?, val heading: String?, val favorite: Boolean?,
@@ -273,8 +285,8 @@ private fun PhotoPage(r: PhotoPageRequest, shared: SharedTransitionScope, visibi
     Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { } }) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
         // Upright: the photo fills the screen, edge to edge, the controls over it in white (soft shades behind them).
-        // On its side: on paper, the photo on the left as tall as the screen allows, a column on the right with the
-        // back row at its top and the actions at its foot.
+        // On its side (like Position's editor): on paper, the photo on the left as tall as the screen allows, and beside
+        // it one column centered top to bottom: the back row, the credit, the actions.
         val full = maxWidth <= maxHeight
         // Over the photo, the status bar's icons are light.
         val view = androidx.compose.ui.platform.LocalView.current
@@ -295,12 +307,18 @@ private fun PhotoPage(r: PhotoPageRequest, shared: SharedTransitionScope, visibi
             Row(m.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 RoundIconButton(OrielIcons.ArrowLeft, "Back", onBack, frost, size = 44.dp, tint = ink, background = glass)
                 Spacer(Modifier.weight(1f))
-                RoundIconButton(OrielIcons.Share, "Share this wallpaper", modifier = frost, size = 44.dp, tint = ink, background = glass, onClick = {
+                // Its link is made first (and the photo saved to send): a spinner meanwhile, and no second tap.
+                var sharing by remember { mutableStateOf(false) }
+                RoundIconButton(OrielIcons.Share, "Share this wallpaper", modifier = frost, size = 44.dp, tint = ink, background = glass,
+                    busy = sharing, onClick = {
+                    sharing = true
                     Oriel.scope.launch(Dispatchers.Main) {
                         try {
                             sharePhoto(context, photo, "A wallpaper for you: ${uz.akbarjon.oriel.core.Sharing.shareLink(photo)}", "Share this wallpaper")
                         } catch (e: uz.akbarjon.oriel.data.OrielException) {
                             snackbar.showSnackbar(e.message ?: "Couldn't share")
+                        } finally {
+                            sharing = false
                         }
                     }
                 })
@@ -341,7 +359,7 @@ private fun PhotoPage(r: PhotoPageRequest, shared: SharedTransitionScope, visibi
                     photoSize.then(flight)
                         // Laid out once at the final size and only scaled while it flies: the picture grows instead of
                         // re-flowing. One scale for both sides (a square tile crops, never squashes).
-                        .clip(if (full) androidx.compose.ui.graphics.RectangleShape else RoundedCornerShape(11))
+                        .clip(if (full) androidx.compose.ui.graphics.RectangleShape else ScreenShape)
                         .layout { measurable, constraints ->
                             val placeable = measurable.measure(Constraints.fixed(fw, fh))
                             val w = constraints.maxWidth
@@ -489,12 +507,13 @@ private fun PhotoPage(r: PhotoPageRequest, shared: SharedTransitionScope, visibi
                 header(above(4f).then(fromTop).displayCutoutPadding().padding(horizontal = 16.dp, vertical = 12.dp))
             }
         } else {
-            Row(Modifier.fillMaxSize().background(c.paper).systemBarsPadding().displayCutoutPadding().padding(horizontal = 20.dp, vertical = 12.dp)) {
+            Row(Modifier.fillMaxSize().background(c.paper).systemBarsPadding().displayCutoutPadding().padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically) {
                 preview(Modifier.weight(1f).fillMaxHeight())
-                Spacer(Modifier.width(28.dp))
-                Column(Modifier.width(360.dp).fillMaxHeight()) {
+                Spacer(Modifier.width(24.dp))
+                Column(Modifier.width(340.dp)) {
                     header(Modifier)
-                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.height(24.dp))
                     credit(Modifier.padding(start = 4.dp, bottom = 12.dp))
                     actions(rise)
                 }
@@ -600,6 +619,8 @@ private fun Modifier.photoSwipes(swipe: PhotoSwipe, r: PhotoPageRequest): Modifi
                         // The neighbor fills the frame now: it becomes the page's photo, the pictures staying put.
                         swipe.stepped(from, dir)
                         request.value.onStep(dir)
+                        // A light tick as it locks into place.
+                        haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                     }
                 } else swipe.glide(scope, 0f, spring(dampingRatio = 0.82f, stiffness = 420f))
             },
@@ -611,5 +632,49 @@ private fun Modifier.photoSwipes(swipe: PhotoSwipe, r: PhotoPageRequest): Modifi
             val toward = if (next < 0) 1 else -1
             swipe.y = if (request.value.peek(toward) != null) next else swipe.y + drag * 0.3f
         }
+    }
+}
+
+/**
+ * A tile held down (Explore, History): what can be done with its photo without opening its page. Set it, star it
+ * ([favorite]: null where photos can't be starred, Explore), share it (a spinner while its link is made).
+ */
+@Composable
+fun PhotoQuickSheet(photo: Photo, topic: String?, favorite: Boolean?, onFavorite: (Boolean) -> Unit, onDismiss: () -> Unit) {
+    val snackbar = LocalSnackbar.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val c = Palette.colors
+    OrielSheet(onDismiss) {
+        val close = LocalSheetClose.current
+        val leave = { then: () -> Unit -> close?.invoke { onDismiss(); then() } ?: run { onDismiss(); then() } }
+        Group {
+            SettingRow("Set as wallpaper", icon = OrielIcons.Image, onClick = { leave { setAsWallpaper(photo, topic, snackbar) } })
+            if (favorite != null) {
+                RowDivider()
+                SettingRow(if (favorite) "Remove from favorites" else "Add to favorites",
+                    icon = if (favorite) OrielIcons.StarFilled else OrielIcons.Star, iconTint = if (favorite) StarGold else c.ink,
+                    onClick = { leave { onFavorite(!favorite) } })
+            }
+            if (!photo.isAi) {
+                RowDivider()
+                var sharing by remember { mutableStateOf(false) }
+                val scope = rememberCoroutineScope()
+                SettingRow("Share", icon = OrielIcons.Share, onClick = if (sharing) null else ({
+                    sharing = true
+                    scope.launch {
+                        try {
+                            sharePhoto(context, photo, "A wallpaper for you: ${uz.akbarjon.oriel.core.Sharing.shareLink(photo)}", "Share this wallpaper")
+                        } catch (e: uz.akbarjon.oriel.data.OrielException) {
+                            Oriel.scope.launch(Dispatchers.Main) { snackbar.showSnackbar(e.message ?: "Couldn't share") }
+                        }
+                        leave {}
+                    }
+                }), leading = if (sharing) ({
+                    androidx.compose.material3.CircularProgressIndicator(Modifier.size(21.dp).padding(2.dp), color = c.ink, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(2.dp))
+                }) else null)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
     }
 }

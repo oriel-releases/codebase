@@ -37,8 +37,11 @@ data class Photo(
     fun thumb(widthPx: Int, heightPx: Int? = null, position: Position = Position.Smart) =
         sized(widthPx, heightPx, quality = 90, format = "webp", position = position)
 
-    /** Made with AI: its id is "ai-" and its Pollinations media id, its link media.pollinations.ai/{id}. */
-    val isAi get() = id.startsWith("ai-") && rawUrl.startsWith(Pollinations.MEDIA)
+    /**
+     * An AI wallpaper another device of the account made (the Mac app): its id is "ai-" and its Pollinations media id,
+     * its link media.pollinations.ai/{id}. This app doesn't make them, but shows one that syncs here.
+     */
+    val isAi get() = id.startsWith("ai-") && rawUrl.startsWith("https://media.pollinations.ai/")
 }
 
 /**

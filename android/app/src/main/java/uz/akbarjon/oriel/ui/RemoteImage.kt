@@ -16,7 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -47,13 +47,17 @@ private object Thumbnails {
             val bytes = Http.bytes(url)
             withContext(Dispatchers.Default) {
                 val options = BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.asImageBitmap()
+                // Uploaded to the GPU now, off the main thread, instead of on the frame that first draws it.
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.also { it.prepareToDraw() }?.asImageBitmap()
             }?.also { memory.put(url, it) }
         } catch (_: Exception) {
             null
         }
     }
 }
+
+/** The bitmap for [url] if it's already in memory (loaded or preloaded), else null. */
+fun cachedBitmap(url: String): ImageBitmap? = Thumbnails.cached(url)
 
 /** A photo from the network as a bitmap (through the same caches), for screens that draw it themselves. */
 suspend fun loadBitmap(url: String): ImageBitmap? = Thumbnails.load(url)
@@ -72,11 +76,12 @@ fun RemoteImage(
         value = url?.let { Thumbnails.cached(it) }
         if (value == null && url != null) value = Thumbnails.load(url)
     }
-    // Only fade in what had to be fetched; a cached image shows at once.
-    val alpha by animateFloatAsState(if (bitmap != null) 1f else 0f, tween(220), label = "fade")
+    // Only fade in what had to be fetched; a cached image shows at once. Read while drawing only, so the fade doesn't
+    // recompose every tile it runs on (many at once while a grid scrolls).
+    val alpha = animateFloatAsState(if (bitmap != null) 1f else 0f, tween(220), label = "fade")
     Box(modifier.background(placeholder)) {
         bitmap?.let {
-            Image(it, contentDescription, Modifier.matchParentSize().alpha(alpha), contentScale = ContentScale.Crop,
+            Image(it, contentDescription, Modifier.matchParentSize().graphicsLayer { this.alpha = alpha.value }, contentScale = ContentScale.Crop,
                 alignment = focus?.let { (fx, fy) -> FocusAlignment(fx, fy) } ?: Alignment.Center)
         }
     }

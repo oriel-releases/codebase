@@ -27,10 +27,6 @@ fun envKey(name: String): String? {
 fun unsplashKey(): String = envKey("UNSPLASH_ACCESS_KEY")
     ?: "".also { logger.warn("No UNSPLASH_ACCESS_KEY: the app builds but can't fetch photos.") }
 
-/** The Pollinations key for AI wallpapers (the Create tab), found the same way: POLLINATIONS_KEY. */
-fun pollinationsKey(): String = envKey("POLLINATIONS_KEY")
-    ?: "".also { logger.warn("No POLLINATIONS_KEY: the app builds but can't create AI wallpapers.") }
-
 /** Release signing from `android/keystore.properties` (git-ignored): storeFile, storePassword, keyAlias, keyPassword. */
 val signing = Properties().apply {
     val file = rootProject.file("keystore.properties")
@@ -51,7 +47,6 @@ android {
         versionCode = major * 10_000 + minor * 100 + patch
         versionName = version
         buildConfigField("String", "UNSPLASH_ACCESS_KEY", "\"${unsplashKey()}\"")
-        buildConfigField("String", "POLLINATIONS_KEY", "\"${pollinationsKey()}\"")
     }
 
     signingConfigs {

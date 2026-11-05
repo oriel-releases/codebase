@@ -66,6 +66,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.tween
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
@@ -152,29 +154,6 @@ private object SearchModel {
     }
 }
 
-/** Wallpaper of the day: the same photo as oriel.akbarjon.uz/today and the desktop apps' Home. Tap to see and set it. */
-@Composable
-private fun TodayCard(onOpen: (Photo) -> Unit) {
-    val today by produceState<Photo?>(null) { value = uz.akbarjon.oriel.core.Today.photo() }
-    val photo = today ?: return
-    val c = Palette.colors
-    val thumbPx = with(LocalDensity.current) { 64.dp.roundToPx() }
-    Row(
-        Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(22.dp)).background(c.surface)
-            .springClick(pressed = 0.98f) { onOpen(photo) }.padding(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        RemoteImage(photo.thumb(thumbPx, thumbPx), photo.description,
-            Modifier.size(64.dp).sharedPhoto(photo).clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp)))
-        androidx.compose.foundation.layout.Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text("Wallpaper of the day", style = MaterialTheme.typography.bodyLarge)
-            Text("by ${photo.photographer}", style = MaterialTheme.typography.bodySmall, color = c.muted, maxLines = 1)
-        }
-        Icon(OrielIcons.ChevronRight, null, tint = c.muted.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
-    }
-}
-
 /**
  * Explore: search at the top, then this hour's wallpapers (the same for everyone), with Interests inside it like the
  * desktop apps: a row that opens them, and "Add to Interests" for a search.
@@ -201,14 +180,20 @@ private fun ExplorePage(onInterests: () -> Unit) {
     // The picture the tapped tile showed: the photo page starts with it (already loaded).
     var selectedTile by remember { mutableStateOf<String?>(null) }
     var selectedHeading by remember { mutableStateOf<String?>(null) }
+    // A tile held down: its quick actions.
+    var holding by remember { mutableStateOf<Pair<Photo, String>?>(null) }
     // Every visit: this hour's photos, when the hour has turned since the last ones.
     LaunchedEffect(Unit) { m.loadExplore(scope) }
     val exploring = m.query.isEmpty()
-    val shown = if (exploring) m.explore.photos else m.photos
+    // Wallpaper of the day leads the fresh picks: a tile like the rest (the phone's shape, so it flies to its page and back
+    // the same way), with a badge. Not twice, if the feed has it too.
+    val today by produceState<Photo?>(null) { value = uz.akbarjon.oriel.core.Today.photo() }
+    val todayTile = today?.takeIf { exploring }
+    val shown = if (exploring) m.explore.photos.filter { it.id != todayTile?.id } else m.photos
     val grid = rememberLazyGridState()
     val (screenW, screenH) = remember { Oriel.wallpapers.screenSize() }
     // Two columns: each thumbnail is fetched at half the screen width, already cropped to the phone's shape.
-    val cellPx = with(LocalDensity.current) { 180.dp.roundToPx() }
+    val cellPx = with(LocalDensity.current) { (if (LocalNavOnSide.current) 260.dp else 180.dp).roundToPx() }
     val c = Palette.colors
     val searchHaze = remember { HazeState() }
 
@@ -232,8 +217,8 @@ private fun ExplorePage(onInterests: () -> Unit) {
         }, Modifier.weight(1f), enabled = exploring, minimumMs = 1400) {
         Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
-            // Two upright; on its side as many as fit, each still a good size.
-            columns = GridCells.Adaptive(160.dp), state = grid, modifier = Modifier.fillMaxSize().hazeSource(searchHaze),
+            // Two upright (or as many as fit, on a tablet); on its side four, like History.
+            columns = if (LocalNavOnSide.current) GridCells.Fixed(SideColumns) else GridCells.Adaptive(160.dp), state = grid, modifier = Modifier.fillMaxSize().hazeSource(searchHaze),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomBarSpace()),
             horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -250,7 +235,6 @@ private fun ExplorePage(onInterests: () -> Unit) {
                         SettingRow("Interests", "${settings.interests.count { it.enabled }} on", OrielIcons.Heart, onClick = onInterests)
                     }
                 }
-                item(span = { GridItemSpan(maxLineSpan) }) { TodayCard { selectedTopic = "search"; selectedTile = null; selectedHeading = "Wallpaper of the day"; selected = it } }
             }
             if (m.query.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
@@ -285,18 +269,39 @@ private fun ExplorePage(onInterests: () -> Unit) {
                         textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 48.dp))
                 }
             }
+            @Composable
+            fun Tile(photo: Photo, topic: String, heading: String?) = RemoteImage(
+                photo.thumb(cellPx, cellPx * screenH / screenW), photo.description,
+                Modifier.aspectRatio(screenW.toFloat() / screenH).sharedPhoto(photo)
+                    .springClick(pressed = 0.95f, ripple = false, onLongClick = { holding = photo to topic }) {
+                        selectedTopic = topic
+                        selectedTile = photo.thumb(cellPx, cellPx * screenH / screenW)
+                        selectedHeading = heading
+                        selected = photo
+                    }.clip(ScreenShape),
+                placeholder = parseColor(photo.color) ?: c.surface,
+            )
+            todayTile?.let { photo ->
+                item(key = "today-${photo.id}") {
+                    Box {
+                        Tile(photo, "search", "Wallpaper of the day")
+                        // The badge stays clear of the photo's flight: drawn over the tile, it fades while that is open.
+                        val shown by androidx.compose.animation.core.animateFloatAsState(
+                            if (PhotoPages.opened == photo.id) 0f else 1f, label = "todayBadge")
+                        Row(
+                            Modifier.align(Alignment.TopStart).padding(8.dp).graphicsLayer { alpha = shown }.clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.45f)).padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(OrielIcons.Calendar, null, tint = Color.White, modifier = Modifier.size(11.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Wallpaper of the day", style = MaterialTheme.typography.labelSmall, color = Color.White, maxLines = 1)
+                        }
+                    }
+                }
+            }
             items(shown, key = { it.id }) { photo ->
-                RemoteImage(
-                    photo.thumb(cellPx, cellPx * screenH / screenW), photo.description,
-                    Modifier.aspectRatio(screenW.toFloat() / screenH).sharedPhoto(photo)
-                        .springClick(pressed = 0.95f, ripple = false) {
-                            selectedTopic = if (exploring) m.explore.topics[photo.id] ?: "explore" else "search"
-                            selectedTile = photo.thumb(cellPx, cellPx * screenH / screenW)
-                            selectedHeading = null
-                            selected = photo
-                        }.clip(RoundedCornerShape(20.dp)),
-                    placeholder = parseColor(photo.color) ?: c.surface,
-                )
+                Tile(photo, if (exploring) m.explore.topics[photo.id] ?: "explore" else "search", null)
             }
             if (m.loading || (exploring && m.exploreLoading && m.explore.photos.isEmpty())) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
@@ -309,7 +314,7 @@ private fun ExplorePage(onInterests: () -> Unit) {
         OrielTextField(
             m.text, { m.text = it },
             // On a wide screen it stays a search bar's width, in the middle.
-            Modifier.align(Alignment.TopCenter).widthIn(max = 640.dp).offset { IntOffset(0, barY.roundToInt()) }.padding(horizontal = 24.dp, vertical = 8.dp).clip(CircleShape)
+            Modifier.aboveFlyingPhoto().align(Alignment.TopCenter).widthIn(max = 640.dp).offset { IntOffset(0, barY.roundToInt()) }.padding(horizontal = 24.dp, vertical = 8.dp).clip(CircleShape)
                 .hazeEffect(searchHaze, HazeStyle(backgroundColor = c.paper, tint = HazeTint(c.surface.copy(alpha = 0.6f)), blurRadius = 20.dp, noiseFactor = 0f)),
             placeholder = "Northern lights, tokyo night…",
             leadingIcon = OrielIcons.Search,
@@ -321,6 +326,8 @@ private fun ExplorePage(onInterests: () -> Unit) {
         }
         }
     }
+
+    holding?.let { (photo, topic) -> PhotoQuickSheet(photo, topic, favorite = null, onFavorite = {}) { holding = null } }
 
     selected?.let { photo ->
         // Swiping on the photo page goes through the grid it came from (the Wallpaper of the day stands alone).

@@ -71,9 +71,15 @@ private enum class Sheet { Interval, Time, Zone, Screen, Position, SignOut }
 internal val INTERVALS = listOf(60 to "Every hour", 180 to "Every 3 hours", 360 to "Every 6 hours", 720 to "Every 12 hours", 0 to "Once a day")
 
 @Composable
-fun SettingsScreen(onSignedOut: () -> Unit) {
+fun SettingsScreen(
+    onSignedOut: () -> Unit,
+    /** Tells the navigation bar whether Updates is open (its pill then covers the Update item too). */
+    onUpdatesShown: (Boolean) -> Unit = {},
+) {
     // Friends and Updates live here (not in the tab bar): opened now and then. They slide in like Interests in Explore.
     var page by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(page) { onUpdatesShown(page == "updates") }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { onUpdatesShown(false) } }
     androidx.compose.animation.AnimatedContent(page, transitionSpec = { slideThrough(forward = targetState != null) }, label = "subpage") { open ->
         Box(Modifier.fillMaxSize().clipToBounds()) {
             when (open) {
@@ -186,9 +192,7 @@ private fun SettingsPage(onSignedOut: () -> Unit, onFriends: () -> Unit, onUpdat
                 when (val u = update) {
                     is UpdateState.Checking -> "Checking…"
                     is UpdateState.Downloading -> u.progress?.let { "Downloading ${(it * 100).toInt()}%" } ?: "Downloading…"
-                    is UpdateState.Installing -> "Installing ${u.version}…"
-                    is UpdateState.NeedsConfirm -> "${u.version} ready"
-                    is UpdateState.ReadyToRestart -> "${u.version} ready"
+                    is UpdateState.ReadyToInstall -> "${u.version} ready"
                     else -> BuildConfig.VERSION_NAME
                 },
                 OrielIcons.Download, onClick = onUpdates,
@@ -202,10 +206,6 @@ private fun SettingsPage(onSignedOut: () -> Unit, onFriends: () -> Unit, onUpdat
             }
             SettingRow("Photos by Unsplash", icon = OrielIcons.Image, trailing = link,
                 onClick = { openUrl(context, "https://unsplash.com/?utm_source=oriel&utm_medium=referral") })
-            RowDivider()
-            // The AI wallpapers come from Pollinations: credited like Unsplash.
-            SettingRow("Pictures made with Pollinations", icon = OrielIcons.Sparkles, trailing = link,
-                onClick = { openUrl(context, "https://pollinations.ai/") })
             RowDivider()
             SettingRow("Get help", icon = OrielIcons.Send, trailing = link, onClick = { openUrl(context, "https://t.me/oriel_support_bot") })
             RowDivider()

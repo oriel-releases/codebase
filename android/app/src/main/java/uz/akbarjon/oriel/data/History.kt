@@ -62,7 +62,14 @@ class History(context: Context) : SQLiteOpenHelper(context, "history.db", null, 
         readableDatabase.query("history", null, "deleted = 0", null, null, null, "applied_at DESC", "1").use { c ->
             if (c.moveToFirst()) c.entry() else null
         }
-    }
+    }.also { lastLatest = it }
+
+    /**
+     * What [latest] last found, kept in memory: a screen coming back shows it at once while it asks again, instead of
+     * nothing for a frame (Home's button read "Set my first" for a moment on every return).
+     */
+    @Volatile var lastLatest: HistoryEntry? = null
+        private set
 
     /** True if the photo was ever applied here (deleted ones too), so it isn't picked again. */
     suspend fun wasUsed(photoId: String): Boolean = read {
