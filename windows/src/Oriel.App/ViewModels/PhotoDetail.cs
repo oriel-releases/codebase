@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml.Media;
 namespace Oriel.UI.ViewModels;
 
 /// <summary>
-/// A photo opened on its own page (<see cref="Pages.PhotoDetailPage"/>) from Explore, History or Favorites: the card it
+/// A photo opened on its own page (<see cref="Controls.PhotoDetailView"/>) from Explore, History or Favorites: the card it
 /// came from, seen bigger, with what's known about it and the same actions.
 /// </summary>
 public interface IPhotoDetail : INotifyPropertyChanged

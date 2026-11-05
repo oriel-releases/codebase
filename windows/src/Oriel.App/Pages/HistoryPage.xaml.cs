@@ -1,3 +1,4 @@
+using Oriel.UI.Controls;
 using Oriel.UI.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -23,19 +24,20 @@ public sealed partial class HistoryPage : Page
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
-        // Back from a photo's own page: everything as it was, and the photo flies back into its card.
-        if (e.NavigationMode == NavigationMode.Back && _opened is not null)
-        {
-            PhotoDetailNav.Return(_opened);
-            return;
-        }
         ShowMode(e.Parameter as string == "favorites");
     }
 
-    /// <summary>The card (or list row's thumbnail) last opened.</summary>
-    UIElement? _opened;
+    /// <summary>A card came on screen: its thumbnail loads (only cards on screen, and a few recent ones, keep one).</summary>
+    void Repeater_ElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
+    {
+        if (sender.ItemsSourceView.GetAt(args.Index) is HistoryItemViewModel item) _ = item.LoadThumbnailAsync();
+    }
 
-    /// <summary>A click on a card, not on its buttons: the photo on its own page.</summary>
+    void Repeater_ElementClearing(ItemsRepeater sender, ItemsRepeaterElementClearingEventArgs args)
+    {
+        if (args.Element is FrameworkElement { Tag: HistoryItemViewModel item }) item.Hide();
+    }
+
     /// <summary>The pointer is over a card: its sharp photo starts loading, so its page opens with it.</summary>
     void Card_PointerEntered(object sender, PointerRoutedEventArgs e) => PhotoDetailNav.Prefetch(Frame, (UIElement)sender);
 
@@ -43,7 +45,7 @@ public sealed partial class HistoryPage : Page
     {
         var card = (FrameworkElement)sender;
         var picture = Find(card, "Thumb") ?? card;
-        if (PhotoDetailNav.Open(Frame, e, card, picture)) _opened = picture;
+        PhotoDetailNav.Open(Frame, e, card, picture);
     }
 
     /// <summary>Shows everything (History) or only starred photos (Favorites) on this same page.</summary>

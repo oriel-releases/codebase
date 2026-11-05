@@ -12,8 +12,7 @@
         <!--  A photo and its credit, the same card as History's: search results and Explore alike.  -->
         <DataTemplate x:Key="PhotoCard" x:DataType="vm:PhotoResultViewModel">
             <!--  A click opens the photo on its own page, with its actions.  -->
-            <Grid
-                Height="210"
+            <local:ScreenFrame
                 Background="{ThemeResource OrielLineBrush}"
                 CornerRadius="{StaticResource OrielCardRadius}"
                 PointerEntered="Card_PointerEntered"
@@ -49,7 +48,7 @@
                         TextTrimming="CharacterEllipsis"
                         TextWrapping="NoWrap" />
                 </StackPanel>
-            </Grid>
+            </local:ScreenFrame>
         </DataTemplate>
     </Page.Resources>
 
@@ -223,9 +222,9 @@
                     <ItemsRepeater ItemTemplate="{StaticResource PhotoCard}" ItemsSource="{x:Bind ViewModel.Explore}">
                         <ItemsRepeater.Layout>
                             <UniformGridLayout
-                                ItemsStretch="Fill"
+                                local:ScreenShape.ItemWidth="280"
+                                ItemsStretch="Uniform"
                                 MinColumnSpacing="14"
-                                MinItemWidth="280"
                                 MinRowSpacing="14" />
                         </ItemsRepeater.Layout>
                     </ItemsRepeater>
@@ -283,9 +282,9 @@
                     <ItemsRepeater ItemTemplate="{StaticResource PhotoCard}" ItemsSource="{x:Bind ViewModel.Results}">
                         <ItemsRepeater.Layout>
                             <UniformGridLayout
-                                ItemsStretch="Fill"
+                                local:ScreenShape.ItemWidth="280"
+                                ItemsStretch="Uniform"
                                 MinColumnSpacing="14"
-                                MinItemWidth="280"
                                 MinRowSpacing="14" />
                         </ItemsRepeater.Layout>
                     </ItemsRepeater>

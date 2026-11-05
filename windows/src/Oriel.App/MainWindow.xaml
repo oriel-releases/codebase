@@ -17,6 +17,30 @@
             <TitleBar.IconSource>
                 <ImageIconSource ImageSource="{ThemeResource OrielLogoImage}" />
             </TitleBar.IconSource>
+            <!--
+                Right next to minimize, maximize and close (the title bar's empty drag strip there is trimmed to a sliver),
+                and level with them. On every page while an update waits: one click installs it and reopens Oriel.
+            -->
+            <TitleBar.Resources>
+                <x:Double x:Key="TitleBarMinDragRegionWidth">4</x:Double>
+                <VerticalAlignment x:Key="TitleBarRightHeaderVerticalAlignment">Top</VerticalAlignment>
+            </TitleBar.Resources>
+            <TitleBar.RightHeader>
+                <Button
+                    x:Name="UpdateButton"
+                    Height="26"
+                    Margin="0,3,0,0"
+                    Padding="12,0"
+                    VerticalAlignment="Top"
+                    Click="UpdateButton_Click"
+                    Style="{StaticResource PrimaryPillButtonStyle}"
+                    Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon FontSize="11" Glyph="&#xE896;" />
+                        <TextBlock x:Name="UpdateButtonText" FontSize="12" Text="Install" />
+                    </StackPanel>
+                </Button>
+            </TitleBar.RightHeader>
         </TitleBar>
 
         <!--  Left pane like the Windows Settings app; Settings sits at the bottom of the pane.  -->
@@ -56,11 +80,6 @@
                         <PathIcon Data="F0 M8,1 A7,7 0 1 1 8,15 A7,7 0 1 1 8,1 Z M8,2.25 A5.75,5.75 0 1 0 8,13.75 A5.75,5.75 0 1 0 8,2.25 Z M10.75,5.25 L9.3,9.3 L5.25,10.75 L6.7,6.7 Z" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="AI" Tag="create">
-                    <NavigationViewItem.Icon>
-                        <PathIcon Data="M12.67,0.67L11.83,2.5L10,3.33L11.83,4.17L12.67,6L13.5,4.17L15.33,3.33L13.5,2.5M6,2.67L4.33,6.33L0.67,8L4.33,9.67L6,13.33L7.67,9.67L11.33,8L7.67,6.33M12.67,10L11.83,11.83L10,12.67L11.83,13.5L12.67,15.33L13.5,13.5L15.33,12.67L13.5,11.83" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
                 <NavigationViewItem Content="History" Tag="history">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE81C;" />
@@ -78,10 +97,16 @@
                 </NavigationViewItem>
             </NavigationView.MenuItems>
 
-            <Frame
-                x:Name="ContentFrame"
-                HorizontalContentAlignment="Stretch"
-                VerticalContentAlignment="Stretch" />
+            <Grid>
+                <Frame
+                    x:Name="ContentFrame"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch" />
+                <!--  A photo opened from a card, over its page: the page stays as it was underneath.  -->
+                <controls:PhotoDetailView x:Name="PhotoDetail" Visibility="Collapsed" />
+                <!--  Where the wallpaper is cut (Home's Position button), over everything.  -->
+                <controls:PositionEditorView x:Name="PositionEditor" Visibility="Collapsed" />
+            </Grid>
         </NavigationView>
 
         <!--  Covers the app until the account is signed in.  -->

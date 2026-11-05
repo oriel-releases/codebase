@@ -19,7 +19,7 @@ public sealed partial class HistoryItemViewModel(HistoryViewModel owner, History
     public string Topic => Entry.Topic ?? "";
     public bool FileExists => File.Exists(Entry.FilePath);
     /// <summary>A favorite from another device has no file here yet: setting it downloads it.</summary>
-    public bool CanReapply => FileExists || Entry.Provider is "unsplash" or Oriel.Core.Providers.PollinationsClient.Provider;
+    public bool CanReapply => FileExists || Entry.Provider is "unsplash" or Oriel.Core.Providers.AiPhotoLinks.Provider;
 
     [ObservableProperty] public partial ImageSource? Thumbnail { get; set; }
     [ObservableProperty] public partial bool IsFavorite { get; set; } = entry.IsFavorite;
@@ -38,6 +38,31 @@ public sealed partial class HistoryItemViewModel(HistoryViewModel owner, History
         _quiet = true;
         IsFavorite = entry.IsFavorite;
         _quiet = false;
+    }
+
+    const int ThumbnailWidth = 320;
+    int _thumbnailVersion;
+
+    /// <summary>
+    /// Thumbnails exist while their card is on screen, plus the last few seen (so going back to the page, or
+    /// History and Favorites, shows them at once): a long history (a slideshow keeps hundreds of files) stays cheap.
+    /// </summary>
+    public async Task LoadThumbnailAsync()
+    {
+        owner.Showing(this);
+        if (Thumbnail is not null) return;
+        var version = ++_thumbnailVersion;
+        var thumbnail = await ImageLoader.LoadAsync(Entry.FilePath, Entry.ThumbnailUrl, ThumbnailWidth);
+        if (version == _thumbnailVersion) Thumbnail = thumbnail; // else scrolled away while loading
+    }
+
+    /// <summary>Off screen: kept for a while, dropped once enough others went off screen after it.</summary>
+    public void Hide() => owner.Hidden(this);
+
+    public void UnloadThumbnail()
+    {
+        _thumbnailVersion++;
+        Thumbnail = null;
     }
 
     // Its own page (IPhotoDetail)
@@ -92,6 +117,9 @@ public sealed partial class HistoryViewModel(IHistoryStore history, WallpaperSer
     List<HistoryItemViewModel> _all = [];
     /// <summary>Items by history id, kept between visits: coming back shows the same cards and thumbnails at once.</summary>
     readonly Dictionary<long, HistoryItemViewModel> _known = [];
+    /// <summary>Off-screen items that still hold a thumbnail, oldest first.</summary>
+    readonly LinkedList<HistoryItemViewModel> _hidden = [];
+    const int KeepHidden = 60;
 
     /// <summary>
     /// The photos shown. Swapped as a whole (never cleared and refilled item by item): changing a list while the grid
@@ -117,6 +145,20 @@ public sealed partial class HistoryViewModel(IHistoryStore history, WallpaperSer
     public bool IsChanging => Stage is not null;
     partial void OnStageChanged(string? value) => OnPropertyChanged(nameof(IsChanging));
 
+    internal void Showing(HistoryItemViewModel item) => _hidden.Remove(item);
+
+    internal void Hidden(HistoryItemViewModel item)
+    {
+        if (item.Thumbnail is null || _hidden.Contains(item)) return;
+        _hidden.AddLast(item);
+        while (_hidden.Count > KeepHidden)
+        {
+            var oldest = _hidden.First!.Value;
+            _hidden.RemoveFirst();
+            oldest.UnloadThumbnail();
+        }
+    }
+
     partial void OnIsGridChanged(bool value) => IsList = !value;
     partial void OnIsListChanged(bool value) => IsGrid = !value;
 
@@ -126,16 +168,13 @@ public sealed partial class HistoryViewModel(IHistoryStore history, WallpaperSer
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(EmptyText));
         var version = ++_loadVersion;
-        _all = history.List().Select(Reuse).ToList();
-        foreach (var gone in _known.Keys.Except(_all.Select(i => i.Entry.Id)).ToList()) _known.Remove(gone);
+        // Read off the UI thread: the whole history, which only grows.
+        var entries = await Task.Run(() => history.List());
+        if (version != _loadVersion) return; // a newer load (History <-> Favorites) takes over
+        _all = entries.Select(Reuse).ToList();
+        foreach (var gone in _known.Values.Except(_all).ToList()) Forget(gone);
+        // Thumbnails load as their cards come on screen (the page's ElementPrepared).
         ApplyFilter();
-        // Thumbnails after the grid is populated, so the page shows up instantly; only the ones not loaded yet. A newer
-        // load (History <-> Favorites) takes over: this one stops.
-        foreach (var item in _all.Where(i => i.Thumbnail is null).ToList())
-        {
-            if (version != _loadVersion) return;
-            item.Thumbnail = await ImageLoader.LoadAsync(item.Entry.FilePath, item.Entry.ThumbnailUrl, 320);
-        }
     }
 
     HistoryItemViewModel Reuse(HistoryEntry entry)
@@ -145,7 +184,15 @@ public sealed partial class HistoryViewModel(IHistoryStore history, WallpaperSer
             item.Sync(entry);
             return item;
         }
+        if (item is not null) Forget(item);
         return _known[entry.Id] = new HistoryItemViewModel(this, entry);
+    }
+
+    void Forget(HistoryItemViewModel item)
+    {
+        _known.Remove(item.Entry.Id);
+        _hidden.Remove(item);
+        item.UnloadThumbnail();
     }
 
     /// <summary>Window closed: drop the items and their thumbnails.</summary>
@@ -154,6 +201,7 @@ public sealed partial class HistoryViewModel(IHistoryStore history, WallpaperSer
         _loadVersion++;
         _all = [];
         _known.Clear();
+        _hidden.Clear();
         Items = [];
     }
 

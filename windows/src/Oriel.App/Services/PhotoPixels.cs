@@ -50,17 +50,14 @@ public sealed class PhotoPixels
         return Windows.UI.Color.FromArgb(0xFF, _bgra[i + 2], _bgra[i + 1], _bgra[i]);
     }
 
-    /// <summary>"#RRGGBB" at a spot given as 0..1 of the width and height: the average of the 3 x 3 pixels around it.</summary>
+    /// <summary>
+    /// "#RRGGBB" of the one pixel at a spot given as 0..1 of the width and height: exactly the one boxed in the
+    /// magnifier's middle (an average of the pixels around it was a color you couldn't point at).
+    /// </summary>
     public string HexAt(double fx, double fy)
     {
-        var (cx, cy) = PixelAt(fx, fy);
-        int r = 0, g = 0, b = 0, n = 0;
-        for (var y = Math.Max(0, cy - 1); y <= Math.Min(Height - 1, cy + 1); y++)
-            for (var x = Math.Max(0, cx - 1); x <= Math.Min(Width - 1, cx + 1); x++)
-            {
-                var i = (y * Width + x) * 4;
-                b += _bgra[i]; g += _bgra[i + 1]; r += _bgra[i + 2]; n++;
-            }
-        return $"#{r / n:X2}{g / n:X2}{b / n:X2}";
+        var (x, y) = PixelAt(fx, fy);
+        var i = (y * Width + x) * 4;
+        return $"#{_bgra[i + 2]:X2}{_bgra[i + 1]:X2}{_bgra[i]:X2}";
     }
 }
