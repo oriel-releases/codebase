@@ -12,6 +12,8 @@ function manifest(target: "chrome" | "firefox"): Plugin {
       const sites = ["https://oriel.akbarjon.uz/login*", ...(process.env.ORIEL_STORE ? [] : ["http://localhost:3000/login*"])];
       const json = {
         manifest_version: 3,
+        // The search suggestions use AbortSignal.any (Chrome 116); Firefox needs 140 anyway (below).
+        ...(target === "chrome" && { minimum_chrome_version: "116" }),
         name: "Oriel",
         short_name: "Oriel",
         version: pkg.version,
@@ -26,11 +28,13 @@ function manifest(target: "chrome" | "firefox"): Plugin {
         // "favicon" (Chrome only) lets the shortcuts show each site's icon from the browser's own cache.
         // "activeTab": the toolbar popup can offer the page you're on as a shortcut (only after you click the icon).
         permissions: ["storage", "search", "activeTab", ...(target === "chrome" ? ["favicon"] : [])],
+        // Google's search suggestions under the search field (src/lib/search-menu.ts); the setting can turn them off.
+        host_permissions: ["https://suggestqueries.google.com/*"],
         content_scripts: [{ matches: sites, js: ["content.js"], run_at: "document_start" }],
         ...(target === "firefox" && {
           // data_collection_permissions needs Firefox 140 (desktop) / 142 (Android).
           browser_specific_settings: {
-            gecko: { id: "extension@oriel.akbarjon.uz", strict_min_version: "140.0", data_collection_permissions: { required: ["none"] } },
+            gecko: { id: "extension@oriel.akbarjon.uz", strict_min_version: "140.0", data_collection_permissions: { required: ["searchTerms"] } },
             gecko_android: { strict_min_version: "142.0" },
           },
         }),

@@ -13,7 +13,7 @@ export const extensionPage = {
 export const extensionFeatures: Feature[] = [
   { title: "Match my desktop", body: "Sign in with your Oriel account and every new tab shows the wallpaper Oriel for Windows or Linux set last, changing the moment it does." },
   { title: "Or pick your own", body: "Choose topics like nature, space or architecture and how often the photo changes: every tab, hourly or daily. Works right away, signed out, with no account." },
-  { title: "Clock, quote, search", body: "A clock and a short quote sit over the photo, with an optional search bar that uses your browser's own search engine. Turn any of them off." },
+  { title: "Clock, quote, search", body: "A clock and a short quote sit over the photo, with an optional search bar: it uses your browser's own search engine, suggests as you type, and takes a pasted or dropped photo to search with Google Lens. Turn any of them off." },
   { title: "Light and private", body: "No background page, no analytics, no ads. Nothing runs when no new tab is open, and Oriel never reads your browsing history." },
 ];
 
@@ -38,7 +38,7 @@ export const extensionFaq: FaqItem[] = [
   },
   {
     question: "What data does the extension collect?",
-    answer: "None unless you sign in. If you do, it uses your Google name and email to link your account, and reads the one document that holds your current wallpaper. It never reads your browsing history, the pages you open or what you type. Details are on the privacy page.",
+    answer: "None unless you sign in. If you do, it uses your Google name and email to link your account, and reads the one document that holds your current wallpaper. It never reads your browsing history or the pages you open, and it keeps no search history. If you turn on the search bar, suggestions come from Google and pages from Wikipedia as you type (each can be turned off in Settings), and a photo you search with goes to Google Lens only when you press Enter. Details are on the privacy page.",
   },
   {
     question: "Does it slow down my browser?",

@@ -27,10 +27,11 @@ FEATURES
 • Settings right under the toolbar icon, on any page
 • Signed in, your settings and shortcuts are the same in every browser
 • Clock, greeting, daily quote, search bar and every button can be turned off
-• Search uses your browser's own default search engine
+• Search uses your browser's own default search engine, with suggestions from Google and pages from Wikipedia as you type (each can be turned off)
+• Search with a photo: paste (Ctrl+V), drop or pick a picture, add a question, and Google Lens answers
 
 PRIVACY
-No ads, no analytics, no tracking. Oriel never reads your browsing history or what you type. Signing in is optional. Full policy: https://oriel.akbarjon.uz/privacy
+No ads, no analytics, no tracking. Oriel never reads your browsing history and keeps no search history. If you use the search bar, what you type goes to Google and Wikipedia for suggestions (each can be turned off in Settings), and a photo you search with goes to Google Lens only when you press Enter. Signing in is optional. Full policy: https://oriel.akbarjon.uz/privacy
 
 Oriel apps for Windows, Linux, macOS and Android are free: https://oriel.akbarjon.uz/download
 Photos by Unsplash. Oriel is not affiliated with or endorsed by Unsplash.
@@ -49,14 +50,14 @@ Photos by Unsplash. Oriel is not affiliated with or endorsed by Unsplash.
 | Background service worker | Only for the toolbar icon on an Oriel new tab: it tells that page to open its own settings dialog instead of the popup. It does nothing else and makes no network requests. |
 | New tab override (`chrome_url_overrides.newtab`) | The extension's purpose. |
 
-No host permissions and no remote code.
+Host permission `https://suggestqueries.google.com/*`: the search field asks Google for suggestions as the user types (Settings > Search > Google suggestions turns it off). The typed text goes to Google only for that; nothing else is sent there. Separately, if Settings > Search > Wikipedia pages is on, the same text goes to Wikipedia's open search (en.wikipedia.org, which allows web pages to read it, so it needs no permission) for a couple of pages with a picture. No remote code.
 
 ## Data disclosure answers
 
 - **Collected, only if the user signs in:** name, email and profile picture (Google account, via Firebase Authentication); the wallpaper the user's desktop app applied last (Unsplash photo id and credit); a session record (platform, device name, last active); the extension's own settings and the new tab shortcuts the user adds (their names and web addresses), so they are the same in every browser of the account. Erased from the browser on sign-out.
 - **Not collected:** browsing history, page content, keystrokes, location, health or financial data.
 - **Not sold, not used for advertising, not used for anything unrelated to the extension's purpose.**
-- Firefox: `data_collection_permissions` is `required: ["none"]` in the manifest. Sign-in is optional and only links the user's own account.
+- Firefox: `data_collection_permissions` is `required: ["searchTerms"]` in the manifest (the text typed in the search field is sent to Google for suggestions). Sign-in is optional and only links the user's own account.
 
 ## Screenshots
 

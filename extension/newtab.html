@@ -20,7 +20,7 @@
       <button id="open-panel" title="Settings" aria-label="Settings" class="icon-btn soft" data-adapt>
         <svg viewBox="0 0 24 24" class="size-[1.15rem]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
       </button>
-      <div class="flex items-center gap-3">
+      <div class="ml-auto flex items-center gap-3">
         <img id="avatar" alt="Your account" title="Account" role="button" tabindex="0" hidden referrerpolicy="no-referrer" class="size-8 cursor-pointer rounded-full object-cover ring-2 ring-white/40 transition hover:scale-105 hover:ring-white/70 focus-visible:ring-white" />
       </div>
     </header>
@@ -34,9 +34,16 @@
         <div id="greeting" class="mt-2 text-[clamp(1.1rem,2vw,1.6rem)] font-medium"></div>
       </div>
 
-      <form id="search" role="search" data-adapt class="glass mt-8 cursor-text flex w-full max-w-md items-center gap-2.5 rounded-full px-4 py-2.5 transition focus-within:bg-white/25 focus-within:ring-2 focus-within:ring-white/40" autocomplete="off">
-        <svg viewBox="0 0 24 24" class="size-4 shrink-0 opacity-70" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-        <input id="q" type="text" spellcheck="false" placeholder="Search the web" aria-label="Search the web" class="min-w-0 flex-1 bg-transparent text-base outline-none" />
+      <form id="search" role="search" data-adapt class="glass mt-8 cursor-text flex w-full max-w-md flex-col px-3 transition focus-within:bg-white/25 focus-within:ring-2 focus-within:ring-white/40" autocomplete="off">
+        <!-- A pasted or dropped photo waits here, above the field (newtab/image-search.ts) -->
+        <div id="q-preview" class="q-preview"><div class="q-preview-inner"><span class="q-photo"><img alt="Photo to search with" title="Click to enlarge" /><button type="button" aria-label="Remove the photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg></button></span></div></div>
+        <div class="flex items-start gap-2.5 px-1 py-2.5">
+          <!-- The magnifier turns into a photo icon while a file is dragged over the page -->
+          <span class="q-icons"><svg viewBox="0 0 24 24" class="q-icon-search" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg><svg viewBox="0 0 24 24" class="q-icon-drop" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3" /><circle cx="9" cy="10.5" r="1.5" /><path d="m21 16-5-5-9 8" /></svg></span>
+          <textarea id="q" rows="1" data-grows spellcheck="false" placeholder="Search the web" aria-label="Search the web" class="min-w-0 flex-1 resize-none bg-transparent text-base outline-none"></textarea>
+        </div>
+        <!-- Google suggestions (newtab/search-menu.ts), under the field in the same pill -->
+        <div id="q-menu" class="q-menu"><ul role="listbox" aria-label="Suggestions"></ul></div>
       </form>
 
       <!-- Shortcuts: links you add, synced with your account (main.ts renderShortcuts) -->

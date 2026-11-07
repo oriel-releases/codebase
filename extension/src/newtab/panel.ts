@@ -1,6 +1,6 @@
 import { escapeHtml } from "../lib/html";
 import type { Profile } from "../lib/account";
-import type { Change, Mode, Settings } from "../lib/settings";
+import type { Change, Mode, SearchWidth, Settings } from "../lib/settings";
 import { imageUrl, type Photo } from "../lib/photo";
 import { todayPhoto } from "../lib/today";
 import { siteUrl, supportUrl } from "../lib/config";
@@ -49,22 +49,34 @@ export interface PanelActions {
   editBirthday(): void;
 }
 
-export type Page = "home" | "settings" | "account" | "help";
+export type Page = "home" | "photo" | "page" | "search" | "account" | "help";
 
 /** Outline icons (24px grid, 2px stroke). */
 const icons: Record<Page, string> = {
   home: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
-  settings:
-    '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  photo: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
+  page: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
   account: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/>',
   help: '<circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/><circle cx="12" cy="12" r="4"/>',
 };
-const menu: [Page, string][] = [
-  ["home", "Home"],
-  ["settings", "Settings"],
-  ["help", "Help"],
+/** Settings is one item in the sidebar; while it is open its three pages show under it. */
+const settingsPages: [Page, string][] = [
+  ["photo", "Photo"],
+  ["page", "Page"],
+  ["search", "Search"],
 ];
-const titles: Record<Page, string> = { home: "Home", settings: "Settings", account: "Account", help: "Help" };
+const inSettings = (p: Page) => settingsPages.some(([id]) => id === p);
+/** Which of them Settings opens: the one you were on last. */
+let lastSettingsPage: Page = "photo";
+
+const navItem = (id: Page, text: string, cls = "") =>
+  `<button class="nav-item ${cls}" data-act="nav" data-v="${id}" ${id === page ? 'aria-current="page"' : ""}><span class="nav-ico" data-i="${id}">${svg(id)}</span><span>${text}</span></button>`;
+const settingsNav = () =>
+  `<button class="nav-item ${inSettings(page) ? "group-open" : ""}" data-act="nav" data-v="settings"><span class="nav-ico" data-i="settings">${ico("gear")}</span><span>Settings</span></button>` +
+  // Always drawn, so opening and closing can glide (a grid row from 0 to its height); inert while closed.
+  `<div class="subnav" ${inSettings(page) ? "data-open" : "inert"}><div class="subnav-in">${settingsPages.map(([id, text]) => navItem(id, text, "sub")).join("")}</div></div>`;
+const titles: Record<Page, string> = { home: "Home", photo: "Photo", page: "Page", search: "Search", account: "Account", help: "Help" };
 const svg = (p: Page) => `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icons[p]}</svg>`;
 
 let page: Page = "home";
@@ -100,10 +112,14 @@ function seg(id: string, aria: string, options: { value: string; text: string; d
 }
 
 /** A settings row: title and hint on the left, the control on the right. */
-const row = (title: string, hint: string, control: string, icon?: keyof typeof iconPaths) =>
-  `<div class="card">${icon ? `<span class="tile-ico sm round" aria-hidden="true">${ico(icon)}</span>` : ""}<div class="min-w-0 flex-1"><div class="t">${title}</div>${hint ? `<div class="d">${hint}</div>` : ""}</div>${control}</div>`;
+/** A row's icon: one of the drawn icons, or a logo picture from public/logos ("logo:google"). */
+type RowIcon = keyof typeof iconPaths | `logo:${string}`;
+const rowIcon = (icon: RowIcon) => (icon.startsWith("logo:") ? `<img src="logos/${icon.slice(5)}.webp" alt="" />` : ico(icon as keyof typeof iconPaths));
 
-function toggle(c: Settings, name: "clock" | "hour12" | "clockAnimation" | "greeting" | "quote" | "search" | "photoInfo" | "avatar" | "settingsButton" | "shuffle" | "shortcuts", title: string, hint = "", icon?: keyof typeof iconPaths): string {
+const row = (title: string, hint: string, control: string, icon?: RowIcon) =>
+  `<div class="card">${icon ? `<span class="tile-ico sm round" aria-hidden="true">${rowIcon(icon)}</span>` : ""}<div class="min-w-0 flex-1"><div class="t">${title}</div>${hint ? `<div class="d">${hint}</div>` : ""}</div>${control}</div>`;
+
+function toggle(c: Settings, name: "clock" | "hour12" | "clockAnimation" | "greeting" | "quote" | "search" | "googleSuggestions" | "wikipediaSuggestions" | "photoInfo" | "avatar" | "settingsButton" | "shuffle" | "shortcuts", title: string, hint = "", icon?: RowIcon): string {
   return row(title, hint, `<label class="switch"><input type="checkbox" data-act="toggle" data-v="${name}" ${c[name] ? "checked" : ""} aria-label="${esc(title)}" /><span></span></label>`, icon);
 }
 
@@ -155,7 +171,7 @@ function homePage(s: PanelState): string {
   // Under the credit: where the photo comes from, live while following the account's devices.
   const from = following
     ? s.desktop
-      ? `<span class="live-dot" aria-hidden="true"></span>Live · last changed on your ${device(s.desktop.source)}`
+      ? `<span class="live-pill"><span class="live-dot" aria-hidden="true"></span>Live</span><span class="truncate">Changed on your ${device(s.desktop.source)}</span>`
       : `Waiting for your other devices · <a href="https://oriel.akbarjon.uz/download" target="_blank" rel="noopener">Get Oriel</a>`
     : `A new photo ${c.change === "tab" ? "every tab" : c.change === "hourly" ? "every hour" : "every day"}`;
   // The wallpaper source sits on the photo itself. Without an account, "Same as my devices" leads to Account.
@@ -179,7 +195,7 @@ function homePage(s: PanelState): string {
     <div class="home-bar">
       <div class="min-w-0 flex-1">
         <div class="t truncate home-credit" data-photo="${p?.photographer ? esc(p.id) : ""}">${p?.photographer ? credit(p) : "&nbsp;"}</div>
-        <div class="d truncate">${from}</div>
+        <div class="d from truncate">${from}</div>
       </div>
       ${following ? "" : `<button class="btn btn-accent" data-act="change-now" ${busy}>${ico("refresh")}${s.changing ? "Changing…" : "Change now"}</button>`}
     </div>`;
@@ -196,20 +212,29 @@ function homePage(s: PanelState): string {
 }
 
 /** Settings: how often the photo changes, and what the new tab shows. Each group is one card, its rows split by lines. */
-function settingsPage(s: PanelState): string {
+function photoPage(s: PanelState): string {
   const c = s.settings;
   const following = c.mode === "desktop" && !!s.profile;
   const slider = (name: "dim" | "blur", title: string, _hint: string, max: number, icon: keyof typeof iconPaths) =>
     `<div class="card slider-card"><span class="tile-ico sm round" aria-hidden="true">${ico(icon)}</span><div class="t">${title}</div><input class="slider-input" type="range" min="0" max="${max}" value="${c[name]}" style="--p:${(c[name] / max) * 100}%" data-act="range" data-v="${name}" aria-label="${title}" /><output class="val" data-out="${name}">${c[name]}</output></div>`;
-  return `<div class="compact">
-    <div class="group-title" style="margin-top:0">Schedule</div>
+  return `<div class="compact"><div class="group-title" style="margin-top:0">Schedule</div>
     <div class="list">${row(
       "New photo",
-      "",
+      following ? "Set by your devices" : "",
       seg("change", "How often the photo changes", changeOptions.map(([value, text]) => ({ value, text, disabled: following, title: following ? "Your devices decide while it's Same as my devices" : "" })), c.change, "change"),
       "calendar",
     )}</div>
-    <div class="group-title">Clock &amp; age</div>
+    <div class="group-title">Look</div>
+    <div class="list">
+    ${slider("dim", "Dim", "", 70, "dim")}
+    ${slider("blur", "Blur", "", 24, "blur")}
+    </div></div>`;
+}
+
+/** Settings > Page: the clock or age, and what else shows on the new tab. */
+function pagePage(s: PanelState): string {
+  const c = s.settings;
+  return `<div class="compact"><div class="group-title" style="margin-top:0">Clock &amp; age</div>
     <div class="list" data-ease-height>
     <div class="card stack clock-card">
       ${seg("clockShows", "What the big text shows", [{ value: "time", text: "Time" }, { value: "age", text: "Age" }], c.clockShows, "clockShows")}
@@ -228,19 +253,31 @@ function settingsPage(s: PanelState): string {
     <div class="list">
     ${toggle(c, "greeting", "Greeting", "", "smile")}
     ${toggle(c, "quote", "Quote", "", "quote")}
-    ${toggle(c, "search", "Search bar", "", "search")}
     ${toggle(c, "shortcuts", "Shortcuts", "", "link")}
     ${toggle(c, "photoInfo", "Photo info button", "", "info")}
     ${toggle(c, "avatar", "Profile picture", "", "user")}
     ${toggle(c, "shuffle", "Shuffle button", "", "shuffle")}
     ${toggle(c, "settingsButton", "Settings button", "", "gear")}
+    </div></div>`;
+}
+
+/** Settings > Search: the search bar and where its suggestions come from. */
+function searchPage(s: PanelState): string {
+  const c = s.settings;
+  const open = c.search ? "open" : "";
+  const inert = c.search ? "" : "inert";
+  // A source is a tile: its logo, its name and what it is sent; the whole tile is the switch.
+  const source = (name: "googleSuggestions" | "wikipediaSuggestions", logo: string, title: string, hint: string) =>
+    `<label class="src ${c[name] ? "on" : ""}"><span class="src-top"><img src="logos/${logo}.webp" alt="" /><span class="switch"><input type="checkbox" data-act="toggle" data-v="${name}" ${c[name] ? "checked" : ""} aria-label="${esc(title)}" /><span></span></span></span><span class="t">${title}</span><span class="d">${hint}</span></label>`;
+  return `<div class="compact"><div data-ease-height>
+    <div class="list">${toggle(c, "search", "Show search bar", "", "search")}
+    <div class="fold row-fold ${open}" ${inert}>${row("Width", "", seg("searchWidth", "Search bar width", [{ value: "narrow", text: "Narrow" }, { value: "normal", text: "Normal" }, { value: "wide", text: "Wide" }], c.searchWidth, "searchWidth"), "width")}</div>
     </div>
-    <div class="group-title">Photo</div>
-    <div class="list">
-    ${slider("dim", "Dim", "", 70, "dim")}
-    ${slider("blur", "Blur", "", 24, "blur")}
+    <div class="fold tall ${open}" ${inert}>
+    <div class="group-title">Suggestions</div>
+    <div class="src-grid">${source("googleSuggestions", "google", "Google", "Sends what you type to Google")}${source("wikipediaSuggestions", "wikipedia", "Wikipedia", "Sends what you type to Wikipedia")}</div>
     </div>
-    </div>`;
+    </div></div>`;
 }
 
 const iconPaths = {
@@ -255,6 +292,7 @@ const iconPaths = {
   smile: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>',
   quote: '<path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>',
   search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  width: '<path d="M21 12H3M7 8l-4 4 4 4M17 8l4 4-4 4"/>',
   info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
   user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   dim: '<circle cx="12" cy="12" r="4"/><path d="M12 4h.01M20 12h.01M12 20h.01M4 12h.01M17.657 6.343h.01M17.657 17.657h.01M6.343 17.657h.01M6.343 6.343h.01"/>',
@@ -307,7 +345,7 @@ function accountPage(s: PanelState): string {
         </div>
       </div>
       <div class="acct-actions">
-        <a class="btn btn-primary btn-wide" href="oriel://open" data-act="open-app">Open Oriel</a>
+        <a class="btn btn-primary btn-wide" href="oriel://open" data-act="open-app"><span class="btn-logo" aria-hidden="true"></span>Open Oriel</a>
         <a class="row-link" href="${siteUrl()}/me" target="_blank" rel="noopener"><span>Manage account</span>${ico("external")}</a>
       </div>`;
   }
@@ -401,7 +439,9 @@ function avatar(p: Profile, size: string): string {
 function html(s: PanelState): string {
   const body = {
     home: () => homePage(s),
-    settings: () => settingsPage(s),
+    photo: () => photoPage(s),
+    page: () => pagePage(s),
+    search: () => searchPage(s),
     account: () => accountPage(s),
     help: helpPage,
   }[page]();
@@ -410,10 +450,9 @@ function html(s: PanelState): string {
     <aside class="side">
       <div class="brand"><img src="icons/icon-48.png" alt="" />Oriel<span class="beta">Beta</span></div>
       <nav class="nav" aria-label="Settings">
-        ${menu.map(([id, text]) => `<button class="nav-item" data-act="nav" data-v="${id}" ${id === page ? 'aria-current="page"' : ""}>${svg(id)}<span>${text}</span></button>`).join("")}
+        ${navItem("home", "Home")}${settingsNav()}${navItem("help", "Help")}
       </nav>
-      <span class="bar" data-keep></span>
-      <div class="nav-bottom"><button class="nav-item" data-act="nav" data-v="account" ${page === "account" ? 'aria-current="page"' : ""}>${p ? avatar(p, "size-[1.1rem]") : svg("account")}<span>Account</span></button></div>
+      <div class="nav-bottom"><button class="nav-item" data-act="nav" data-v="account" ${page === "account" ? 'aria-current="page"' : ""}>${p ? avatar(p, "size-[1.1rem]") : `<span class="nav-ico" data-i="account">${svg("account")}</span>`}<span>Account</span></button></div>
     </aside>
     <section class="content" aria-labelledby="page-title">
       <button class="icon-btn close-x" style="color:rgb(255 255 255/.8)" data-act="close" aria-label="Close settings"><svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
@@ -450,7 +489,7 @@ function morphChildren(from: Element, to: Element): void {
 }
 
 function morph(from: Element, to: Element): void {
-  if (from.hasAttribute("data-keep")) return; // owned by script (the menu marker, a site icon that faded in)
+  if (from.hasAttribute("data-keep")) return; // owned by script (a site icon that faded in)
   if (from.hasAttribute("data-swap") && from.getAttribute("data-swap") !== to.getAttribute("data-swap")) return swap(from as HTMLElement, to);
   for (const attr of [...from.attributes]) if (!to.hasAttribute(attr.name)) from.removeAttribute(attr.name);
   for (const attr of [...to.attributes]) if (from.getAttribute(attr.name) !== attr.value) from.setAttribute(attr.name, attr.value);
@@ -502,7 +541,6 @@ export function renderPanel(root: HTMLElement, state: PanelState, actions: Panel
     }
   }
   renderedPage = page;
-  placeBar(root, !content || !visible);
   showHomePhoto(root);
   // Change now's icon turns while it works, then glides on to upright (spinner.ts).
   spin(root.querySelector('[data-act="change-now"] svg'), !!state.changing);
@@ -592,23 +630,6 @@ function showCredit(root: HTMLElement, visible: boolean): void {
   );
 }
 
-/** Moves the vertical marker to the current menu item. On the very first draw it jumps there instead of gliding in from the top. */
-function placeBar(root: HTMLElement, instant: boolean): void {
-  const bar = root.querySelector<HTMLElement>(".bar");
-  const current = root.querySelector<HTMLElement>(".side [aria-current=\"page\"]");
-  if (!bar || !current) return;
-  const height = Math.round(current.offsetHeight * 0.5);
-  const y = current.offsetTop + Math.round((current.offsetHeight - height) / 2) + (current.offsetParent === bar.offsetParent ? 0 : current.offsetParent instanceof HTMLElement ? current.offsetParent.offsetTop : 0);
-  if (instant) bar.style.transition = "none";
-  bar.style.height = `${height}px`;
-  bar.style.translate = `0 ${y}px`;
-  bar.style.opacity = "1";
-  if (instant) {
-    void bar.offsetWidth;
-    bar.style.transition = "";
-  }
-}
-
 /** Switching pages: a quick fade only, nothing moves. */
 function fade(content: HTMLElement): void {
   content.classList.remove("enter");
@@ -649,12 +670,11 @@ let imageErrorsBound = false;
 
 /**
  * The Android app's tab animations (ui/NavBar.kt), same keyframes and timings, scaled to these smaller icons: Home hops,
- * the gear springs half a turn (like Settings), Help winds back a full turn (like History),
+ * the gear springs half a turn (like Settings), Home hops, Photo, Page and Search each do their own little move, Help winds back a full turn (like History),
  * Account wiggles (like Search). Compose keyframes move in straight lines between points, as these do.
  */
-const navMotion: Record<Page, { frames: Keyframe[]; duration: number; easing?: string }> = {
-  home: {
-    frames: [
+const hop = {
+  frames: [
       { transform: "translateY(0) scale(1)" },
       { transform: "translateY(-5px) scale(1.15)", offset: 160 / 520 },
       { transform: "translateY(0) scale(0.94)", offset: 320 / 520 },
@@ -662,7 +682,9 @@ const navMotion: Record<Page, { frames: Keyframe[]; duration: number; easing?: s
       { transform: "translateY(0) scale(1)" },
     ],
     duration: 520,
-  },
+};
+const navMotion: Record<Page | "settings", { frames: Keyframe[]; duration: number; easing?: string }> = {
+  home: hop,
   // spring(dampingRatio 0.5, stiffness 110) to 180 degrees: overshoots to about 209, swings back to 175, settles.
   settings: {
     frames: [
@@ -674,6 +696,12 @@ const navMotion: Record<Page, { frames: Keyframe[]; duration: number; easing?: s
     ],
     duration: 1100,
   },
+  // A picture lifts and tilts, like picking up a print.
+  photo: { frames: [{ transform: "scale(1) rotate(0)" }, { transform: "scale(1.22) rotate(-9deg)", offset: 0.4 }, { transform: "scale(0.95) rotate(4deg)", offset: 0.7 }, { transform: "scale(1) rotate(0)" }], duration: 600, easing: "ease-in-out" },
+  // The layout's panels squeeze and settle, like rearranging them.
+  page: { frames: [{ transform: "scale(1, 1)" }, { transform: "scale(0.78, 1.15)", offset: 0.3 }, { transform: "scale(1.15, 0.8)", offset: 0.6 }, { transform: "scale(1, 1)" }], duration: 560, easing: "ease-in-out" },
+  // The magnifier looks around.
+  search: { frames: [{ transform: "rotate(0) translate(0, 0)" }, { transform: "rotate(-16deg) translate(-1.5px, 0)", offset: 0.3 }, { transform: "rotate(14deg) translate(1.5px, 1px)", offset: 0.62 }, { transform: "rotate(0) translate(0, 0)" }], duration: 640, easing: "ease-in-out" },
   help: { frames: [{ transform: "rotate(0)" }, { transform: "rotate(-360deg)" }], duration: 750, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
   account: {
     frames: [
@@ -689,9 +717,9 @@ const navMotion: Record<Page, { frames: Keyframe[]; duration: number; easing?: s
 };
 
 /** Plays the clicked menu item's icon motion (Web Animations, so a redraw of the menu doesn't cut it short). */
-function playNavIcon(root: HTMLElement, id: Page): void {
+function playNavIcon(root: HTMLElement, id: Page | "settings"): void {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const icon = root.querySelector<HTMLElement>(`.nav-item[data-v="${id}"] > svg`);
+  const icon = root.querySelector<HTMLElement>(`.nav-item[data-v="${id}"] .nav-ico svg`);
   const { frames, duration, easing = "linear" } = navMotion[id];
   icon?.animate(frames, { duration, easing });
 }
@@ -713,11 +741,13 @@ function bind(root: HTMLElement, state: PanelState, actions: PanelActions): void
     const v = el.dataset.v ?? "";
     switch (el.dataset.act) {
       case "nav": {
-        const moved = page !== v; // the page already open doesn't play again
-        page = v as Page;
+        const target = v === "settings" ? (inSettings(page) ? page : lastSettingsPage) : (v as Page);
+        const moved = page !== target; // the page already open doesn't play again
+        page = target;
+        if (inSettings(page)) lastSettingsPage = page;
         confirmingDisconnect = false;
         renderPanel(root, state, actions);
-        return moved ? playNavIcon(root, page) : undefined;
+        return moved ? playNavIcon(root, v === "settings" ? "settings" : page) : undefined;
       }
       case "open-app":
         return actions.openApp(); // the link itself launches Oriel; this only tells the person
@@ -754,6 +784,8 @@ function bind(root: HTMLElement, state: PanelState, actions: PanelActions): void
         return actions.change({ mode: v as Mode });
       case "change":
         return actions.change({ change: v as Change });
+      case "searchWidth":
+        return actions.change({ searchWidth: v as SearchWidth });
       case "hour12":
         return actions.change({ hour12: v === "12" });
       case "clockShows":

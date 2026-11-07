@@ -109,13 +109,17 @@ everything must stay **free** (Spark plan, no Blaze, no card, no Cloud Functions
   path); it opens through `chrome.tabs` and needs "Allow access to file URLs" (Firefox can't, so it copies the path).
 - **Age clock:** the account's `users/{uid}.birthday` is set or removed on the website's `/me`, which then rings the
   doorbell with `{birthdayAt}`; open extension tabs read the birthday again on that ring.
-- Settings panel (Home, Settings, Help, Account) on the new tab and as the toolbar **popup** (`popup.html`);
+- Settings panel (Home, Settings > Photo, Page, Search, Help, Account) on the new tab and as the toolbar **popup** (`popup.html`);
   on an Oriel new tab the icon opens the page's own panel instead (`src/background.ts`). Wallpaper of the day comes
   from the website's `/today.json` (fetched once a day, kept in `localStorage`; the hosting sends a CORS header
   for it). The extension bundles no photos.
 - Sign-in, in Settings > Account: **email and password right in the panel** (`signInWithEmailAndPassword`, with
   password reset), or **Google** through the website: `/login?for=extension` posts the Google credential to the
   extension's content script (`src/content/bridge.ts`). Either way it records a `users/{uid}/sessions/{id}`.
+- **Search bar** (1.0.8): suggestions under the field from Google (`suggestqueries.google.com`, the one `host_permissions` entry)
+  and up to two Wikipedia pages with a picture (`origin=*`, no permission); settings `googleSuggestions` and `wikipediaSuggestions` (separate, default on, synced).
+  Ctrl+V / drop a photo to search with it: a form post to `lens.google.com/v3/upload` (one photo, memory only). Nothing is
+  saved, no search history. The privacy page (`website/src/content/privacy.ts`) and `extension/STORE.md` say what is sent.
 - Firebase is loaded lazily and uses `firestore/lite`; live updates come from the RTDB doorbell over a plain
   `EventSource`, then `sync/current` is read once per ring. In "Same as my devices" its shuffle publishes to every device.
 

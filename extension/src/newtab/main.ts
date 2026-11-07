@@ -11,7 +11,10 @@ import { randomQuote } from "../data/quotes";
 import { applyTone, forget, measure } from "../lib/tone";
 import { accentFor, inkOn } from "../lib/accent";
 import { greetingText, timeText } from "../lib/clock";
-import { parseSearch } from "../lib/search";
+import { googleSearchUrl, parseSearch } from "../lib/search";
+import { createImageSearch } from "./image-search";
+import { setUpSearchField } from "./search-field";
+import { setUpSearchMenu } from "./search-menu";
 import { openPage, renderPanel, resetQuestions, type PanelActions } from "./panel";
 import { createAccountSync } from "./account-sync";
 import { createShortcutsRow } from "./shortcuts-row";
@@ -515,6 +518,7 @@ function renderQuote(): void {
 
 function renderLayout(): void {
   $("search").style.display = settings.search ? "flex" : "none";
+  $("search").dataset.width = settings.searchWidth;
   infoBtn.hidden = !settings.photoInfo || !shown?.photographer;
   if (!settings.photoInfo) closeInfo();
   // Following the account, the shuffle changes the wallpaper on every device; otherwise only here.
@@ -528,20 +532,34 @@ function renderLayout(): void {
 }
 
 // Search: the browser's own default engine where the extension API allows it.
+// The list comes first: its Enter (a chosen row) must be seen before the field's own Enter (search what is typed).
+setUpSearchMenu($<HTMLFormElement>("search"), $<HTMLTextAreaElement>("q"), () => ({ google: settings.googleSuggestions, wikipedia: settings.wikipediaSuggestions }), (text) => runSearch(text));
+setUpSearchField($<HTMLFormElement>("search"), $<HTMLTextAreaElement>("q"));
+const imageSearch = createImageSearch($<HTMLFormElement>("search"), $<HTMLTextAreaElement>("q"));
 $("search").addEventListener("submit", (e) => {
   e.preventDefault();
-  const target = parseSearch($<HTMLInputElement>("q").value);
+  runSearch($<HTMLTextAreaElement>("q").value);
+});
+
+/** Searches the text (with the photo, if one is in the bar). A suggestion clicked in the list comes here without touching the field. */
+function runSearch(value: string): void {
+  if (imageSearch.submit(value)) return;
+  const target = parseSearch(value);
   if (!target) return;
   if (target.kind === "address") {
     location.href = target.url;
     return;
   }
   const text = target.text;
+  if (text.includes("\n")) {
+    location.href = googleSearchUrl(text);
+    return;
+  }
   const firefox = (globalThis as unknown as { browser?: { search?: { search(o: object): Promise<void> } } }).browser;
   if (chrome.search?.query) chrome.search.query({ text, disposition: "CURRENT_TAB" });
   else if (firefox?.search?.search) void firefox.search.search({ query: text, disposition: "CURRENT_TAB" });
-  else location.href = `https://www.google.com/search?q=${encodeURIComponent(text)}`;
-});
+  else location.href = googleSearchUrl(text);
+}
 
 // Typing anywhere starts a search (when the search bar is on).
 document.addEventListener("keydown", (e) => {
@@ -549,7 +567,7 @@ document.addEventListener("keydown", (e) => {
   const target = e.target as HTMLElement;
   if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1 || target.closest("input, textarea") || !settings.search) return;
   if (panel.classList.contains("open")) return;
-  $<HTMLInputElement>("q").focus();
+  $<HTMLTextAreaElement>("q").focus();
 });
 
 let resizeTimer: number | undefined;

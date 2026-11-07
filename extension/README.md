@@ -15,6 +15,14 @@ Two ways to pick the photo, chosen in the extension's own settings (the gear on 
 
 ## Keyboard
 
+
+## Search bar
+
+Settings > Search bar turns it on. Enter searches with the browser's own engine (text of several lines goes to `google.com/search`, since the browser's API would flatten it).
+
+- **Suggestions** (`src/newtab/search-menu.ts`, logic in `src/lib/search-menu.ts`): under the field, in the same pill; Google's (`suggestqueries.google.com`, the `host_permissions` entry) and up to two Wikipedia pages with a picture (`en.wikipedia.org`, `origin=*`, no permission). Up and Down put the row in the field, Enter or a click searches. Settings > Search has a switch for each (`googleSuggestions`, `wikipediaSuggestions`). Nothing is saved: no search history.
+- **Search with a photo** (`src/newtab/image-search.ts`, `lightbox.ts`): Ctrl+V, drop on the page. The photo shows in a fixed tile above the field (click: full screen); Enter posts it with the words to `lens.google.com/v3/upload` through a form (no permission, memory only). One photo; the unofficial Lens address could change.
+
 The arrow keys move the focus to the nearest control that way (`src/newtab/keyboard.ts`, the math in `src/lib/spatial.ts`): across the shortcuts, from the search box down to them, through the settings menu and its page. Enter or Space presses it. A dialog takes the focus when it opens, keeps Tab inside it and gives the focus back when it closes.
 
 ## Shortcuts and folders

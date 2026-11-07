@@ -3,6 +3,9 @@ export type Change = "tab" | "hourly" | "daily";
 /** What the big text shows: the time, or your age running on (see lib/age.ts). */
 export type ClockShows = "time" | "age";
 
+/** How wide the search bar is. */
+export type SearchWidth = "narrow" | "normal" | "wide";
+
 export interface Settings {
   /** "desktop" shows what Oriel on your PC set as wallpaper; "own" picks its own. Only "own" works without an account. */
   mode: Mode;
@@ -20,6 +23,11 @@ export interface Settings {
   /** A short quote at the bottom, new each day. */
   quote: boolean;
   search: boolean;
+  searchWidth: SearchWidth;
+  /** Google's suggestions under the search field as you type. What you type is sent to Google for them. */
+  googleSuggestions: boolean;
+  /** A couple of Wikipedia pages with a picture under the search field as you type. What you type is sent to Wikipedia for them. */
+  wikipediaSuggestions: boolean;
   /** Your profile picture at the top right once an account is connected. */
   avatar: boolean;
   /** The row of shortcuts under the clock. */
@@ -46,6 +54,9 @@ export const defaults: Settings = {
   photoInfo: true,
   quote: true,
   search: false,
+  searchWidth: "normal",
+  googleSuggestions: true,
+  wikipediaSuggestions: true,
   avatar: true,
   shortcuts: true,
   settingsButton: true,
@@ -73,7 +84,7 @@ export function lacksSettings(remote: Partial<Settings>): boolean {
 export function loadSettings(): Settings {
   try {
     // "topics" was the Interests of the bundled pool, gone since "Its own" picks from the hourly Explore feed.
-    const { topics: _topics, ...saved } = JSON.parse(localStorage.getItem(key) ?? "{}");
+    const { topics: _topics, searchSuggestions: _suggestions, ...saved } = JSON.parse(localStorage.getItem(key) ?? "{}");
     return { ...defaults, ...saved };
   } catch {
     return { ...defaults };

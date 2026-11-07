@@ -2,7 +2,7 @@
 
 export const privacyPage = {
   title: "Privacy policy",
-  updatedOn: "2026-10-20",
+  updatedOn: "2026-11-07",
   intro:
     "Oriel (the Windows, Linux and Android apps, the browser extension and this website) is built to keep as little about you as possible. This page says what is stored, where, and how to remove it.",
   sections: [
@@ -31,7 +31,9 @@ export const privacyPage = {
       title: "What we do not do",
       body: [
         "No advertising, tracking or fingerprinting, and no analytics beyond the anonymous daily totals described above: nothing about which buttons you press or what you look at. We do not sell or share your data, and we do not use it for anything except running Oriel.",
-        "The extension does not read, record or send your browsing history, the pages you open or what you type in its search box. Search goes to your browser's own default search engine.",
+        "The extension does not read, record or send your browsing history or the pages you open, and Oriel keeps no search history: nothing you search for is saved, in your browser or on our servers.",
+        "Its search box (off until you turn it on) hands what you search for to your browser's own default search engine. Two settings, each on by default (Settings, Search), also send what you type there, as you type, straight from your browser: Google suggestions to Google, and Wikipedia pages to Wikipedia (a couple of matching pages with a picture). It is not sent to Oriel, is not saved, and is not linked to your account. Turn either one off and what you type goes there no more; with both off, nothing is sent until you press Enter.",
+        "A photo you paste, drop or pick for the search box is kept in the tab's memory only, and is gone when you remove it or close the tab. It leaves your device only when you search: then the photo, with any words you added, is sent to Google Lens to find results, under Google's privacy policy. Oriel does not receive or keep it.",
         "Only when you click the extension's toolbar icon does it look at the address and title of the tab you're on, to offer adding it as a shortcut. Nothing is kept unless you add it.",
       ],
     },
@@ -41,6 +43,7 @@ export const privacyPage = {
         "Google Firebase (Authentication and Firestore) stores your account and sync data, under Google's privacy policy. Each account's data can only be read by that account, except the current wallpaper, which people you let follow you can read.",
         "Unsplash provides the photos. Your browser or app loads images directly from images.unsplash.com, so Unsplash sees the request, like any website you visit, under Unsplash's privacy policy.",
         "Pollinations makes AI wallpapers. When you create one, the words you type (and a fuller description of them written by Pollinations' text model) are sent to Pollinations, which draws the picture and keeps it at a public, unlisted link for about 30 days after it was last opened, under Pollinations' terms. No account details are sent with them. Don't type anything private there.",
+        "Google also provides the extension's search suggestions and, when you search with a photo, Google Lens; Wikipedia (the Wikimedia Foundation) provides the pictures and short descriptions in the suggestions, under its privacy policy. Both see the text you type, or the photo you search with, like any website you visit; neither gets your Oriel account details.",
         "Shortcut icons come from your browser's own icon cache; when it doesn't have one, the icon is loaded from that website itself (no icon service in between).",
         "Telegram is used only if you contact support through the support bot.",
       ],
