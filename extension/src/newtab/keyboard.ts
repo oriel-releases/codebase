@@ -13,6 +13,8 @@ const focusable = 'a[href], button, input, select, textarea, [tabindex]:not([tab
 
 /** Controls that use the arrow keys themselves: the caret in a text field, a slider, a dropdown. */
 function ownsArrows(el: Element, key: string): boolean {
+  // The search field is a textarea so Shift+Enter can add a line: with one line it leaves on Up and Down like a text field.
+  if (el instanceof HTMLTextAreaElement && "grows" in el.dataset) return key === "ArrowLeft" || key === "ArrowRight" || el.value.includes("\n");
   if (el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement || (el as HTMLElement).isContentEditable) return true;
   if (!(el instanceof HTMLInputElement)) return false;
   if (el.type === "range") return true;

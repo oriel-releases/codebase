@@ -2,7 +2,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { firstName, greetingText, timeText } from "../src/lib/clock.ts";
-import { parseSearch } from "../src/lib/search.ts";
+import { googleSearchUrl, parseSearch } from "../src/lib/search.ts";
+import { firstImage, lensUrl } from "../src/lib/image-search.ts";
 import { imageUrl, samePosition, type Photo } from "../src/lib/photo.ts";
 import { accentFor, inkOn } from "../src/lib/accent.ts";
 import { fromFeed, hourOf, pickFrom } from "../src/lib/explore.ts";
@@ -219,4 +220,48 @@ test("a photo moved to another place is painted again", () => {
   assert.ok(samePosition({ crop: "focus", x: 0.2, y: 0.5 }, { crop: "focus", x: 0.2, y: 0.5 }));
   assert.ok(!samePosition(undefined, { crop: "center" }));
   assert.ok(!samePosition({ crop: "focus", x: 0.2, y: 0.5 }, { crop: "focus", x: 0.3, y: 0.5 }));
+});
+
+test("firstImage skips files that are not images", () => {
+  const text = new File(["a"], "a.txt", { type: "text/plain" });
+  const png = new File(["b"], "b.png", { type: "image/png" });
+  assert.equal(firstImage([text, png]), png);
+  assert.equal(firstImage([text]), null);
+});
+
+test("lensUrl carries the question and leaves it out when empty", () => {
+  assert.equal(new URL(lensUrl("how many books?")).searchParams.get("q"), "how many books?");
+  assert.equal(new URL(lensUrl("  ")).searchParams.has("q"), false);
+});
+
+test("googleSearchUrl keeps the lines of the text", () => {
+  assert.equal(new URL(googleSearchUrl("one\ntwo")).searchParams.get("q"), "one\r\ntwo");
+  assert.ok(googleSearchUrl("a\nb").endsWith("q=a%0D%0Ab"));
+  assert.ok(lensUrl("a\nb").endsWith("q=a%0D%0Ab"));
+});
+
+import { parseSuggestions, suggestUrl } from "../src/lib/search-menu.ts";
+
+test("Google's answer gives suggestions; anything else gives none", () => {
+  assert.deepEqual(parseSuggestions(["q", ["a", "b"], []]), ["a", "b"]);
+  assert.deepEqual(parseSuggestions({ oops: true }), []);
+  assert.ok(suggestUrl("a b").endsWith("q=a%20b"));
+});
+
+import { menuRows, parseWikipedia } from "../src/lib/search-menu.ts";
+
+test("Wikipedia pages come in ranked order, without disambiguation pages", () => {
+  const answer = { query: { pages: {
+    "1": { title: "About Time", index: 1, description: "Topics referred to by the same term" },
+    "2": { title: "About Time (2013 film)", index: 2, description: "Film by Richard Curtis", thumbnail: { source: "https://x/y.jpg" } },
+    "3": { title: "About Time (TV series)", index: 3 },
+  } } };
+  assert.deepEqual(parseWikipedia(answer).map((r) => r.text), ["About Time (2013 film)", "About Time (TV series)"]);
+  assert.equal(parseWikipedia(answer)[0]!.image, "https://x/y.jpg");
+  assert.deepEqual(parseWikipedia({}), []);
+});
+
+test("a page that is already a suggestion is not listed twice", () => {
+  const rows = menuRows(["paris", "paris hilton"], [{ text: "Paris", description: "Capital of France" }, { text: "Paris (mythology)" }]);
+  assert.deepEqual(rows.map((r) => r.text), ["paris", "paris hilton", "Paris (mythology)"]);
 });

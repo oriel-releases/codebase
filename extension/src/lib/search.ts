@@ -9,3 +9,13 @@ export function parseSearch(input: string): SearchTarget | null {
   if (looksLikeAddress) return { kind: "address", url: /^https?:\/\//i.test(text) ? text : `https://${text}` };
   return { kind: "query", text };
 }
+
+/** Google's own search box sends a new line as CR LF (%0D%0A); a lone LF is not read as a line break there. */
+export function asGoogleLines(text: string): string {
+  return text.replace(/\r?\n/g, "\r\n");
+}
+
+/** Google's own results address. Used for text with several lines, which the browser's search API would flatten to one. */
+export function googleSearchUrl(text: string): string {
+  return `https://www.google.com/search?q=${encodeURIComponent(asGoogleLines(text))}`;
+}
